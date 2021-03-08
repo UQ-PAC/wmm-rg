@@ -2,116 +2,102 @@ theory Semantics
   imports Main
 begin
 
-section \<open>Semantics\<close>
+chapter \<open>Semantics\<close>
 
-text \<open>
-Define the small-step semantics for a simple While language.
-\<close>
+section \<open>Syntax\<close> 
 
-subsection \<open> Syntax \<close> 
-
-datatype 'a Stmt =
-  Skip
+datatype 'a com =
+  Nil
   | Basic "'a"
-  | Seq "'a Stmt" "'a Stmt" (infixr ";;" 80)
-  | Choice "'a Stmt" "'a Stmt" (infixr "\<sqinter>" 150)
-  | Loop "'a Stmt" ("_*" [100] 150)
-  | Parallel "'a Stmt" "'a Stmt"  (infixr "||" 150)
+  | Seq "'a com" "'a com" (infixr ";" 80)
+  | Choice "'a com" "'a com" (infixr "\<sqinter>" 150)
+  | Loop "'a com" ("_*" [100] 150)
+  | Parallel "'a com" "'a com"  (infixr "||" 150)
 
-subsection \<open> Semantics \<close>
+section \<open>Small Step Semantics with Reordering\<close> 
 
-inductive_set prog :: "('a Stmt \<times> 'a \<times> 'a Stmt) set"
-  and prog_abv :: "'a Stmt \<Rightarrow> 'a \<Rightarrow> 'a Stmt \<Rightarrow> bool"
-  ("_ \<mapsto>\<^sub>_ _" [11,0,0] 70)
+locale semantics =
+  fixes re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
+  and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
+
+context semantics
+begin
+
+text \<open>Combine forwarding and reordering into a single check\<close>
+abbreviation reorder_act :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
+  ("_ < _ <\<^sub>a _" [100,0,100] 100)
+  where "\<beta>' < \<alpha> <\<^sub>a \<beta> \<equiv> \<beta>' = \<beta>\<langle>\<alpha>\<rangle> \<and> \<alpha> \<hookleftarrow> \<beta>\<langle>\<alpha>\<rangle>"
+
+text \<open>Recursively define reordering of an instruction earlier than a program\<close>
+fun reorder_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> bool"
+  ("_ < _ <\<^sub>p _" [100,0,100] 100)
   where
-  "c \<mapsto>\<^sub>\<alpha> c' \<equiv> (c, \<alpha>, c') \<in> prog" |
-  act[intro]:  "Basic \<alpha> \<mapsto>\<^sub>\<alpha> Skip" |
-  seq[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' ;; c\<^sub>2" |
+    "reorder_prog \<alpha>' Nil \<alpha> = (\<alpha>' = \<alpha>)" |
+    "reorder_prog \<alpha>' (Basic \<beta>) \<alpha> = (\<alpha>' < \<beta> <\<^sub>a \<alpha>)" |
+    "reorder_prog \<alpha>' (c\<^sub>1 ; c\<^sub>2) \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>p \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>p \<alpha>)" |
+    "reorder_prog \<alpha>' (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = (\<alpha>' < c\<^sub>1 <\<^sub>p \<alpha> \<and> \<alpha>' < c\<^sub>2 <\<^sub>p \<alpha>)" |
+    "reorder_prog \<alpha>' (Loop c) \<alpha> = (\<alpha>' = \<alpha> \<and> \<alpha> < c <\<^sub>p \<alpha>)" |
+    "reorder_prog _ _ _ = False"
+
+text \<open>Recursively define forwarding of an instruction across a program \<close>
+fun fwd_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a"
+  ("_\<llangle>_\<rrangle>" [1000,0] 1000)
+  where
+    "fwd_prog \<alpha> (Basic \<beta>) = \<alpha>\<langle>\<beta>\<rangle>" |
+    "fwd_prog \<alpha> (c\<^sub>1 ; c\<^sub>2) = fwd_prog (fwd_prog \<alpha> c\<^sub>2) c\<^sub>1" |
+    "fwd_prog \<alpha> (c\<^sub>1 \<sqinter> c\<^sub>2) = fwd_prog \<alpha> c\<^sub>1" |
+    "fwd_prog \<alpha> _  = \<alpha>"
+
+text \<open>Small step semantics for an instruction execution\<close>
+inductive_set execute :: "('a com \<times> 'a \<times> 'a com) set"
+  and execute_abv :: "'a com \<Rightarrow> 'a \<Rightarrow> 'a com \<Rightarrow> bool"
+  ("_ \<mapsto>\<^sub>_ _" [71,0,71] 70)
+  where
+  "c \<mapsto>\<^sub>\<alpha> c' \<equiv> (c, \<alpha>, c') \<in> execute" |
+  act[intro]:  "Basic \<alpha> \<mapsto>\<^sub>\<alpha> Nil" |
+  pre[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' ; c\<^sub>2" |
+  pst[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>p \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>\<^sub>\<gamma> c\<^sub>2 ; c\<^sub>1'" |
   par1[intro]: "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1 || c\<^sub>2'"
+inductive_cases executeE[elim]: "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1'"
 
-fun unroll
-  where "unroll 0 c = Skip" | "unroll (Suc n) c = c ;; unroll n c"
-
-inductive_set rw :: "('a Stmt \<times> 'a Stmt) set"
-  and rw_abv :: "'a Stmt \<Rightarrow> 'a Stmt \<Rightarrow> bool"
-  ("_ \<leadsto> _" [11,0] 70)
+text \<open>Small step semantics for a silent step\<close>
+inductive_set silent :: "('a com \<times> 'a com) set"
+  and rw_abv :: "'a com \<Rightarrow> 'a com \<Rightarrow> bool"
+  ("_ \<leadsto> _" [71,71] 70)
   where
-  "c \<leadsto> c' \<equiv> (c, c') \<in> rw" |
-  seq[intro]:   "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1' ;; c\<^sub>2" |
-  seqE[intro]:  "Skip ;; c\<^sub>1 \<leadsto> c\<^sub>1" |
+  "c \<leadsto> c' \<equiv> (c, c') \<in> silent" |
+  seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<leadsto> c\<^sub>1' ; c\<^sub>2" |
+  seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<leadsto> c\<^sub>1 ; c\<^sub>2'" |
+  seqE1[intro]: "Nil ; c\<^sub>1 \<leadsto> c\<^sub>1" |
+  seqE2[intro]: "c\<^sub>1 ; Nil \<leadsto> c\<^sub>1" |
   left[intro]:  "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>1" |
   right[intro]: "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>2" |
-  loop[intro]:  "c* \<leadsto> unroll n c" |
+  loop1[intro]: "c* \<leadsto> Nil" |
+  loop2[intro]: "c* \<leadsto> c ; c*" |
   par1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1' || c\<^sub>2" |
   par2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1 || c\<^sub>2'" |
-  parE1[intro]: "Skip || c \<leadsto> c" |
-  parE2[intro]: "c || Skip \<leadsto> c"
+  parE1[intro]: "Nil || c \<leadsto> c" |
+  parE2[intro]: "c || Nil \<leadsto> c"
+inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
-subsection \<open>Elimination Properties\<close>
+text \<open>An execution step implies the program has changed\<close>
+lemma step_neq:
+  assumes "c \<mapsto>\<^sub>\<alpha> c'"
+  shows "c \<noteq> c'"
+  using assms
+  by (induct) auto
 
-lemma prog_skipE [elim]:
-  assumes "Skip \<mapsto>\<^sub>\<alpha> c"
-  obtains "False"
-  using assms by (blast elim: prog.cases)
+lemma [simp]:
+  "c \<mapsto>\<^sub>\<alpha> c = False"
+  using step_neq by auto
 
-lemma rw_skipE [elim]:
-  assumes "Skip \<leadsto> c"
-  obtains "False"
-  using assms by (blast elim: rw.cases)
+text \<open>Relationship between program reordering and program forwarding\<close>
+lemma fwd_prog [simp]:
+  assumes "\<alpha>' < c <\<^sub>p \<alpha>"
+  shows "\<alpha>\<llangle>c\<rrangle> = \<alpha>'"
+  using assms by (induct c arbitrary: \<alpha>' \<alpha>) auto
 
-lemma prog_actE [elim]:
-  assumes "Basic \<alpha> \<mapsto>\<^sub>\<beta> c"
-  obtains "\<beta> = \<alpha>" "c = Skip"
-  using assms by (blast elim: prog.cases)
-
-lemma rw_actE [elim]:
-  assumes "Basic \<alpha> \<leadsto> c"
-  obtains "False"
-  using assms by (blast elim: rw.cases)
-
-lemma prog_seqE [elim]:
-  assumes "c\<^sub>1 ;; c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>3"
-  obtains c\<^sub>1' where "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1'" "c\<^sub>3 = c\<^sub>1' ;; c\<^sub>2"
-  using assms by (blast elim: prog.cases)
-
-lemma rw_seqE [elim]:
-  assumes "c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>3"
-  obtains c\<^sub>1' where "c\<^sub>1 \<leadsto> c\<^sub>1'" "c\<^sub>3 = c\<^sub>1' ;; c\<^sub>2" | "c\<^sub>1 = Skip" "c\<^sub>2 = c\<^sub>3"
-  using assms by (blast elim: rw.cases)
-
-lemma prog_choiceE [elim]:
-  assumes "c\<^sub>1 \<sqinter> c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>3"
-  obtains "False"
-  using assms by (blast elim: prog.cases)
-
-lemma rw_choiceE [elim]:
-  assumes "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>3"
-  obtains (left) "c\<^sub>1 = c\<^sub>3" | (right) "c\<^sub>2 = c\<^sub>3"
-  using assms by (blast elim: rw.cases)
-
-lemma prog_loopE [elim]:
-  assumes "c\<^sub>1* \<mapsto>\<^sub>\<beta> c\<^sub>2"
-  obtains "False"
-  using assms by (blast elim: prog.cases)
-
-lemma rw_loopE [elim]:
-  assumes "c\<^sub>1* \<leadsto> c\<^sub>2"
-  obtains n where "c\<^sub>2 = unroll n c\<^sub>1"
-  using assms by (blast elim: rw.cases)
-
-lemma prog_parE [elim]:
-  assumes "c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<beta> c\<^sub>3"
-  obtains (par1) c\<^sub>1' where "c\<^sub>1 \<mapsto>\<^sub>\<beta> c\<^sub>1'" "c\<^sub>3 = c\<^sub>1' || c\<^sub>2" |
-          (par2) c\<^sub>2' where "c\<^sub>2 \<mapsto>\<^sub>\<beta> c\<^sub>2'" "c\<^sub>3 = c\<^sub>1 || c\<^sub>2'"
-  using assms by (blast elim: prog.cases)
-
-lemma rw_parE [elim]:
-  assumes "c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>3"
-  obtains (par1) c\<^sub>1' where "c\<^sub>1 \<leadsto> c\<^sub>1'" "c\<^sub>3 = c\<^sub>1' || c\<^sub>2" |
-          (par2) c\<^sub>2' where "c\<^sub>2 \<leadsto> c\<^sub>2'" "c\<^sub>3 = c\<^sub>1 || c\<^sub>2'" |
-          (par1E) "c\<^sub>1 = Skip" "c\<^sub>3 = c\<^sub>2" |
-          (par2E) "c\<^sub>2 = Skip" "c\<^sub>3 = c\<^sub>1" 
-  using assms by (blast elim: rw.cases)
+end
 
 end
