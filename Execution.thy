@@ -4,6 +4,14 @@ begin
 
 chapter \<open>Execution Behaviour\<close>
 
+text \<open>Compose two state transitions\<close>
+definition comp (infixr "\<otimes>" 60)
+  where "comp a b \<equiv> {(m,m'). \<exists>m''. (m,m'') \<in> a \<and> (m'',m') \<in> b}"
+
+text \<open>Stabilisation of a predicate under an environment step\<close>
+definition st
+  where "st R P \<equiv> {m. \<forall>m'. (m,m') \<in> R\<^sup>* \<longrightarrow> m' \<in> P}"
+
 locale execution = semantics +
   fixes eval :: "'a \<Rightarrow> 's rel" 
 
@@ -61,18 +69,6 @@ definition wp
 text \<open>Specification Precondition, ensuring an instruction conforms to a relation\<close>
 definition spec
   where "spec \<alpha> G \<equiv> {m. \<forall>m\<^sub>1. (m,m\<^sub>1) \<in> eval \<alpha> \<longrightarrow> (m,m\<^sub>1) \<in> G}"
-
-(* stablelising P: what is the condition that needs to hold so that P is stable if R executes now *)
-text \<open>Stabilisation of a predicate under an environment step\<close>
-definition st
-  where "st R P \<equiv> {m. \<forall>m'. (m,m') \<in> R\<^sup>* \<longrightarrow> m' \<in> P}"
-
-(* moved to Interference; transitive closure of relations;
-  only used for check 2: \<beta>;R;\<alpha> \<sqsubseteq> \<alpha>';R;\<beta>  in which the ; is closure of relations *)
-text \<open>Compose two state transitions\<close>
-definition comp (infixr "\<otimes>" 60)
-  where "comp a b \<equiv> {(m,m'). \<exists>m''. (m,m'') \<in> a \<and> (m'',m') \<in> b}"
-
 
 end
 

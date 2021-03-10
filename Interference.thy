@@ -30,8 +30,8 @@ text \<open>Independence of two instructions \<beta> and \<alpha> under environm
       cannot invalidate sequential reasoning\<close>
 definition inter\<^sub>a
   where "inter\<^sub>a R G X \<beta> \<alpha> \<equiv> 
-          (X \<beta> \<inter> wp \<beta> (X \<alpha>) \<subseteq> X \<alpha>\<langle>\<beta>\<rangle> \<inter> wp \<alpha>\<langle>\<beta>\<rangle> (st R (X \<beta>)) \<and> 
-          (eval \<alpha>\<langle>\<beta>\<rangle> \<otimes> R\<^sup>* \<otimes> eval \<beta> \<subseteq> R\<^sup>* \<otimes> eval \<beta> \<otimes> R\<^sup>* \<otimes> eval \<alpha> \<otimes> R\<^sup>*)) \<and>
+          (X \<beta> \<inter> wp \<beta> (st R (X \<alpha>)) \<subseteq> X \<alpha>\<langle>\<beta>\<rangle> \<inter> wp \<alpha>\<langle>\<beta>\<rangle> (st R (X \<beta>)) \<and> 
+          (eval \<alpha>\<langle>\<beta>\<rangle> \<otimes> R\<^sup>* \<otimes> eval \<beta> \<subseteq> eval \<beta> \<otimes> R\<^sup>* \<otimes> eval \<alpha>)) \<and>
           (X \<alpha>\<langle>\<beta>\<rangle> \<subseteq> spec \<alpha>\<langle>\<beta>\<rangle> G)"
 
 

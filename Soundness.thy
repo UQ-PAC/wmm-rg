@@ -103,9 +103,9 @@ proof -
   let ?M="sp ?\<alpha> R P"
 
   \<comment> \<open>Extract order independence properties\<close>
-  have inter: "X \<beta> \<inter> wp \<beta> (X \<alpha>) \<subseteq> X ?\<alpha> \<inter> wp ?\<alpha> (st R (X \<beta>))"
+  have inter: "X \<beta> \<inter> wp \<beta> (st R (X \<alpha>)) \<subseteq> X ?\<alpha> \<inter> wp ?\<alpha> (st R (X \<beta>))"
     using assms(4) by (auto simp: inter\<^sub>a_def)
-  have "eval ?\<alpha> \<otimes> R\<^sup>* \<otimes> eval \<beta> \<subseteq> R\<^sup>* \<otimes> eval \<beta> \<otimes> R\<^sup>* \<otimes> eval \<alpha> \<otimes> R\<^sup>*"
+  have "eval ?\<alpha> \<otimes> R\<^sup>* \<otimes> eval \<beta> \<subseteq> eval \<beta> \<otimes> R\<^sup>* \<otimes> eval \<alpha>"
     using assms(4) by (auto simp: inter\<^sub>a_def)
   hence env: "\<forall>Q. st R (wp \<beta> (st R (wp \<alpha> (st R Q)))) \<subseteq> wp ?\<alpha> (st R (wp \<beta> Q))"
     unfolding comp_def wp_def st_def by safe blast 
@@ -117,13 +117,14 @@ proof -
   have stableM: "stable R ?M"  unfolding stable_def sp_def by force
 
   \<comment> \<open>Show transition from P to Q is independent of order\<close>
-  have "P \<subseteq> wp \<beta> M" "M \<subseteq> wp \<alpha> Q" "M \<subseteq> st R M" "P \<subseteq> st R P" "Q \<subseteq> st R Q"
+  have p: "P \<subseteq> wp \<beta> M" "M \<subseteq> wp \<alpha> Q" "M \<subseteq> st R M" "P \<subseteq> st R P" "Q \<subseteq> st R Q"
     using assms(1,2) stable_stI unfolding atomic_rule_def wp_def by auto
   hence "P \<subseteq> st R (wp \<beta> (st R (wp \<alpha> (st R Q))))" unfolding st_def wp_def by blast
   hence exec: "P \<subseteq> wp ?\<alpha> (st R (wp \<beta> Q))" using env by blast
 
   \<comment> \<open>Show the contexts for both operations hold under P\<close>
-  have "P \<subseteq> X \<beta> \<inter> wp \<beta> (X \<alpha>)" using assms(1,2) unfolding atomic_rule_def wp_def by blast
+  have "P \<subseteq> X \<beta> \<inter> wp \<beta> (st R (X \<alpha>))" using assms(1,2) p(3) 
+    unfolding atomic_rule_def wp_def st_def by blast 
   hence ctx: "P \<subseteq> X ?\<alpha> \<inter> wp ?\<alpha> (st R (X \<beta>))" using inter by blast
 
   \<comment> \<open>Establish the late judgement over \<beta>\<close>
