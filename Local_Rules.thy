@@ -143,6 +143,8 @@ proof (induct R G X P "c\<^sub>1 || c\<^sub>2" Q)
   thus ?case by blast
 qed
 
+(* we can always weaken precond to wp(\<alpha>,Q) *)
+
 lemma stable_preE:
   assumes "R,G,X \<turnstile>\<^sub>t P {c} Q"
   obtains P' where "P \<subseteq> P'" "stable R P'" "R,G,X \<turnstile>\<^sub>t P' {c} Q"

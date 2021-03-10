@@ -48,6 +48,8 @@ fun fwd_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a"
     "fwd_prog \<alpha> (c\<^sub>1 \<sqinter> c\<^sub>2) = fwd_prog \<alpha> c\<^sub>1" |
     "fwd_prog \<alpha> _  = \<alpha>"
 
+
+(* to remove WMM from the theory, it suffices to remove ps case in the below def *)
 text \<open>Small step semantics for an instruction execution\<close>
 inductive_set execute :: "('a com \<times> 'a \<times> 'a com) set"
   and execute_abv :: "'a com \<Rightarrow> 'a \<Rightarrow> 'a com \<Rightarrow> bool"

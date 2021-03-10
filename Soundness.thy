@@ -11,6 +11,7 @@ begin
 
 section \<open>Soundness Definitions\<close>
 
+(* set of all traces that start at the beginning of c *)
 text \<open>Valid transitions starting from a particular program\<close>
 definition cp
   where "cp c \<equiv> {t. t \<in> transitions \<and> fst (t ! 0) = c}"
@@ -19,10 +20,12 @@ text \<open>Traces that satisfy a precondition\<close>
 definition pre
   where "pre P \<equiv> {t. snd (t!0) \<in> P}"
 
+(* \<forall> i. (s\<^sub>i,s\<^sub>i') \<in> t\<^sub>e \<and> s\<^sub>i=(c\<^sub>i,m\<^sub>i) \<and> s\<^sub>i'=(c\<^sub>i',m\<^sub>i') \<rightarrow> (m\<^sub>i,m\<^sub>i') \<in> R  *)
 text \<open>Traces that satisfy a rely\<close>
 definition rely
   where "rely R \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -e\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> R)}"
 
+(* \<forall> i. (s\<^sub>i,s\<^sub>i') \<in> t\<^sub>p \<and> s\<^sub>i=(c\<^sub>i,m\<^sub>i) \<and> s\<^sub>i'=(c\<^sub>i',m\<^sub>i') \<rightarrow> (m\<^sub>i,m\<^sub>i') \<in> G  *)
 text \<open>Traces that satisfy a guarantee\<close>
 definition guar
   where "guar G \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -c\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> G\<^sup>=)}"
@@ -59,7 +62,7 @@ lemma post [simp]:
   "(s # s' # t \<in> post Q) = (s' # t \<in> post Q)"
   by (auto simp: post_def)
 
-section \<open>Reordering Rules\<close>
+section \<open>Reordering Rules\<close> (*  prelims to the reordering rules *)
 
 lemma stable_transitive:
   assumes "(m,m') \<in> R\<^sup>*" "m \<in> P" "stable R P"
@@ -91,7 +94,11 @@ lemma reorder_action:
   assumes "R,G,X \<turnstile>\<^sub>A P {\<beta>} M" "R,G,X \<turnstile>\<^sub>A M {\<alpha>} Q" "\<beta> \<hookleftarrow> fwd \<alpha> \<beta>" "inter\<^sub>a R G X \<beta> \<alpha>"
   obtains M' where "R,G,X \<turnstile>\<^sub>A P {fwd \<alpha> \<beta>} M'" "R,G,X \<turnstile>\<^sub>A M' {\<beta>} Q"
 proof -
-  \<comment> \<open>Nominate the weakest-precondition of \<beta> over Q as the state between the new \<alpha> and \<beta>\<close>
+  \<comment> \<open>Nominate the weakest-precondition of \<beta> over Q as the state between the new \<alpha> and \<beta> 
+          - this version looses information and \<turnstile>A is defined in terms of constraints of P (not Q), 
+            hence the sp version is used \<close>
+    
+  \<comment> \<open>Nominate the strongest-postcondition of \<alpha>\<langle>\<beta>\<rangle>;R* from P as the state between the new \<alpha> and \<beta>\<close>
   let ?\<alpha>="fwd \<alpha> \<beta>"
   let ?M="sp ?\<alpha> R P"
 
@@ -243,7 +250,7 @@ proof (induct arbitrary: c' rule: rules.induct)
   show ?case using par(7,1,2,3,4,5,6) by cases blast+
 qed auto
 
-text \<open>Local judgements are preserved across execution steps\<close>
+text \<open>Local judgements are preserved across reordered interference-free execution steps\<close>
 lemma stepI:
   assumes "c \<mapsto>[\<alpha>,r,\<alpha>'] c'" "R,G,X \<turnstile>\<^sub>t P {c} Q"
   assumes "inter\<^sub>c R G X r \<alpha>'"
@@ -267,7 +274,7 @@ next
   then show ?case using reorder_prog[OF m'' m'(2) pst(3)] i(1) m'(3) by (metis seq)
 qed 
 
-text \<open>Global judgements are preserved across execution steps\<close>
+text \<open>Global judgements are preserved across execution steps - reordering or not \<close>
 lemma g_stepI:
   assumes "R,G,X \<turnstile> P {c} Q"
   assumes "c \<mapsto>\<^sub>\<alpha> c'"

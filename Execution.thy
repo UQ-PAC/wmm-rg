@@ -10,6 +10,8 @@ locale execution = semantics +
 context execution
 begin
 
+(* P and Q are configurations containing (program,state)  *)
+
 section \<open>Transition Definitions\<close>
 
 text \<open>Environment Transition\<close>
@@ -27,6 +29,9 @@ abbreviation stran ("_ -s\<rightarrow> _" [81,81] 80)
 text \<open>Program Transition\<close>
 abbreviation atran ("_ -c\<rightarrow> _" [81,81] 80)
   where "atran P Q \<equiv> (P -\<alpha>\<rightarrow> Q \<or> P -s\<rightarrow> Q)"
+
+(* transitions are list of configurations
+   [s] is a singleton list *)
 
 text \<open>Collect of all possible transitions\<close>
 inductive_set transitions
@@ -52,17 +57,22 @@ text \<open>Weakest Precondition, based on evaluation of an instruction\<close>
 definition wp
   where "wp a P \<equiv> {m. \<forall>m'. (m,m') \<in> eval a \<longrightarrow> m' \<in> P}"
 
+(*guar check*)
 text \<open>Specification Precondition, ensuring an instruction conforms to a relation\<close>
 definition spec
   where "spec \<alpha> G \<equiv> {m. \<forall>m\<^sub>1. (m,m\<^sub>1) \<in> eval \<alpha> \<longrightarrow> (m,m\<^sub>1) \<in> G}"
 
+(* stablelising P: what is the condition that needs to hold so that P is stable if R executes now *)
+text \<open>Stabilisation of a predicate under an environment step\<close>
+definition st
+  where "st R P \<equiv> {m. \<forall>m'. (m,m') \<in> R\<^sup>* \<longrightarrow> m' \<in> P}"
+
+(* moved to Interference; transitive closure of relations;
+  only used for check 2: \<beta>;R;\<alpha> \<sqsubseteq> \<alpha>';R;\<beta>  in which the ; is closure of relations *)
 text \<open>Compose two state transitions\<close>
 definition comp (infixr "\<otimes>" 60)
   where "comp a b \<equiv> {(m,m'). \<exists>m''. (m,m'') \<in> a \<and> (m'',m') \<in> b}"
 
-text \<open>Stabilisation of a predicate under an environment step\<close>
-definition st
-  where "st R P \<equiv> {m. \<forall>m'. (m,m') \<in> R\<^sup>* \<longrightarrow> m' \<in> P}"
 
 end
 
