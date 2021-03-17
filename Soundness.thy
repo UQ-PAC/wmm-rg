@@ -198,18 +198,18 @@ proof (induct arbitrary: P R G Q)
   case (act \<alpha>)
   then show ?case by (elim basicE) (meson atomic_rule_def nil lrules.conseq order_refl)
 next
-  case (pre c\<^sub>1 \<alpha> c \<alpha>' c\<^sub>1' c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using pre by fast
-  then show ?case using pre(2)[OF m(1) pre(4)] m(2) by blast
+  case (seq c\<^sub>1 \<alpha> c \<alpha>' c\<^sub>1' c\<^sub>2)
+  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using seq by fast
+  then show ?case using seq(2)[OF m(1) seq(4)] m(2) by blast
 next
-  case (pst c\<^sub>2 \<alpha> c \<alpha>' c\<^sub>2' \<gamma> c\<^sub>1)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using pst by fast
-  have i: "inter\<^sub>c R G c\<^sub>1 (\<alpha>'\<llangle>c\<rrangle>)" "inter\<^sub>c R G c \<alpha>'" using pst by auto
+  case (ooo c\<^sub>2 \<alpha> c \<alpha>' c\<^sub>2' \<gamma> c\<^sub>1)
+  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using ooo by fast
+  have i: "inter\<^sub>c R G c\<^sub>1 (\<alpha>'\<llangle>c\<rrangle>)" "inter\<^sub>c R G c \<alpha>'" using ooo by auto
   obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile>\<^sub>l M {c\<^sub>2'} Q"
-    using pst(2)[OF m(2) i(2)] by blast
+    using ooo(2)[OF m(2) i(2)] by blast
   hence m'': "R,G \<turnstile>\<^sub>l P {c\<^sub>1} P'" using m(1) by blast
-  have "\<alpha>'\<llangle>c\<rrangle> = \<alpha>" using pst(1) collect_reorder by auto
-  then show ?case using reorder_prog[OF m'' m'(2) pst(3)] i(1) m'(3) by (metis lrules.seq)
+  have "\<alpha>'\<llangle>c\<rrangle> = \<alpha>" using ooo(1) collect_reorder by auto
+  then show ?case using reorder_prog[OF m'' m'(2) ooo(3)] i(1) m'(3) by (metis lrules.seq)
 qed 
 
 text \<open>Global judgements are preserved across execution steps - reordering or not \<close>
