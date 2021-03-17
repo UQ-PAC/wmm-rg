@@ -1,52 +1,16 @@
 theory Semantics
-  imports Main
+  imports Reordering
 begin
 
-chapter \<open>Semantics\<close>
+chapter \<open>Small Step Semantics\<close>
 
-section \<open>Syntax\<close> 
-
-datatype 'a com =
-  Nil
-  | Basic "'a"
-  | Seq "'a com" "'a com" (infixr ";" 80)
-  | Choice "'a com" "'a com" (infixr "\<sqinter>" 150)
-  | Loop "'a com" ("_*" [100] 150)
-  | Parallel "'a com" "'a com"  (infixr "||" 150)
-
-section \<open>Small Step Semantics with Reordering\<close> 
-
-locale semantics =
-  fixes re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
-  and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
+locale semantics = reordering +
+  fixes eval :: "'a \<Rightarrow> 's rel" 
 
 context semantics
 begin
 
-text \<open>Combine forwarding and reordering into a single check\<close>
-abbreviation reorder_act :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
-  ("_ < _ <\<^sub>a _" [100,0,100] 100)
-  where "\<beta>' < \<alpha> <\<^sub>a \<beta> \<equiv> \<beta>' = \<beta>\<langle>\<alpha>\<rangle> \<and> \<alpha> \<hookleftarrow> \<beta>\<langle>\<alpha>\<rangle>"
-
-text \<open>Recursively define reordering of an instruction earlier than a program\<close>
-fun reorder_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> bool"
-  ("_ < _ <\<^sub>p _" [100,0,100] 100)
-  where
-    "reorder_prog \<alpha>' Nil \<alpha> = (\<alpha>' = \<alpha>)" |
-    "reorder_prog \<alpha>' (Basic \<beta>) \<alpha> = (\<alpha>' < \<beta> <\<^sub>a \<alpha>)" |
-    "reorder_prog \<alpha>' (c\<^sub>1 ; c\<^sub>2) \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>p \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>p \<alpha>)" |
-    "reorder_prog \<alpha>' (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = (\<alpha>' < c\<^sub>1 <\<^sub>p \<alpha> \<and> \<alpha>' < c\<^sub>2 <\<^sub>p \<alpha>)" |
-    "reorder_prog \<alpha>' (Loop c) \<alpha> = (\<alpha>' = \<alpha> \<and> \<alpha> < c <\<^sub>p \<alpha>)" |
-    "reorder_prog _ _ _ = False"
-
-text \<open>Recursively define forwarding of an instruction across a program \<close>
-fun fwd_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a"
-  ("_\<llangle>_\<rrangle>" [1000,0] 1000)
-  where
-    "fwd_prog \<alpha> (Basic \<beta>) = \<alpha>\<langle>\<beta>\<rangle>" |
-    "fwd_prog \<alpha> (c\<^sub>1 ; c\<^sub>2) = fwd_prog (fwd_prog \<alpha> c\<^sub>2) c\<^sub>1" |
-    "fwd_prog \<alpha> (c\<^sub>1 \<sqinter> c\<^sub>2) = fwd_prog \<alpha> c\<^sub>1" |
-    "fwd_prog \<alpha> _  = \<alpha>"
+section \<open>Program Transition Definitions\<close>
 
 text \<open>Small step semantics for an instruction execution\<close>
 inductive_set execute :: "('a com \<times> 'a \<times> 'a com) set"
@@ -92,12 +56,64 @@ lemma [simp]:
   "c \<mapsto>\<^sub>\<alpha> c = False"
   using step_neq by auto
 
-text \<open>Relationship between program reordering and program forwarding\<close>
-lemma fwd_prog [simp]:
-  assumes "\<alpha>' < c <\<^sub>p \<alpha>"
-  shows "\<alpha>\<llangle>c\<rrangle> = \<alpha>'"
-  using assms by (induct c arbitrary: \<alpha>' \<alpha>) auto
+section \<open>Transition Definitions\<close>
+
+text \<open>Environment Transition\<close>
+abbreviation etran ("_ -e\<rightarrow> _" [81,81] 80)
+  where "etran P Q \<equiv> (fst P) = (fst Q)"
+
+text \<open>Program Execution Transition\<close>
+abbreviation ctran ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
+  where "ctran P Q \<equiv> (\<exists>\<alpha>. ((fst P) \<mapsto>\<^sub>\<alpha> (fst Q)) \<and> (snd P,snd Q) \<in> eval \<alpha>)"
+
+text \<open>Program Silent Transition\<close>
+abbreviation stran ("_ -s\<rightarrow> _" [81,81] 80)
+  where "stran P Q \<equiv> (((fst P) \<leadsto> (fst Q)) \<and> (snd P) = (snd Q))"
+
+text \<open>Program Transition\<close>
+abbreviation atran ("_ -c\<rightarrow> _" [81,81] 80)
+  where "atran P Q \<equiv> (P -\<alpha>\<rightarrow> Q \<or> P -s\<rightarrow> Q)"
+
+text \<open>Collect of all possible transitions\<close>
+inductive_set transitions
+  where 
+    one[intro]: "[s] \<in> transitions" |
+    env[intro]: "s -e\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |
+    prg[intro]: "s -\<alpha>\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |
+    sil[intro]: "s -s\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions"
+inductive_cases transitionsE[elim]: "t \<in> transitions"
+
+text \<open>Ensure there is no parallelism within a program\<close>
+fun local_only
+  where 
+    "local_only (c\<^sub>1 || c\<^sub>2) = False" |
+    "local_only (c\<^sub>1 ; c\<^sub>2) = (local_only c\<^sub>1 \<and> local_only c\<^sub>2)" |    
+    "local_only (c\<^sub>1 \<sqinter> c\<^sub>2) = (local_only c\<^sub>1 \<and> local_only c\<^sub>2)" |  
+    "local_only (c*) = (local_only c)" |    
+    "local_only _ = True"
+
+lemma local_only_silent:
+  "c \<leadsto> c' \<Longrightarrow> local_only c \<Longrightarrow> local_only c'"
+  by (induct rule: silent.induct) auto
+
+section \<open>Predicate Manipulations\<close>
+
+text \<open>Weakest Precondition, based on evaluation of an instruction\<close>
+definition wp
+  where "wp a P \<equiv> {m. \<forall>m'. (m,m') \<in> eval a \<longrightarrow> m' \<in> P}"
+
+text \<open>Specification Check, ensuring an instruction conforms to a relation\<close>
+definition spec
+  where "spec \<alpha> G \<equiv> eval \<alpha> \<subseteq> G"
 
 end
+
+text \<open>Compose two state transitions\<close>
+definition comp (infixr "\<otimes>" 60)
+  where "comp a b \<equiv> {(m,m'). \<exists>m''. (m,m'') \<in> a \<and> (m'',m') \<in> b}"
+
+text \<open>Stabilisation of a predicate under an environment step\<close>
+definition st
+  where "st R P \<equiv> {m. \<forall>m'. (m,m') \<in> R\<^sup>* \<longrightarrow> m' \<in> P}"
 
 end
