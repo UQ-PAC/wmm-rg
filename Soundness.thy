@@ -11,6 +11,7 @@ begin
 
 section \<open>Soundness Definitions\<close>
 
+(* set of all traces that start at the beginning of c *)
 text \<open>Valid transitions starting from a particular program\<close>
 definition cp
   where "cp c \<equiv> {t. t \<in> transitions \<and> fst (t ! 0) = c}"
@@ -19,13 +20,15 @@ text \<open>Traces that satisfy a precondition\<close>
 definition pre
   where "pre P \<equiv> {t. snd (t!0) \<in> P}"
 
+(* \<forall> i. (s\<^sub>i,s\<^sub>i') \<in> t\<^sub>e \<and> s\<^sub>i=(c\<^sub>i,m\<^sub>i) \<and> s\<^sub>i'=(c\<^sub>i',m\<^sub>i') \<rightarrow> (m\<^sub>i,m\<^sub>i') \<in> R  *)
 text \<open>Traces that satisfy a rely\<close>
 definition rely
   where "rely R \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -e\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> R)}"
 
+(* \<forall> i. (s\<^sub>i,s\<^sub>i') \<in> t\<^sub>p \<and> s\<^sub>i=(c\<^sub>i,m\<^sub>i) \<and> s\<^sub>i'=(c\<^sub>i',m\<^sub>i') \<rightarrow> (m\<^sub>i,m\<^sub>i') \<in> G  *)
 text \<open>Traces that satisfy a guarantee\<close>
-definition guar
-  where "guar G \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -c\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> G\<^sup>=)}"
+definition gur
+  where "gur G \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -c\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> G\<^sup>=)}"
 
 text \<open>Traces that satisfy a postcondition\<close>
 definition post
@@ -33,7 +36,7 @@ definition post
 
 text \<open>Validity of the rely/guarantee judgements\<close>
 definition validity ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0,0] 45) 
-  where "\<Turnstile> c SAT [P, R, G, Q] \<equiv> cp c \<inter> pre P \<inter> rely R \<subseteq> guar G \<inter> post Q"
+  where "\<Turnstile> c SAT [P, R, G, Q] \<equiv> cp c \<inter> pre P \<inter> rely R \<subseteq> gur G \<inter> post Q"
 
 text \<open>Strongest postcondition with N environment steps, 
       used to compute some new intermediate states for reasoning\<close>
@@ -42,9 +45,9 @@ definition sp
 
 section \<open>Helper Lemmas\<close>
 
-lemma guar [simp]:
-  "(s # s' # t \<in> guar G) = (s' # t \<in> guar G \<and> (s -c\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> G\<^sup>=))"
-  unfolding guar_def using length_Suc_conv less_Suc_eq_0_disj by auto
+lemma gur [simp]:
+  "(s # s' # t \<in> gur G) = (s' # t \<in> gur G \<and> (s -c\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> G\<^sup>=))"
+  unfolding gur_def using length_Suc_conv less_Suc_eq_0_disj by auto
 
 lemma rely [simp]:
   "(s # s' # t \<in> rely R) = (s' # t \<in> rely R \<and> (s -e\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> R))"
@@ -59,7 +62,9 @@ lemma post [simp]:
   "(s # s' # t \<in> post Q) = (s' # t \<in> post Q)"
   by (auto simp: post_def)
 
-section \<open>Reordering Rules\<close>
+section \<open>Reordering Rules\<close> 
+
+subsection \<open>Some prelims for the reordering reasoning\<close>
 
 lemma stable_transitive:
   assumes "(m,m') \<in> R\<^sup>*" "m \<in> P" "stable R P"
@@ -83,6 +88,8 @@ proof -
   ultimately show ?thesis by auto
 qed
 
+subsection \<open>Reordering with instructions and programs \<close>
+
 text \<open>
   Reorder the judgements of two reorderable instructions given a suitable interference property.
   The precondition P and postcondition Q are preserved.
@@ -100,10 +107,10 @@ proof -
     using assms(4) by (auto simp: inter\<^sub>a_def)
   hence env: "\<forall>Q. st R (wp \<beta> (st R (wp \<alpha> Q))) \<subseteq> st R (wp ?\<alpha> (st R (wp \<beta> Q)))"
     unfolding comp_def wp_def st_def by safe blast 
-  have g: "spec ?\<alpha> G" using assms(4) by (auto simp: inter\<^sub>a_def)
+  have g: "guar ?\<alpha> G" using assms(4) by (auto simp: inter\<^sub>a_def)
 
   \<comment> \<open>Establish stability for P, Q and the new intermediate state, in addition to guarantees\<close>
-  have stablePQ: "stable R P" "stable R Q" "spec \<alpha> G" "spec \<beta> G"
+  have stablePQ: "stable R P" "stable R Q" "guar \<alpha> G" "guar \<beta> G"
     using assms(1,2) by (auto simp: atomic_rule_def)
   have stableM: "stable R ?M"  unfolding stable_def sp_def by force
 
@@ -233,7 +240,7 @@ proof (induct arbitrary: c' rule: rules.induct)
   show ?case using par(7,1,2,3,4,5,6) by (cases) blast+
 qed auto
 
-text \<open>Local judgements are preserved across execution steps\<close>
+text \<open>Local judgements are preserved across reordered interference-free execution steps\<close>
 lemma stepI:
   assumes "c \<mapsto>[\<alpha>,r,\<alpha>'] c'" "R,G \<turnstile>\<^sub>t P {c} Q"
   assumes "inter\<^sub>c R G r \<alpha>'"
@@ -257,7 +264,7 @@ next
   then show ?case using reorder_prog[OF m'' m'(2) pst(3)] i(1) m'(3) by (metis seq)
 qed 
 
-text \<open>Global judgements are preserved across execution steps\<close>
+text \<open>Global judgements are preserved across execution steps - reordering or not \<close>
 lemma g_stepI:
   assumes "R,G \<turnstile> P {c} Q"
   assumes "c \<mapsto>\<^sub>\<alpha> c'"
@@ -309,11 +316,11 @@ text \<open>All transitions that start with a program with a logic judgement and
       establish the postcondition if they terminate\<close>
 lemma sound_transitions:
   assumes "t \<in> transitions" "fst (t ! 0) = c" "R,G \<turnstile> P {c} Q" "t \<in> pre P \<inter> rely R"
-  shows "t \<in> guar G \<inter> post Q"
+  shows "t \<in> gur G \<inter> post Q"
   using assms
 proof (induct arbitrary: c P rule: transitions.induct)
   case (one s)
-  thus ?case using guar_def by force
+  thus ?case using gur_def by force
 next
   case (env s s' t)
   then obtain P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by (metis g_stable_preE) 
@@ -323,7 +330,7 @@ next
   then obtain \<alpha> where \<alpha>: "c \<mapsto>\<^sub>\<alpha> (fst s')" "(snd s,snd s') \<in> eval \<alpha>" by auto
   then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {fst s'} Q"
     using g_stepI[OF prg(5) \<alpha>(1)] by metis
-  thus ?case using prg \<alpha> unfolding atomic_rule_def wp_def spec_def by fastforce
+  thus ?case using prg \<alpha> unfolding atomic_rule_def wp_def guar_def by fastforce
 next
   case (sil s s' t)
   thus ?case by auto

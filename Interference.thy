@@ -16,11 +16,12 @@ text \<open>Independence of two instructions \<beta> and \<alpha> under environm
       such that the early execution of \<alpha> is assumed to be possible and 
       cannot invalidate sequential reasoning\<close>
 definition inter\<^sub>a
-  where "inter\<^sub>a R G \<beta> \<alpha> \<equiv> R\<^sup>* \<otimes> eval \<alpha>\<langle>\<beta>\<rangle> \<otimes> R\<^sup>* \<otimes> eval \<beta> \<subseteq> R\<^sup>* \<otimes> eval \<beta> \<otimes> R\<^sup>* \<otimes> eval \<alpha> \<and> spec \<alpha>\<langle>\<beta>\<rangle> G"
+  where "inter\<^sub>a R G \<beta> \<alpha> \<equiv> R\<^sup>* \<otimes> eval \<alpha>\<langle>\<beta>\<rangle> \<otimes> R\<^sup>* \<otimes> eval \<beta> \<subseteq> R\<^sup>* \<otimes> eval \<beta> \<otimes> R\<^sup>* \<otimes> eval \<alpha> \<and> guar \<alpha>\<langle>\<beta>\<rangle> G"
 
-text \<open>Independence of program c and instruction \<alpha> under environment R, 
+text \<open>Independence of program c and instruction \<alpha> under environment R,
       such that the early execution of \<alpha> is assumed to be possible and 
-      cannot invalidate sequential reasoning\<close>
+      cannot invalidate sequential reasoning.
+      Define by recursively iterating over the program and capturing the forwarding throughout.\<close>
 fun inter\<^sub>c
   where
     "inter\<^sub>c R G (Basic \<beta>) \<alpha> = inter\<^sub>a R G \<beta> \<alpha>" |
@@ -28,6 +29,11 @@ fun inter\<^sub>c
     "inter\<^sub>c R G (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (c*) \<alpha> = inter\<^sub>c R G c \<alpha>" |
     "inter\<^sub>c R G _ \<alpha> = True"
+
+(* instrumented step c \<mapsto>[\<alpha>,r,\<alpha>'] c'
+   \<alpha> = fwd(\<alpha>'); 
+   r = "collects" all the steps that \<alpha>' got forwarded over to \<alpha> (in the middle parameter of \<mapsto>)
+       for each of these stmts in r non-interference with \<alpha> needs to be proved *)
 
 text \<open>Instrumented version of the semantics that collects the reordering effects\<close>
 inductive_set execute_collect :: "('a com \<times> 'a \<times> 'a com \<times> 'a \<times> 'a com) set"

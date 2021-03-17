@@ -13,6 +13,7 @@ begin
 section \<open>Program Transition Definitions\<close>
 
 text \<open>Small step semantics for an instruction execution\<close>
+text \<open>To remove WMM from the theory, it suffices to remove the pst case below\<close>
 inductive_set execute :: "('a com \<times> 'a \<times> 'a com) set"
   and execute_abv :: "'a com \<Rightarrow> 'a \<Rightarrow> 'a com \<Rightarrow> bool"
   ("_ \<mapsto>\<^sub>_ _" [71,0,71] 70)
@@ -58,21 +59,23 @@ lemma [simp]:
 
 section \<open>Transition Definitions\<close>
 
+text \<open>These transitions are over configurations of (program,state)\<close>
+
 text \<open>Environment Transition\<close>
 abbreviation etran ("_ -e\<rightarrow> _" [81,81] 80)
-  where "etran P Q \<equiv> (fst P) = (fst Q)"
+  where "etran s s' \<equiv> (fst s) = (fst s')"
 
 text \<open>Program Execution Transition\<close>
 abbreviation ctran ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
-  where "ctran P Q \<equiv> (\<exists>\<alpha>. ((fst P) \<mapsto>\<^sub>\<alpha> (fst Q)) \<and> (snd P,snd Q) \<in> eval \<alpha>)"
+  where "ctran s s' \<equiv> (\<exists>\<alpha>. ((fst s) \<mapsto>\<^sub>\<alpha> (fst s')) \<and> (snd s,snd s') \<in> eval \<alpha>)"
 
 text \<open>Program Silent Transition\<close>
 abbreviation stran ("_ -s\<rightarrow> _" [81,81] 80)
-  where "stran P Q \<equiv> (((fst P) \<leadsto> (fst Q)) \<and> (snd P) = (snd Q))"
+  where "stran s s' \<equiv> (((fst s) \<leadsto> (fst s')) \<and> (snd s) = (snd s'))"
 
 text \<open>Program Transition\<close>
 abbreviation atran ("_ -c\<rightarrow> _" [81,81] 80)
-  where "atran P Q \<equiv> (P -\<alpha>\<rightarrow> Q \<or> P -s\<rightarrow> Q)"
+  where "atran s s' \<equiv> (s -\<alpha>\<rightarrow> s' \<or> s -s\<rightarrow> s')"
 
 text \<open>Collect of all possible transitions\<close>
 inductive_set transitions
@@ -103,8 +106,8 @@ definition wp
   where "wp a P \<equiv> {m. \<forall>m'. (m,m') \<in> eval a \<longrightarrow> m' \<in> P}"
 
 text \<open>Specification Check, ensuring an instruction conforms to a relation\<close>
-definition spec
-  where "spec \<alpha> G \<equiv> eval \<alpha> \<subseteq> G"
+definition guar
+  where "guar \<alpha> G \<equiv> eval \<alpha> \<subseteq> G"
 
 end
 

@@ -21,7 +21,7 @@ definition stable
 text \<open>Rule for an atomic operation with a context\<close>
 definition atomic_rule :: "'s rel \<Rightarrow> 's rel \<Rightarrow> 's set \<Rightarrow> 'a \<Rightarrow> 's set \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [20, 20, 20, 20] 20)
-  where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp \<alpha> Q \<and> spec \<alpha> G \<and> stable R P \<and> stable R Q"
+  where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp \<alpha> Q \<and> guar \<alpha> G \<and> stable R P \<and> stable R Q"
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
 inductive lrules :: "'s rel \<Rightarrow> 's rel \<Rightarrow> 's set \<Rightarrow> 'a com \<Rightarrow> 's set \<Rightarrow> bool"
@@ -46,10 +46,10 @@ lemma stable_conjI [intro]:
   shows "stable (R \<inter> R') (P \<inter> P')"
   using assms by (auto simp: stable_def)
 
-lemma spec_conseqI [intro]:
-  assumes "G' \<subseteq> G" "spec \<alpha> G'"
-  shows "spec \<alpha> G"
-  using assms unfolding spec_def by auto
+lemma guar_conseqI [intro]:
+  assumes "G' \<subseteq> G" "guar \<alpha> G'"
+  shows "guar \<alpha> G"
+  using assms unfolding guar_def by auto
 
 lemma thread_only:
   assumes "R,G \<turnstile>\<^sub>t P { c } Q"
@@ -67,7 +67,7 @@ lemma atomic_pre:
 lemma atomic_conseqI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "R' \<subseteq> R" "G \<subseteq> G'"
   shows "R',G' \<turnstile>\<^sub>A P {\<alpha>} Q"
-  using assms spec_conseqI unfolding atomic_rule_def
+  using assms guar_conseqI unfolding atomic_rule_def
   by blast
 
 lemma actomic_conjI [intro]:
@@ -84,7 +84,7 @@ lemma atomic_frameI [intro]:
 proof (safe, goal_cases)
   case (1 x)
   hence "{(m,m'). m \<in> P} \<inter> eval \<alpha> \<subseteq> R\<^sub>2" 
-    using assms(1,3) unfolding spec_def atomic_rule_def by fast
+    using assms(1,3) unfolding guar_def atomic_rule_def by fast
   hence "x \<in> wp \<alpha> M" using assms(2) 1 unfolding stable_def wp_def by blast
   moreover have "x \<in> wp \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
   ultimately show ?case by (auto simp: wp_def)
@@ -141,6 +141,7 @@ proof (induct R G P "c\<^sub>1 || c\<^sub>2" Q)
   thus ?case by blast
 qed
 
+text \<open>We can always weaken the precondition to a stable state\<close>
 lemma stable_preE:
   assumes "R,G \<turnstile>\<^sub>t P {c} Q"
   obtains P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile>\<^sub>t P' {c} Q"
