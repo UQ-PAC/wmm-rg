@@ -4,6 +4,12 @@ begin
 
 chapter \<open>Reordering Properties\<close> 
 
+text \<open>
+Assume an externally provided reordering and forwarding functions, to define the memory model.
+The ideas here are derived from Colvin & Smith.
+From these definitions we can recursively define reordering and forwarding over programs.
+\<close>
+
 locale reordering =
   fixes re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
   and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
@@ -11,34 +17,34 @@ locale reordering =
 context reordering
 begin
 
-text \<open>Combine forwarding and reordering into a single check\<close>
-abbreviation reorder_act :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
+text \<open>Combine forwarding and reordering into a single definition\<close>
+abbreviation reorder_inst :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
   ("_ < _ <\<^sub>a _" [100,0,100] 100)
   where "\<beta>' < \<alpha> <\<^sub>a \<beta> \<equiv> \<beta>' = \<beta>\<langle>\<alpha>\<rangle> \<and> \<alpha> \<hookleftarrow> \<beta>\<langle>\<alpha>\<rangle>"
 
 text \<open>Recursively define reordering of an instruction earlier than a program\<close>
-fun reorder_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> bool"
-  ("_ < _ <\<^sub>p _" [100,0,100] 100)
+fun reorder_com :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> bool"
+  ("_ < _ <\<^sub>c _" [100,0,100] 100)
   where
-    "reorder_prog \<alpha>' Nil \<alpha> = (\<alpha>' = \<alpha>)" |
-    "reorder_prog \<alpha>' (Basic \<beta>) \<alpha> = (\<alpha>' < \<beta> <\<^sub>a \<alpha>)" |
-    "reorder_prog \<alpha>' (c\<^sub>1 ; c\<^sub>2) \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>p \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>p \<alpha>)" |
-    "reorder_prog \<alpha>' (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = (\<alpha>' < c\<^sub>1 <\<^sub>p \<alpha> \<and> \<alpha>' < c\<^sub>2 <\<^sub>p \<alpha>)" |
-    "reorder_prog \<alpha>' (Loop c) \<alpha> = (\<alpha>' = \<alpha> \<and> \<alpha> < c <\<^sub>p \<alpha>)" |
-    "reorder_prog _ _ _ = False"
+    "\<alpha>' < Nil <\<^sub>c \<alpha> = (\<alpha>' = \<alpha>)" |
+    "\<alpha>' < Basic \<beta> <\<^sub>c \<alpha> = (\<alpha>' < \<beta> <\<^sub>a \<alpha>)" |
+    "\<alpha>' < c\<^sub>1 ;; c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
+    "\<alpha>' < c\<^sub>1 \<sqinter> c\<^sub>2 <\<^sub>c \<alpha> = (\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha> \<and> \<alpha>' < c\<^sub>2 <\<^sub>c \<alpha>)" |
+    "\<alpha>' < Loop c <\<^sub>c \<alpha> = (\<alpha>' = \<alpha> \<and> \<alpha> < c <\<^sub>c \<alpha>)" |
+    "_ < _ <\<^sub>c _ = False"
 
-text \<open>Recursively define forwarding of an instruction across a program \<close>
-fun fwd_prog :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a"
+text \<open>Recursively define forwarding of an instruction across a program\<close>
+fun fwd_com :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a"
   ("_\<llangle>_\<rrangle>" [1000,0] 1000)
   where
-    "fwd_prog \<alpha> (Basic \<beta>) = \<alpha>\<langle>\<beta>\<rangle>" |
-    "fwd_prog \<alpha> (c\<^sub>1 ; c\<^sub>2) = fwd_prog (fwd_prog \<alpha> c\<^sub>2) c\<^sub>1" |
-    "fwd_prog \<alpha> (c\<^sub>1 \<sqinter> c\<^sub>2) = fwd_prog \<alpha> c\<^sub>1" |
-    "fwd_prog \<alpha> _  = \<alpha>"
+    "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>\<beta>\<rangle>" |
+    "\<alpha>\<llangle>c\<^sub>1 ;; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
+    "\<alpha>\<llangle>c\<^sub>1 \<sqinter> c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>1\<rrangle>" |
+    "\<alpha>\<llangle>_\<rrangle>  = \<alpha>"
 
 text \<open>Relationship between program reordering and program forwarding\<close>
-lemma fwd_prog [simp]:
-  assumes "\<alpha>' < c <\<^sub>p \<alpha>"
+lemma fwd_com [simp]:
+  assumes "\<alpha>' < c <\<^sub>c \<alpha>"
   shows "\<alpha>\<llangle>c\<rrangle> = \<alpha>'"
   using assms by (induct c arbitrary: \<alpha>' \<alpha>) auto
 

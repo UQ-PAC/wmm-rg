@@ -4,10 +4,9 @@ begin
 
 chapter \<open>Global Rules\<close>
 
-locale global_rules = local_rules re fwd eval + interference re fwd eval
-  for eval :: "'a \<Rightarrow> 's rel"
-  and re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
-  and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
+text \<open>Define the rely/guarantee rules for a concurrent program.\<close>
+
+locale global_rules = local_rules + interference 
 
 context global_rules
 begin
@@ -15,17 +14,17 @@ begin
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
-inductive rules :: "'s rel \<Rightarrow> 's rel \<Rightarrow> 's set \<Rightarrow> 'a com \<Rightarrow> 's set \<Rightarrow> bool"
-  ("_,_ \<turnstile> _ {_} _" [20,0,0,20] 20)
+inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'a com \<Rightarrow> 'b pred \<Rightarrow> bool" 
+  ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
 where
-  thread[intro]: "R,G \<turnstile>\<^sub>t P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> R,G \<turnstile> P { c } Q" |
+  thread[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> R,G \<turnstile> P { c } Q" |
   par[intro]:    "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                   R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                   R',G' \<turnstile> P' { c } Q'" |
   frame[intro]:  "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' M \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> P \<inter> M {c} Q \<inter> M"
 
-section \<open>Elimination Rules\<close>
+subsection \<open>Properties\<close>
 
 lemma g_parE [elim]:
   assumes "R,G \<turnstile> P { c\<^sub>1 || c\<^sub>2 } Q"
