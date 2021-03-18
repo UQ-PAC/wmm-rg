@@ -11,18 +11,10 @@ begin
 
 section \<open>Helper Definitions\<close>
 
-text \<open>Weakest precondition of the transitive closure of an arbitrary state relation\<close>
-abbreviation wp\<^sub>t :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "wp\<^sub>t R P \<equiv> wp (R\<^sup>*) P"
-
-lemma stable_wp\<^sub>tI:
-  "stable R P \<Longrightarrow> P \<subseteq> wp\<^sub>t R P"
-  unfolding wp_def using stable_transitive by fast
-
 text \<open>Strongest postcondition across arbitrary environment steps, 
       used to compute some new intermediate states for reasoning\<close>
 definition sp :: "'a \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "sp \<alpha> R P \<equiv> {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> eval \<alpha> \<and> (m'',m) \<in> R\<^sup>* }"
+  where "sp \<alpha> R P \<equiv> {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> behv \<alpha> \<and> (m'',m) \<in> R\<^sup>* }"
 
 text \<open>Re-establish an atomic judgement with its strongest postcondition\<close>
 lemma atomic_strongest:
@@ -33,7 +25,7 @@ proof -
     using assms stable_transitive unfolding atomic_rule_def wp_def by fast+
   hence "sp \<alpha> R P \<subseteq> Q" by (auto simp: sp_def wp_def)
   moreover have "R,G \<turnstile>\<^sub>A P {\<alpha>} (sp \<alpha> R P)"
-    using assms by (clarsimp simp add: atomic_rule_def wp_def stable_def sp_def) force
+    using assms unfolding atomic_rule_def wp_def stable_def sp_def by fastforce
   ultimately show ?thesis by auto
 qed
 
@@ -50,34 +42,33 @@ proof -
   \<comment> \<open>Nominate the strongest-postcondition of \<alpha> from P as the state between \<alpha> and \<beta>\<close>
   let ?M="sp \<alpha>\<langle>\<beta>\<rangle> R P"
 
-  \<comment> \<open>Extract order independence properties\<close>
-  have "R\<^sup>* O eval \<alpha>\<langle>\<beta>\<rangle> O R\<^sup>* O eval \<beta> \<subseteq> R\<^sup>* O eval \<beta> O R\<^sup>* O eval \<alpha>"
-    using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
-  hence env: "\<forall>Q. wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q))) \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))"
-    unfolding comp_def wp_def by safe blast 
-  have g: "eval \<alpha>\<langle>\<beta>\<rangle> \<subseteq> G" using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
-
   \<comment> \<open>Establish stability for P, Q and the new intermediate state, in addition to guarantees\<close>
-  have stablePQ: "stable R P" "stable R Q" "eval \<alpha> \<subseteq> G" "eval \<beta> \<subseteq> G"
+  have stablePQ: "stable R P" "stable R Q" "guar \<alpha> G" "guar \<beta> G"
     using assms(1,2) by (auto simp: atomic_rule_def)
   have stableM: "stable R ?M"  unfolding stable_def sp_def by force
+
+  \<comment> \<open>Extract order independence properties\<close> 
+  have env: "\<forall>Q. wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q))) \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))"
+    using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
+  have g: "guar \<alpha>\<langle>\<beta>\<rangle> G" using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
 
   \<comment> \<open>Show transition from P to Q is independent of order\<close>
   have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> wp\<^sub>t R M" "P \<subseteq> wp\<^sub>t R P" "Q \<subseteq> wp\<^sub>t R Q"
     using assms(1,2)  unfolding atomic_rule_def by (auto intro!: stable_wp\<^sub>tI)
   hence "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q)))" unfolding wp_def by blast
   hence exec: "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))" using env by blast
+  hence vc: "P \<subseteq> vc \<alpha>\<langle>\<beta>\<rangle>" by (auto simp: wp_def)
 
   \<comment> \<open>Establish the late judgement over \<beta>\<close>
   have "R,G \<turnstile>\<^sub>A ?M {\<beta>} Q" 
   proof (unfold atomic_rule_def, intro conjI Int_greatest)
-    show "?M \<subseteq> wp (eval \<beta>) Q" using exec unfolding wp_def sp_def by blast
+    show "?M \<subseteq> wp\<^sub>\<alpha> \<beta> Q" using exec unfolding wp_def sp_def by blast
   qed (insert stablePQ stableM, simp)
 
   \<comment> \<open>Establish the early judgement over the new \<alpha>\<close>
   moreover have "R,G \<turnstile>\<^sub>A P {\<alpha>\<langle>\<beta>\<rangle>} ?M"
   proof (unfold atomic_rule_def, intro conjI Int_greatest)
-    show "P \<subseteq> wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> ?M" unfolding wp_def wf_def sp_def by blast
+    show "P \<subseteq> wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> ?M" using vc unfolding wp_def wf_def sp_def by blast
   qed (insert stablePQ stableM g, simp)
 
   ultimately show ?thesis using that by blast
@@ -323,7 +314,7 @@ next
   then obtain \<alpha> where \<alpha>: "c \<mapsto>\<^sub>\<alpha> (fst s')" "(snd s,snd s') \<in> eval \<alpha>" by auto
   then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {fst s'} Q"
     using g_stepI[OF prg(5) \<alpha>(1)] by metis
-  thus ?case using prg \<alpha> unfolding atomic_rule_def wp_def by fastforce
+  thus ?case using prg \<alpha> unfolding atomic_rule_def wp_def eval_def by fastforce
 next
   case (sil s s' t)
   thus ?case by auto

@@ -1,5 +1,5 @@
 theory Semantics
-  imports Reordering
+  imports Reordering Atomics
 begin
 
 chapter \<open>Small Step Semantics\<close>
@@ -12,8 +12,11 @@ with transitions for the program and the environment.
 
 type_synonym ('a,'b) config = "'a com \<times> 'b"
 
-locale semantics = reordering +
-  fixes eval :: "'a \<Rightarrow> 'b rel" 
+locale semantics = reordering re fwd + atomics behv vc
+  for re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
+  and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
+  and behv :: "'a \<Rightarrow> ('b \<times> 'b) set"
+  and vc :: "'a \<Rightarrow> 'b set"
 
 context semantics
 begin

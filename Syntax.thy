@@ -4,12 +4,10 @@ begin
 
 chapter \<open>While Language Syntax\<close>
 
-type_synonym 'b pred = "'b set"
-type_synonym 'b rpred = "'b rel"
-
 text \<open>A While language with non-deterministic choice, iteration and parallel composition.\<close>
 datatype 'a com =
   Nil
+  | Abort
   | Basic "'a"
   | Seq "'a com" "'a com" (infixr ";;" 80)
   | Choice "'a com" "'a com" (infixr "\<sqinter>" 150)

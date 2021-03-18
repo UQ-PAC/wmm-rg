@@ -6,7 +6,7 @@ chapter \<open>Global Rules\<close>
 
 text \<open>Define the rely/guarantee rules for a concurrent program.\<close>
 
-locale global_rules = local_rules + interference 
+locale global_rules = local_rules + interference
 
 context global_rules
 begin

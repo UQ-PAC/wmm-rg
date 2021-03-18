@@ -22,7 +22,9 @@ Independence of two instructions \<beta> and \<alpha> under environment R,
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.\<close>
 definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
-  where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> R\<^sup>* O eval \<alpha>\<langle>\<beta>\<rangle> O R\<^sup>* O eval \<beta> \<subseteq> R\<^sup>* O eval \<beta> O R\<^sup>* O eval \<alpha> \<and> eval \<alpha>\<langle>\<beta>\<rangle> \<subseteq> G"
+  where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
+          \<forall>Q. wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q))) \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q))) \<and> 
+          guar \<alpha>\<langle>\<beta>\<rangle> G"
 
 text \<open>
 Independence of program c and instruction \<alpha> under environment R,
