@@ -79,7 +79,7 @@ definition eval :: "'a \<Rightarrow> 'b rpred"
 
 text \<open>Specification check, ensuring an instruction conforms to a relation\<close>
 abbreviation guar :: "'a \<Rightarrow> 'b rpred \<Rightarrow> bool"
-  where "guar \<alpha> G \<equiv> behv \<alpha> \<subseteq> G"
+  where "guar \<alpha> G \<equiv> {(m,m'). m \<in> vc \<alpha>} \<inter> behv \<alpha> \<subseteq> G"
 
 end
 
@@ -126,7 +126,7 @@ lemma atomic_frameI [intro]:
   unfolding atomic_rule_def
 proof (safe, goal_cases)
   case (1 x)
-  hence "{(m,m'). m \<in> P} \<inter> behv \<alpha> \<subseteq> R\<^sub>2" "x \<in> vc \<alpha>"
+  hence "{(m,m'). m \<in> P \<inter> vc \<alpha>} \<inter> behv \<alpha> \<subseteq> R\<^sub>2" "x \<in> vc \<alpha>"
     using assms(1,3) by (auto simp: wp_def atomic_rule_def)
   hence "x \<in> wp\<^sub>\<alpha> \<alpha> M" using assms(2) 1 by (auto simp: wp_def stable_def)
   moreover have "x \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
