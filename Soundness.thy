@@ -25,7 +25,7 @@ proof -
     using assms stable_transitive unfolding atomic_rule_def wp_def by fast+
   hence "sp \<alpha> R P \<subseteq> Q" by (auto simp: sp_def wp_def)
   moreover have "R,G \<turnstile>\<^sub>A P {\<alpha>} (sp \<alpha> R P)"
-    using assms unfolding atomic_rule_def wp_def stable_def sp_def wp\<^sub>l.simps by fastforce
+    using assms unfolding atomic_rule_def wp_def stable_def sp_def by fastforce
   ultimately show ?thesis by auto
 qed
 

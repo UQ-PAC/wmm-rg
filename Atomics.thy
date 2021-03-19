@@ -62,16 +62,16 @@ abbreviation wp\<^sub>\<alpha> :: "'a \<Rightarrow> 'b set \<Rightarrow> 'b set"
 
 text \<open>Weakest precondition of a program, only covering basic instructions, environment steps and 
       sequential composition as these are sufficient for the logic's checks.\<close>
-fun wp\<^sub>l
+fun wp\<^sub>c :: "('a,'b) com \<Rightarrow> 'b set \<Rightarrow> 'b set"
   where 
-    "wp\<^sub>l (Basic \<alpha>) Q = wp\<^sub>\<alpha> \<alpha> Q" |
-    "wp\<^sub>l (Env r) Q = wp\<^sub>t r Q" |
-    "wp\<^sub>l (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>l c\<^sub>1 (wp\<^sub>l c\<^sub>2 Q)" |
-    "wp\<^sub>l _ Q = undefined"
+    "wp\<^sub>c (Basic \<alpha>) Q = wp\<^sub>\<alpha> \<alpha> Q" |
+    "wp\<^sub>c (Env r) Q = wp\<^sub>t r Q" |
+    "wp\<^sub>c (c\<^sub>1 ; c\<^sub>2) Q = wp\<^sub>c c\<^sub>1 (wp\<^sub>c c\<^sub>2 Q)" |
+    "wp\<^sub>c _ Q = undefined"
 
 text \<open>Refinement relation between two programs, in terms of their weakest precondition calculation.\<close>
-definition refine (infix "\<sqsubseteq>" 60)
-  where "c \<sqsubseteq> c' \<equiv> \<forall>Q. wp\<^sub>l c Q \<subseteq> wp\<^sub>l c' Q"
+definition refine :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool" (infix "\<sqsubseteq>" 60)
+  where "c \<sqsubseteq> c' \<equiv> \<forall>Q. wp\<^sub>c c Q \<subseteq> wp\<^sub>c c' Q"
 
 text \<open>Merge the verification condition and behaviour to define evaluation\<close>
 definition eval :: "'a \<Rightarrow> 'b rpred"
@@ -115,7 +115,7 @@ text \<open>Atomic judgements over the same instruction can be combined\<close>
 lemma actomic_conjI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P\<^sub>1 {\<alpha>} Q\<^sub>1" "R,G  \<turnstile>\<^sub>A P\<^sub>2 {\<alpha>} Q\<^sub>2"
   shows "R,G \<turnstile>\<^sub>A P\<^sub>1 \<inter> P\<^sub>2 {\<alpha>} Q\<^sub>1 \<inter> Q\<^sub>2"
-  using assms unfolding atomic_rule_def wp_def stable_def wp\<^sub>l.simps
+  using assms unfolding atomic_rule_def wp_def stable_def
   by (intro conjI) blast+
 
 text \<open>Add an invariant across an atomic judgement\<close>
@@ -128,8 +128,8 @@ proof (safe, goal_cases)
   case (1 x)
   hence "{(m,m'). m \<in> P} \<inter> behv \<alpha> \<subseteq> R\<^sub>2" "x \<in> vc \<alpha>"
     using assms(1,3) by (auto simp: wp_def atomic_rule_def)
-  hence "x \<in> wp\<^sub>l (Basic \<alpha>) M" using assms(2) 1 by (auto simp: wp_def stable_def)
-  moreover have "x \<in> wp\<^sub>l (Basic \<alpha>) Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
+  hence "x \<in> wp\<^sub>\<alpha> \<alpha> M" using assms(2) 1 by (auto simp: wp_def stable_def)
+  moreover have "x \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
   ultimately show ?case by (auto simp: wp_def)
 qed (insert assms, auto simp: atomic_rule_def wp_def)
 
