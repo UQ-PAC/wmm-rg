@@ -23,22 +23,22 @@ abbreviation reorder_inst :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow>
   where "\<beta>' < \<alpha> <\<^sub>a \<beta> \<equiv> \<beta>' = \<beta>\<langle>\<alpha>\<rangle> \<and> \<alpha> \<hookleftarrow> \<beta>\<langle>\<alpha>\<rangle>"
 
 text \<open>Recursively define reordering of an instruction earlier than a program\<close>
-fun reorder_com :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> bool"
+fun reorder_com :: "'a \<Rightarrow> ('a,'b) com \<Rightarrow> 'a \<Rightarrow> bool"
   ("_ < _ <\<^sub>c _" [100,0,100] 100)
   where
     "\<alpha>' < Nil <\<^sub>c \<alpha> = (\<alpha>' = \<alpha>)" |
     "\<alpha>' < Basic \<beta> <\<^sub>c \<alpha> = (\<alpha>' < \<beta> <\<^sub>a \<alpha>)" |
-    "\<alpha>' < c\<^sub>1 ;; c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
+    "\<alpha>' < c\<^sub>1 ; c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
     "\<alpha>' < c\<^sub>1 \<sqinter> c\<^sub>2 <\<^sub>c \<alpha> = (\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha> \<and> \<alpha>' < c\<^sub>2 <\<^sub>c \<alpha>)" |
     "\<alpha>' < Loop c <\<^sub>c \<alpha> = (\<alpha>' = \<alpha> \<and> \<alpha> < c <\<^sub>c \<alpha>)" |
     "_ < _ <\<^sub>c _ = False"
 
 text \<open>Recursively define forwarding of an instruction across a program\<close>
-fun fwd_com :: "'a \<Rightarrow> 'a com \<Rightarrow> 'a"
+fun fwd_com :: "'a \<Rightarrow> ('a,'b) com \<Rightarrow> 'a"
   ("_\<llangle>_\<rrangle>" [1000,0] 1000)
   where
     "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>\<beta>\<rangle>" |
-    "\<alpha>\<llangle>c\<^sub>1 ;; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
+    "\<alpha>\<llangle>c\<^sub>1 ; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>c\<^sub>1 \<sqinter> c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>_\<rrangle>  = \<alpha>"
 

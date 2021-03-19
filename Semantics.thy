@@ -10,12 +10,12 @@ Also introduces a notion of configuration, that couples programs and memory stat
 with transitions for the program and the environment.
 \<close>
 
-type_synonym ('a,'b) config = "'a com \<times> 'b"
+type_synonym ('a,'b) config = "('a,'b) com \<times> 'b"
 
 locale semantics = reordering re fwd + atomics behv vc
   for re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
   and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
-  and behv :: "'a \<Rightarrow> ('b \<times> 'b) set"
+  and behv :: "'a \<Rightarrow> 'b rel"
   and vc :: "'a \<Rightarrow> 'b set"
 
 context semantics
@@ -25,32 +25,28 @@ section \<open>Program Transition Definitions\<close>
 
 text \<open>Small step semantics for an instruction execution\<close>
 text \<open>To remove reordering from the theory, it suffices to remove the out-of-order (ooo) case below\<close>
-inductive_set execute :: "('a com \<times> 'a \<times> 'a com) set"
-  and execute_abv :: "'a com \<Rightarrow> 'a \<Rightarrow> 'a com \<Rightarrow> bool"
+inductive execute :: "('a,'b) com \<Rightarrow> 'a \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>\<^sub>_ _" [71,73,71] 70)
   where
-  "c \<mapsto>\<^sub>\<alpha> c' \<equiv> (c, \<alpha>, c') \<in> execute" |
   act[intro]:  "Basic \<alpha> \<mapsto>\<^sub>\<alpha> Nil" |
-  seq[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' ;; c\<^sub>2" |
-  ooo[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>\<^sub>\<gamma> c\<^sub>2 ;; c\<^sub>1'" |
+  seq[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' ; c\<^sub>2" |
+  ooo[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>\<^sub>\<gamma> c\<^sub>2 ; c\<^sub>1'" |
   par1[intro]: "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1 || c\<^sub>2'"
 inductive_cases executeE[elim]: "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1'"
 
 text \<open>Small step semantics for a silent step\<close>
-inductive_set silent :: "('a com \<times> 'a com) set"
-  and rw_abv :: "'a com \<Rightarrow> 'a com \<Rightarrow> bool"
+inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<leadsto> _" [71,71] 70)
   where
-  "c \<leadsto> c' \<equiv> (c, c') \<in> silent" |
-  seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1' ;; c\<^sub>2" |
-  seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1 ;; c\<^sub>2'" |
-  seqE1[intro]: "Nil ;; c\<^sub>1 \<leadsto> c\<^sub>1" |
-  seqE2[intro]: "c\<^sub>1 ;; Nil \<leadsto> c\<^sub>1" |
+  seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<leadsto> c\<^sub>1' ; c\<^sub>2" |
+  seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<leadsto> c\<^sub>1 ; c\<^sub>2'" |
+  seqE1[intro]: "Nil ; c\<^sub>1 \<leadsto> c\<^sub>1" |
+  seqE2[intro]: "c\<^sub>1 ; Nil \<leadsto> c\<^sub>1" |
   left[intro]:  "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>1" |
   right[intro]: "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>2" |
   loop1[intro]: "c* \<leadsto> Nil" |
-  loop2[intro]: "c* \<leadsto> c ;; c*" |
+  loop2[intro]: "c* \<leadsto> c ; c*" |
   par1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1' || c\<^sub>2" |
   par2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1 || c\<^sub>2'" |
   parE1[intro]: "Nil || c \<leadsto> c" |

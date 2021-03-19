@@ -25,7 +25,7 @@ proof -
     using assms stable_transitive unfolding atomic_rule_def wp_def by fast+
   hence "sp \<alpha> R P \<subseteq> Q" by (auto simp: sp_def wp_def)
   moreover have "R,G \<turnstile>\<^sub>A P {\<alpha>} (sp \<alpha> R P)"
-    using assms unfolding atomic_rule_def wp_def stable_def sp_def by fastforce
+    using assms unfolding atomic_rule_def wp_def stable_def sp_def wp\<^sub>l.simps by fastforce
   ultimately show ?thesis by auto
 qed
 
@@ -48,7 +48,7 @@ proof -
   have stableM: "stable R ?M"  unfolding stable_def sp_def by force
 
   \<comment> \<open>Extract order independence properties\<close> 
-  have env: "\<forall>Q. wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q))) \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))"
+  have ref: "Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>\<beta>\<rangle> ; Env R ; Basic \<beta>"
     using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
   have g: "guar \<alpha>\<langle>\<beta>\<rangle> G" using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
 
@@ -56,7 +56,7 @@ proof -
   have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> wp\<^sub>t R M" "P \<subseteq> wp\<^sub>t R P" "Q \<subseteq> wp\<^sub>t R Q"
     using assms(1,2)  unfolding atomic_rule_def by (auto intro!: stable_wp\<^sub>tI)
   hence "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q)))" unfolding wp_def by blast
-  hence exec: "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))" using env by blast
+  hence exec: "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))" using ref by (auto simp: refine_def)
   hence vc: "P \<subseteq> vc \<alpha>\<langle>\<beta>\<rangle>" by (auto simp: wp_def)
 
   \<comment> \<open>Establish the late judgement over \<beta>\<close>
@@ -251,7 +251,7 @@ qed
 section \<open>Soundness\<close>
 
 text \<open>Set of all config traces that start with a program c\<close>
-definition cp :: "'a com \<Rightarrow> ('a,'b) config list set"
+definition cp :: "('a,'b) com \<Rightarrow> ('a,'b) config list set"
   where "cp c \<equiv> {t. t \<in> transitions \<and> fst (t ! 0) = c}"
 
 text \<open>Set of all config traces that satisfy a precondition in their first state\<close>

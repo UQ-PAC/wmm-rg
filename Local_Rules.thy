@@ -14,11 +14,11 @@ begin
 section \<open>Base Rules\<close>
 
 text \<open>Rules of the logic over a thread, similar to standard Hoare-logic\<close>
-inductive lrules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'a com \<Rightarrow> 'b pred \<Rightarrow> bool" 
+inductive lrules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>l _ {_} _" [20,0,0,0,20] 20)
 where
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { Nil } P" |
-  seq[intro]:    "R,G \<turnstile>\<^sub>l P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile>\<^sub>l Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c\<^sub>1 ;; c\<^sub>2 } M" |
+  seq[intro]:    "R,G \<turnstile>\<^sub>l P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile>\<^sub>l Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c\<^sub>1 ; c\<^sub>2 } M" |
   choice[intro]: "R,G \<turnstile>\<^sub>l P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c\<^sub>1 \<sqinter> c\<^sub>2 } Q" |
   loop[intro]:   "stable R P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c } P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c* } P" |
   basic[intro]:  "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile>\<^sub>l P { Basic \<alpha> } Q" |
@@ -34,13 +34,13 @@ These mostly deal with complexities introduced by support conseq.
 lemma nilE [elim!]:
   assumes "R,G \<turnstile>\<^sub>l P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
-  using assms by (induct R G P "Nil :: 'a com" Q) blast+
+  using assms by (induct R G P "Nil :: ('a,'b) com" Q) blast+
 
 lemma basicE [elim!]:
   assumes "R,G \<turnstile>\<^sub>l P {Basic \<beta>} Q"
   obtains P' Q' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} Q'" "Q' \<subseteq> Q"
   using assms 
-proof (induct R G P "Basic \<beta>" Q)
+proof (induct R G P "Basic \<beta> :: ('a,'b) com" Q)
   case (basic R G P Q)
   then show ?case by auto
 next
@@ -49,10 +49,10 @@ next
 qed
 
 lemma seqE [elim]:
-  assumes "R,G \<turnstile>\<^sub>l P {c\<^sub>1 ;; c\<^sub>2} Q"
+  assumes "R,G \<turnstile>\<^sub>l P {c\<^sub>1 ; c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M" "R,G \<turnstile>\<^sub>l M {c\<^sub>2} Q"
   using assms 
-  by (induct R G P "c\<^sub>1 ;; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
+  by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
 
 lemma choiceE [elim]:
   assumes "R,G \<turnstile>\<^sub>l P {c\<^sub>1 \<sqinter> c\<^sub>2} Q"

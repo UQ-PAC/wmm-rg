@@ -23,7 +23,7 @@ definition wp
 
 text \<open>Weakest precondition of the transitive closure of an arbitrary state relation\<close>
 abbreviation wp\<^sub>t :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "wp\<^sub>t R P \<equiv> wp UNIV (R\<^sup>*) P"
+  where "wp\<^sub>t R P \<equiv> wp (UNIV) (R\<^sup>*) P"
 
 subsection \<open>Helper Lemmas\<close>
 
@@ -55,15 +55,29 @@ locale atomics =
 context atomics
 begin
 
-text \<open>Merge the condition and behaviour to define aborting evaluation\<close>
+text \<open>Weakest precondition of a basic instruction, based on the locale's 
+      verification conditions and behaviours.\<close>
+abbreviation wp\<^sub>\<alpha> :: "'a \<Rightarrow> 'b set \<Rightarrow> 'b set"
+  where "wp\<^sub>\<alpha> \<alpha> Q \<equiv> wp (vc \<alpha>) (behv \<alpha>) Q"
+
+text \<open>Weakest precondition of a program, only covering basic instructions, environment steps and 
+      sequential composition as these are sufficient for the logic's checks.\<close>
+fun wp\<^sub>l
+  where 
+    "wp\<^sub>l (Basic \<alpha>) Q = wp\<^sub>\<alpha> \<alpha> Q" |
+    "wp\<^sub>l (Env r) Q = wp\<^sub>t r Q" |
+    "wp\<^sub>l (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>l c\<^sub>1 (wp\<^sub>l c\<^sub>2 Q)" |
+    "wp\<^sub>l _ Q = undefined"
+
+text \<open>Refinement relation between two programs, in terms of their weakest precondition calculation.\<close>
+definition refine (infix "\<sqsubseteq>" 60)
+  where "c \<sqsubseteq> c' \<equiv> \<forall>Q. wp\<^sub>l c Q \<subseteq> wp\<^sub>l c' Q"
+
+text \<open>Merge the verification condition and behaviour to define evaluation\<close>
 definition eval :: "'a \<Rightarrow> 'b rpred"
   where "eval \<alpha> \<equiv> {(m,m'). m \<in> vc \<alpha> \<longrightarrow> (m,m') \<in> behv \<alpha>}"
 
-text \<open>Weakest precondition for an instruction\<close>
-abbreviation wp\<^sub>\<alpha> :: "'a \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "wp\<^sub>\<alpha> \<alpha> P \<equiv> wp (vc \<alpha>) (behv \<alpha>) P"
-
-text \<open>Specification Check, ensuring an instruction conforms to a relation\<close>
+text \<open>Specification check, ensuring an instruction conforms to a relation\<close>
 abbreviation guar :: "'a \<Rightarrow> 'b rpred \<Rightarrow> bool"
   where "guar \<alpha> G \<equiv> behv \<alpha> \<subseteq> G"
 
@@ -101,7 +115,7 @@ text \<open>Atomic judgements over the same instruction can be combined\<close>
 lemma actomic_conjI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P\<^sub>1 {\<alpha>} Q\<^sub>1" "R,G  \<turnstile>\<^sub>A P\<^sub>2 {\<alpha>} Q\<^sub>2"
   shows "R,G \<turnstile>\<^sub>A P\<^sub>1 \<inter> P\<^sub>2 {\<alpha>} Q\<^sub>1 \<inter> Q\<^sub>2"
-  using assms unfolding atomic_rule_def wp_def stable_def
+  using assms unfolding atomic_rule_def wp_def stable_def wp\<^sub>l.simps
   by (intro conjI) blast+
 
 text \<open>Add an invariant across an atomic judgement\<close>
@@ -113,9 +127,9 @@ lemma atomic_frameI [intro]:
 proof (safe, goal_cases)
   case (1 x)
   hence "{(m,m'). m \<in> P} \<inter> behv \<alpha> \<subseteq> R\<^sub>2" "x \<in> vc \<alpha>"
-    using assms(1,3) unfolding atomic_rule_def wp_def by auto
-  hence "x \<in> wp\<^sub>\<alpha> \<alpha> M" using assms(2) 1 unfolding stable_def wp_def by auto
-  moreover have "x \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
+    using assms(1,3) by (auto simp: wp_def atomic_rule_def)
+  hence "x \<in> wp\<^sub>l (Basic \<alpha>) M" using assms(2) 1 by (auto simp: wp_def stable_def)
+  moreover have "x \<in> wp\<^sub>l (Basic \<alpha>) Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
   ultimately show ?case by (auto simp: wp_def)
 qed (insert assms, auto simp: atomic_rule_def wp_def)
 

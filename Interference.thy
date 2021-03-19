@@ -23,7 +23,7 @@ such that the early execution of \<alpha> is assumed to be possible and
 cannot invalidate sequential reasoning.\<close>
 definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
   where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
-          \<forall>Q. wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q))) \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q))) \<and> 
+          Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>\<beta>\<rangle> ; Env R ; Basic \<beta> \<and>
           guar \<alpha>\<langle>\<beta>\<rangle> G"
 
 text \<open>
@@ -31,10 +31,10 @@ Independence of program c and instruction \<alpha> under environment R,
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.
 Define by recursively iterating over the program and capturing the forwarding throughout.\<close>
-fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> bool"
+fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) com \<Rightarrow> 'a \<Rightarrow> bool"
   where
     "inter\<^sub>c R G (Basic \<beta>) \<alpha> = inter\<^sub>\<alpha> R G \<beta> \<alpha>" |
-    "inter\<^sub>c R G (c\<^sub>1 ;; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
+    "inter\<^sub>c R G (c\<^sub>1 ; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (c*) \<alpha> = inter\<^sub>c R G c \<alpha>" |
     "inter\<^sub>c R G _ \<alpha> = True"
@@ -44,14 +44,12 @@ Instrumented version of the semantics that collects the reordering effects.
 Given c \<mapsto>[\<alpha>,r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha> c', such that
 r should be the program \<alpha>' has to reorder with in c to execute and 
 \<alpha> should be \<alpha>' forwarded across r.\<close>
-inductive_set execute_collect :: "('a com \<times> 'a \<times> 'a com \<times> 'a \<times> 'a com) set"
-  and execute_collect_abv :: "'a com \<Rightarrow> 'a \<Rightarrow> 'a com \<Rightarrow> 'a \<Rightarrow> 'a com \<Rightarrow> bool"
+inductive execute_collect :: "('a,'b) com \<Rightarrow> 'a \<Rightarrow> ('a,'b) com \<Rightarrow> 'a \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_,_,_] _" [71,0,0,0,71] 70)
   where
-  "c \<mapsto>[\<alpha>,t,\<gamma>] c' \<equiv> (c, \<alpha>, t, \<gamma>, c') \<in> execute_collect" |
   act[intro]:  "Basic \<alpha> \<mapsto>[\<alpha>,Nil,\<alpha>] Nil" |
-  seq[intro]:  "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' ;; c\<^sub>2" |
-  ooo[intro]:  "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[\<gamma>,c\<^sub>2;;c,\<alpha>'] c\<^sub>2 ;; c\<^sub>1'"
+  seq[intro]:  "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' ; c\<^sub>2" |
+  ooo[intro]:  "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>[\<gamma>,c\<^sub>2;c,\<alpha>'] c\<^sub>2 ; c\<^sub>1'"
 inductive_cases execute_collect[elim]: "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1'"
 
 text \<open>Compute possible reorderings of the program using the instrumented semantics\<close>

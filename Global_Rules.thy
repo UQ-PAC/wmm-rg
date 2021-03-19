@@ -14,7 +14,7 @@ begin
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
-inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'a com \<Rightarrow> 'b pred \<Rightarrow> bool" 
+inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
 where
   thread[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> R,G \<turnstile> P { c } Q" |
@@ -59,7 +59,7 @@ qed
 lemma g_nilE [elim!]:
   assumes "R,G \<turnstile> P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
-  using assms by (induct R G P "Nil :: 'a com" Q) blast+
+  using assms by (induct R G P "Nil :: ('a,'b) com" Q) blast+
 
 lemma g_stable_preE:
   assumes "R,G \<turnstile> P {c} Q"
