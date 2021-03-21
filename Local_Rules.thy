@@ -6,15 +6,10 @@ chapter \<open>Local Rules\<close>
 
 text \<open>Define the rely/guarantee rules for a local program.\<close>
 
-locale local_rules = atomic_rules
-
-context local_rules
-begin
-
 section \<open>Base Rules\<close>
 
 text \<open>Rules of the logic over a thread, similar to standard Hoare-logic\<close>
-inductive lrules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
+inductive lrules :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'a pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>l _ {_} _" [20,0,0,0,20] 20)
 where
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { Nil } P" |
@@ -71,7 +66,7 @@ next
   then show ?case using lrules.conseq stable_conseqI by (metis subset_eq)
 qed
 
-text \<open>No local judgement can be established over parallel composition\<close>
+text \<open>No local judgement can be established over parallel composition or env steps\<close>
 lemma local_only:
   assumes "R,G \<turnstile>\<^sub>l P { c } Q"
   shows "local c"
@@ -100,7 +95,5 @@ next
     then show ?case using 1 choice(5)[OF b a] by blast
   qed
 qed blast+
-
-end
 
 end

@@ -10,30 +10,29 @@ Also introduces a notion of configuration, that couples programs and memory stat
 with transitions for the program and the environment.
 \<close>
 
-type_synonym ('a,'b) config = "('a,'b) com \<times> 'b"
+type_synonym ('a,'b) config = "('a,'b) com \<times> 'a"
 
-locale semantics = reordering re fwd + atomics behv vc
-  for re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
-  and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
-  and behv :: "'a \<Rightarrow> 'b rel"
-  and vc :: "'a \<Rightarrow> 'b set"
+locale semantics = reordering 
 
 context semantics
 begin
 
 section \<open>Program Transition Definitions\<close>
 
-text \<open>Small step semantics for an instruction execution\<close>
-text \<open>To remove reordering from the theory, it suffices to remove the out-of-order (ooo) case below\<close>
-inductive execute :: "('a,'b) com \<Rightarrow> 'a \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
-  ("_ \<mapsto>\<^sub>_ _" [71,73,71] 70)
+text \<open>
+Semantics that collects reordering effects.
+Given c \<mapsto>[\<alpha>,r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha> c', such that
+r should be the program \<alpha>' has to reorder with in c to execute and 
+\<alpha> should be \<alpha>' forwarded across r.\<close>
+inductive execute :: "('a,'b) com \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+  ("_ \<mapsto>[_,_,_] _" [71,0,0,0,71] 70)
   where
-  act[intro]:  "Basic \<alpha> \<mapsto>\<^sub>\<alpha> Nil" |
-  seq[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' ; c\<^sub>2" |
-  ooo[intro]:  "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>\<^sub>\<gamma> c\<^sub>2 ; c\<^sub>1'" |
-  par1[intro]: "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1' || c\<^sub>2" |
-  par2[intro]: "c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>\<^sub>\<alpha> c\<^sub>1 || c\<^sub>2'"
-inductive_cases executeE[elim]: "c\<^sub>1 \<mapsto>\<^sub>\<alpha> c\<^sub>1'"
+  act[intro]:  "Basic \<alpha> \<mapsto>[\<alpha>,Nil,\<alpha>] Nil" |
+  seq[intro]:  "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' ; c\<^sub>2" |
+  ooo[intro]:  "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> \<gamma> < c\<^sub>2 <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>[\<gamma>,c\<^sub>2;c,\<alpha>'] c\<^sub>2 ; c\<^sub>1'" |
+  par1[intro]: "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1' || c\<^sub>2" |
+  par2[intro]: "c\<^sub>2 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1 || c\<^sub>2'"
+inductive_cases execute[elim]: "c\<^sub>1 \<mapsto>[\<alpha>,c,\<alpha>'] c\<^sub>1'"
 
 text \<open>Small step semantics for a silent step\<close>
 inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -55,13 +54,13 @@ inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>
 lemma execute_neq:
-  assumes "c \<mapsto>\<^sub>\<alpha> c'"
+  assumes "c \<mapsto>[\<alpha>,r,\<alpha>'] c'"
   shows "c \<noteq> c'"
   using assms by (induct) auto
 
 lemma [simp]:
-  "c \<mapsto>\<^sub>\<alpha> c = False"
-  using execute_neq by auto
+  "c \<mapsto>[\<alpha>,r,\<alpha>'] c = False"
+  using execute_neq by blast
 
 text \<open>A silent step will not introduce parallelism\<close>
 lemma local_silent:
@@ -70,8 +69,14 @@ lemma local_silent:
 
 text \<open>An execution step will not introduce parallelism\<close>
 lemma local_execute:
-  "c \<mapsto>\<^sub>\<alpha> c' \<Longrightarrow> local c \<Longrightarrow> local c'"
+  "c \<mapsto>[\<alpha>,r,\<alpha>'] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
   by (induct rule: execute.induct) auto
+
+text \<open>Instrumented semantics collects valid reorderings\<close>
+lemma collect_reorder:
+  assumes "c \<mapsto>[\<alpha>',r,\<alpha>] c'"
+  shows "\<alpha>' < r <\<^sub>c \<alpha>"
+  using assms by (induct, auto)
 
 section \<open>Transition Definitions\<close>
 
@@ -83,7 +88,7 @@ abbreviation env_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarr
 
 text \<open>Program Execution Transition\<close>
 abbreviation exec_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
-  where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>\<alpha>. fst s \<mapsto>\<^sub>\<alpha> (fst s') \<and> (snd s,snd s') \<in> eval \<alpha>"
+  where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>\<alpha> r \<alpha>'. fst s \<mapsto>[\<alpha>,r,\<alpha>'] (fst s') \<and> (snd s,snd s') \<in> eval \<alpha>"
 
 text \<open>Program Silent Transition\<close>
 abbreviation sil_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)

@@ -6,7 +6,9 @@ chapter \<open>Global Rules\<close>
 
 text \<open>Define the rely/guarantee rules for a concurrent program.\<close>
 
-locale global_rules = local_rules + interference
+locale global_rules = interference re fwd
+  for re :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
+  and fwd :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) inst" ("_\<langle>_\<rangle>" [1000,0] 1000)
 
 context global_rules
 begin
@@ -14,7 +16,7 @@ begin
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
-inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
+inductive rules :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'a pred \<Rightarrow> bool" 
   ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
 where
   thread[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> R,G \<turnstile> P { c } Q" |

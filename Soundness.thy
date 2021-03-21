@@ -4,17 +4,12 @@ begin
 
 chapter \<open>Soundness\<close>
 
-locale soundness = global_rules
-
-context soundness
-begin
-
 section \<open>Helper Definitions\<close>
 
 text \<open>Strongest postcondition across arbitrary environment steps, 
       used to compute some new intermediate states for reasoning\<close>
-definition sp :: "'a \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "sp \<alpha> R P \<equiv> {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> behv \<alpha> \<and> (m'',m) \<in> R\<^sup>* }"
+definition sp :: "('a,'b) inst \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> 'a pred"
+  where "sp \<alpha> R P \<equiv> {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> beh \<alpha> \<and> (m'',m) \<in> R\<^sup>* }"
 
 text \<open>Re-establish an atomic judgement with its strongest postcondition\<close>
 lemma atomic_strongest:
@@ -28,6 +23,13 @@ proof -
     using assms unfolding atomic_rule_def wp_def stable_def sp_def by fastforce
   ultimately show ?thesis by auto
 qed
+
+locale soundness = global_rules re fwd
+  for re :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
+  and fwd :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) inst" ("_\<langle>_\<rangle>" [1000,0] 1000)
+
+context soundness
+begin
 
 section \<open>Reordering Rules\<close> 
 
@@ -53,11 +55,11 @@ proof -
   have g: "guar \<alpha>\<langle>\<beta>\<rangle> G" using assms(4) by (auto simp: inter\<^sub>\<alpha>_def)
 
   \<comment> \<open>Show transition from P to Q is independent of order\<close>
-  have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> wp\<^sub>t R M" "P \<subseteq> wp\<^sub>t R P" "Q \<subseteq> wp\<^sub>t R Q"
+  have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> wp UNIV (R\<^sup>* ) M" "P \<subseteq>  wp UNIV (R\<^sup>* ) P" "Q \<subseteq>  wp UNIV (R\<^sup>* ) Q"
     using assms(1,2)  unfolding atomic_rule_def by (auto intro!: stable_wp\<^sub>tI)
-  hence "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha> Q)))" unfolding wp_def by blast
-  hence exec: "P \<subseteq> wp\<^sub>t R (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> (wp\<^sub>t R (wp\<^sub>\<alpha> \<beta> Q)))" using ref by (auto simp: refine_def)
-  hence vc: "P \<subseteq> vc \<alpha>\<langle>\<beta>\<rangle>" by (auto simp: wp_def)
+  hence "P \<subseteq>  wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<beta> ( wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<alpha> Q)))" unfolding wp_def by blast
+  hence exec: "P \<subseteq>  wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> ( wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<beta> Q)))" using ref by (auto simp: refine_def)
+  hence vc: "P \<subseteq> fst \<alpha>\<langle>\<beta>\<rangle>" by (auto simp: wp_def)
 
   \<comment> \<open>Establish the late judgement over \<beta>\<close>
   have "R,G \<turnstile>\<^sub>A ?M {\<beta>} Q" 
@@ -137,15 +139,15 @@ next
   have [simp]: "\<alpha>' = \<alpha>" using Loop by auto
   have \<alpha>: "\<alpha> < c <\<^sub>c \<alpha>" using Loop by auto
   have "R,G \<turnstile>\<^sub>A I {\<alpha>} Q" using Loop(4) i(3,4) by (meson atomic_pre)
-  hence s: "R,G \<turnstile>\<^sub>A I {\<alpha>} (sp \<alpha> R I)" "sp \<alpha> R I \<subseteq> Q" using atomic_strongest by auto
+  hence s: "R,G \<turnstile>\<^sub>A I {\<alpha>} (sp \<alpha> R I)" "sp \<alpha> R I \<subseteq> Q" using atomic_strongest by blast+
   have d: "inter\<^sub>c R G c \<alpha>" using Loop by auto
 
   show ?case
   proof (rule Loop(1)[OF _ i(2) s(1) \<alpha> d], goal_cases outer)
     case (outer P' I')
     hence "R,G \<turnstile>\<^sub>A I {\<alpha>} I'" using i(3) by (meson atomic_pre)
-    hence "sp \<alpha> R I \<subseteq> I'" using atomic_strongest by auto
-    hence "R,G \<turnstile>\<^sub>l (sp \<alpha> R I) {c} (sp \<alpha> R I)" using outer(3) lrules.conseq by simp
+    hence "sp \<alpha> R I \<subseteq> I'" using atomic_strongest by blast
+    hence "R,G \<turnstile>\<^sub>l (sp \<alpha> R I) {c} (sp \<alpha> R I)" using outer(3) lrules.conseq by auto
     hence "R,G \<turnstile>\<^sub>l (sp \<alpha> R I) {c*} (sp \<alpha> R I)" using s(1) by (meson loop atomic_rule_def)
     hence "R,G \<turnstile>\<^sub>l (sp \<alpha> R I) {c*} Q" using s(2) conseq by blast
     then show ?case using Loop(2)[OF i(1)] s(1) by simp
@@ -201,12 +203,12 @@ next
   hence m'': "R,G \<turnstile>\<^sub>l P {c\<^sub>1} P'" using m(1) by blast
   have "\<alpha>'\<llangle>c\<rrangle> = \<alpha>" using ooo(1) collect_reorder by auto
   then show ?case using reorder_prog[OF m'' m'(2) ooo(3)] i(1) m'(3) by (metis lrules.seq)
-qed 
+qed auto
 
 text \<open>Global judgements are preserved across execution steps - reordering or not \<close>
 lemma g_stepI:
   assumes "R,G \<turnstile> P {c} Q"
-  assumes "c \<mapsto>\<^sub>\<alpha> c'"
+  assumes "c \<mapsto>[\<alpha>,r,\<alpha>'] c'"
   shows "\<exists>P' M. P \<subseteq> P' \<and> (R,G \<turnstile>\<^sub>A P' {\<alpha>} M) \<and> (R,G \<turnstile> M {c'} Q)"
   using assms
 proof (induct arbitrary: \<alpha> c' rule: rules.induct)
@@ -235,63 +237,50 @@ proof (induct arbitrary: \<alpha> c' rule: rules.induct)
   qed 
 next
   case (conseq R G P c Q P' R' G' Q')
-  thus ?case using rules.conseq atomic_conseqI by (meson order_refl subset_trans)
+  thus ?case using rules.conseq atomic_conseqI by (smt dual_order.trans order_refl)
 next
   case (frame R G P c Q R' M')
   then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {c'} Q" by metis
   thus ?case using rules.frame atomic_frameI frame(3,4) by blast
 next
   case (thread R G P c Q)
-  hence "local c" using local_only by auto
-  then obtain r \<alpha>'' where c: "c \<mapsto>[\<alpha>,r,\<alpha>''] c'" using thread exec_collect by blast
-  then show ?case 
-    using stepI[OF c thread(1)] thread(2) indep_stepI[OF thread(2) c] by auto 
+  then show ?case using stepI[OF thread(3,1)] thread(2) indep_stepI[OF thread(2,3)] by auto 
 qed
 
 section \<open>Soundness\<close>
 
-text \<open>Set of all config traces that start with a program c\<close>
-definition cp :: "('a,'b) com \<Rightarrow> ('a,'b) config list set"
-  where "cp c \<equiv> {t. t \<in> transitions \<and> fst (t ! 0) = c}"
+text \<open>All traces that start with a program c\<close>
+fun cp :: "('a,'b) com \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+  where "cp c t = (t \<in> transitions \<and> fst (t ! 0) = c)"
 
-text \<open>Set of all config traces that satisfy a precondition in their first state\<close>
-definition pre :: "'b pred \<Rightarrow> ('a,'b) config list set"
-  where "pre P \<equiv> {t. snd (t!0) \<in> P}"
+text \<open>All traces that satisfy a precondition in their first state\<close>
+fun pre :: "'a pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+  where 
+    "pre P (s#t) = (snd s \<in> P)" | 
+    "pre P [] = True"
 
-text \<open>Set of all config traces where environment steps satisfy a rely\<close>
-definition rely :: "'b rpred \<Rightarrow> ('a,'b) config list set"
-  where "rely R \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -e\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> R)}"
+text \<open>All traces that satisfy a postcondition in their final state given termination\<close>
+fun post :: "'a pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+  where 
+    "post Q [s] = (fst s = Nil \<longrightarrow> snd s \<in> Q)" | 
+    "post Q (s#t) = post Q t" | 
+    "post Q [] = True"
 
-text \<open>Set of all config traces where program steps satisfy a guarantee\<close>
-definition gurn :: "'b rpred \<Rightarrow> ('a,'b) config list set"
-  where "gurn G \<equiv> {t. (\<forall>i. Suc i < length t \<longrightarrow> t!i -c\<rightarrow> t!Suc i \<longrightarrow> (snd(t!i), snd(t!Suc i)) \<in> G\<^sup>=)}"
+text \<open>All traces where program steps satisfy a guarantee\<close>
+fun gurn :: "'a rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+  where
+    "gurn G (s#s'#t) = (gurn G (s'#t) \<and> (s -c\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> G\<^sup>=))" |
+    "gurn G _ = True"
 
-text \<open>Set of all config traces that satisfy a postcondition in their final state\<close>
-definition post :: "'b pred \<Rightarrow> ('a,'b) config list set"
-  where "post Q \<equiv> {t. fst (last t) = Nil \<longrightarrow> snd (last t) \<in> Q}"
+text \<open>All traces where environment steps satisfy a rely\<close>
+fun rely :: "'a rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+  where
+    "rely R (s#s'#t) = (rely R (s'#t) \<and> (s -e\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> R))" |
+    "rely R _ = True"
 
 text \<open>Validity of the rely/guarantee judgements\<close>
 definition validity ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0,0] 45) 
-  where "\<Turnstile> c SAT [P, R, G, Q] \<equiv> cp c \<inter> pre P \<inter> rely R \<subseteq> gurn G \<inter> post Q"
-
-subsection \<open>Properties\<close>
-
-lemma gurn [simp]:
-  "(s # s' # t \<in> gurn G) = (s' # t \<in> gurn G \<and> (s -c\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> G\<^sup>=))"
-  unfolding gurn_def using length_Suc_conv less_Suc_eq_0_disj by auto
-
-lemma rely [simp]:
-  "(s # s' # t \<in> rely R) = (s' # t \<in> rely R \<and> (s -e\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> R))"
-  unfolding rely_def using length_Suc_conv less_Suc_eq_0_disj by auto
-
-lemma pre [simp]:
-  "(s # t \<in> pre P) = (snd s \<in> P)"
-  by (auto simp: pre_def)
-
-lemma post [simp]:
-  "([x] \<in> post P) = (fst x = Nil \<longrightarrow> snd x \<in> P)"
-  "(s # s' # t \<in> post Q) = (s' # t \<in> post Q)"
-  by (auto simp: post_def)
+  where "\<Turnstile> c SAT [P, R, G, Q] \<equiv> \<forall>t. cp c t \<and> pre P t \<and> rely R t \<longrightarrow> post Q t \<and> gurn G t"
 
 subsection \<open>Soundness Proof\<close>
 
@@ -299,21 +288,21 @@ text \<open>All transitions that start with a program with a logic judgement and
       the precondition and environment rely should conform to the guarantee and
       establish the postcondition if they terminate\<close>
 lemma sound_transitions:
-  assumes "t \<in> transitions" "fst (t ! 0) = c" "R,G \<turnstile> P {c} Q" "t \<in> pre P \<inter> rely R"
-  shows "t \<in> gurn G \<inter> post Q"
+  assumes "t \<in> transitions" "fst (t ! 0) = c" "R,G \<turnstile> P {c} Q" "pre P t \<and> rely R t"
+  shows "post Q t \<and> gurn G t"
   using assms
 proof (induct arbitrary: c P rule: transitions.induct)
   case (one s)
-  thus ?case using gurn_def by force
+  thus ?case by force
 next
   case (env s s' t)
   then obtain P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by (metis g_stable_preE) 
   thus ?case using env by (auto simp: stable_def)
 next
   case (prg s s' t)
-  then obtain \<alpha> where \<alpha>: "c \<mapsto>\<^sub>\<alpha> (fst s')" "(snd s,snd s') \<in> eval \<alpha>" by auto
+  then obtain \<alpha> r \<alpha>' where \<alpha>: "c \<mapsto>[\<alpha>,r,\<alpha>'] (fst s')" "(snd s,snd s') \<in> eval \<alpha>" by auto
   then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {fst s'} Q"
-    using g_stepI[OF prg(5) \<alpha>(1)] by metis
+    using g_stepI[OF prg(5) \<alpha>(1)] by metis    
   thus ?case using prg \<alpha> unfolding atomic_rule_def wp_def eval_def by fastforce
 next
   case (sil s s' t)
@@ -323,7 +312,7 @@ qed
 theorem sound:
   assumes "R,G \<turnstile> P { c } Q"
   shows "\<Turnstile> c SAT [P, R, G, Q]"
-  using assms sound_transitions by (auto simp: validity_def cp_def)
+  using assms sound_transitions by (auto simp: validity_def)
 
 end
 
