@@ -46,7 +46,7 @@ section \<open>Atomic Properties\<close>
 
 text \<open>Weakest precondition of a basic instruction, based on the locale's 
       verification conditions and behaviours.\<close>
-abbreviation wp\<^sub>\<alpha> :: "('a,'b) inst \<Rightarrow> 'a set \<Rightarrow> 'a set"
+abbreviation wp\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'a set \<Rightarrow> 'a set"
   where "wp\<^sub>\<alpha> \<alpha> Q \<equiv> wp (vc \<alpha>) (beh \<alpha>) Q"
 
 text \<open>Weakest precondition of a program, only covering basic instructions, environment steps and 
@@ -62,17 +62,17 @@ definition refine :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool" 
   where "c \<sqsubseteq> c' \<equiv> \<forall>Q. wp\<^sub>c c Q \<subseteq> wp\<^sub>c c' Q"
 
 text \<open>Merge the verification condition and behaviour to define evaluation\<close>
-definition eval :: "('a,'b) inst \<Rightarrow> 'a rpred"
+definition eval :: "('a,'b) basic \<Rightarrow> 'a rpred"
   where "eval \<alpha> \<equiv> {(m,m'). m \<in> vc \<alpha> \<longrightarrow> (m,m') \<in> beh \<alpha>}"
 
 text \<open>Specification check, ensuring an instruction conforms to a relation\<close>
-abbreviation guar :: "('a,'b) inst \<Rightarrow> 'a rpred \<Rightarrow> bool"
+abbreviation guar :: "('a,'b) basic \<Rightarrow> 'a rpred \<Rightarrow> bool"
   where "guar \<alpha> G \<equiv> {(m,m'). m \<in> vc \<alpha>} \<inter> beh \<alpha> \<subseteq> G"
 
 section \<open>Atomic Rule\<close>
 
 text \<open>Rule for an atomic operation\<close>
-definition atomic_rule :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) inst \<Rightarrow> 'a pred \<Rightarrow> bool" 
+definition atomic_rule :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) basic \<Rightarrow> 'a pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [40,0,0,0,40] 40)
   where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> guar \<alpha> G \<and> stable R P \<and> stable R Q"
 

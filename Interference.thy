@@ -10,9 +10,7 @@ First defines properties to avoid interference for the early execution of an ins
 and then defines all possible early executions that may be observed for a program.
 \<close>
                          
-locale interference = semantics re fwd
-  for re :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
-  and fwd :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) inst" ("_\<langle>_\<rangle>" [1000,0] 1000)
+locale interference = semantics 
 
 context interference
 begin
@@ -23,7 +21,7 @@ text \<open>
 Independence of two instructions \<beta> and \<alpha> under environment R, 
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.\<close>
-definition inter\<^sub>\<alpha> :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> bool"
+definition inter\<^sub>\<alpha> :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
           Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>\<beta>\<rangle> ; Env R ; Basic \<beta> \<and>
           guar \<alpha>\<langle>\<beta>\<rangle> G"
@@ -33,7 +31,7 @@ Independence of program c and instruction \<alpha> under environment R,
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.
 Define by recursively iterating over the program and capturing the forwarding throughout.\<close>
-fun inter\<^sub>c :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) inst \<Rightarrow> bool"
+fun inter\<^sub>c :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where
     "inter\<^sub>c R G (Basic \<beta>) \<alpha> = inter\<^sub>\<alpha> R G \<beta> \<alpha>" |
     "inter\<^sub>c R G (c\<^sub>1 ; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |

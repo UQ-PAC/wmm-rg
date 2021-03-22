@@ -6,9 +6,9 @@ chapter \<open>Global Rules\<close>
 
 text \<open>Define the rely/guarantee rules for a concurrent program.\<close>
 
-locale global_rules = interference re fwd
-  for re :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
-  and fwd :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) inst" ("_\<langle>_\<rangle>" [1000,0] 1000)
+print_locale interference
+
+locale global_rules = interference 
 
 context global_rules
 begin

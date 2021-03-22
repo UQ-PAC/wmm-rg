@@ -8,7 +8,7 @@ section \<open>Helper Definitions\<close>
 
 text \<open>Strongest postcondition across arbitrary environment steps, 
       used to compute some new intermediate states for reasoning\<close>
-definition sp :: "('a,'b) inst \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> 'a pred"
+definition sp :: "('a,'b) basic \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> 'a pred"
   where "sp \<alpha> R P \<equiv> {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> beh \<alpha> \<and> (m'',m) \<in> R\<^sup>* }"
 
 text \<open>Re-establish an atomic judgement with its strongest postcondition\<close>
@@ -24,9 +24,7 @@ proof -
   ultimately show ?thesis by auto
 qed
 
-locale soundness = global_rules re fwd
-  for re :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
-  and fwd :: "('a,'b) inst \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) inst" ("_\<langle>_\<rangle>" [1000,0] 1000)
+locale soundness = global_rules 
 
 context soundness
 begin
@@ -65,13 +63,13 @@ proof -
   have "R,G \<turnstile>\<^sub>A ?M {\<beta>} Q" 
   proof (unfold atomic_rule_def, intro conjI Int_greatest)
     show "?M \<subseteq> wp\<^sub>\<alpha> \<beta> Q" using exec unfolding wp_def sp_def by blast
-  qed (insert stablePQ stableM, simp)
+  qed (insert stablePQ stableM, auto)
 
   \<comment> \<open>Establish the early judgement over the new \<alpha>\<close>
   moreover have "R,G \<turnstile>\<^sub>A P {\<alpha>\<langle>\<beta>\<rangle>} ?M"
   proof (unfold atomic_rule_def, intro conjI Int_greatest)
     show "P \<subseteq> wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> ?M" using vc unfolding wp_def wf_def sp_def by blast
-  qed (insert stablePQ stableM g, simp)
+  qed (insert stablePQ stableM g, auto)
 
   ultimately show ?thesis using that by blast
 qed
@@ -288,7 +286,7 @@ text \<open>All transitions that start with a program with a logic judgement and
       the precondition and environment rely should conform to the guarantee and
       establish the postcondition if they terminate\<close>
 lemma sound_transitions:
-  assumes "t \<in> transitions" "fst (t ! 0) = c" "R,G \<turnstile> P {c} Q" "pre P t \<and> rely R t"
+  assumes "t \<in> transitions" "fst (t ! 0) = c" "R,G \<turnstile> P {c} Q" "pre P t" "rely R t"
   shows "post Q t \<and> gurn G t"
   using assms
 proof (induct arbitrary: c P rule: transitions.induct)
@@ -301,9 +299,11 @@ next
 next
   case (prg s s' t)
   then obtain \<alpha> r \<alpha>' where \<alpha>: "c \<mapsto>[\<alpha>,r,\<alpha>'] (fst s')" "(snd s,snd s') \<in> eval \<alpha>" by auto
-  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {fst s'} Q"
+  then obtain P' M where p: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {fst s'} Q"
     using g_stepI[OF prg(5) \<alpha>(1)] by metis    
-  thus ?case using prg \<alpha> unfolding atomic_rule_def wp_def eval_def by fastforce
+  hence "rely R (s' # t)" "pre M (s' # t)" "(snd s, snd s') \<in> G\<^sup>="
+    using prg \<alpha>(2) by (auto simp: eval_def atomic_rule_def wp_def)
+  thus ?case using prg p(3) by auto
 next
   case (sil s s' t)
   thus ?case by auto

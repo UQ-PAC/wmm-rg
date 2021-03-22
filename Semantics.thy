@@ -24,7 +24,7 @@ Semantics that collects reordering effects.
 Given c \<mapsto>[\<alpha>,r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha> c', such that
 r should be the program \<alpha>' has to reorder with in c to execute and 
 \<alpha> should be \<alpha>' forwarded across r.\<close>
-inductive execute :: "('a,'b) com \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) inst \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive execute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_,_,_] _" [71,0,0,0,71] 70)
   where
   act[intro]:  "Basic \<alpha> \<mapsto>[\<alpha>,Nil,\<alpha>] Nil" |

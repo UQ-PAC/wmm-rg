@@ -4,13 +4,16 @@ begin
 
 chapter \<open>While Language Syntax\<close>
 
-type_synonym ('a,'b) inst = "'a set \<times> 'a rel \<times> 'b"
+type_synonym ('a,'b) basic = "'a set \<times> 'a rel \<times> 'b"
 
-abbreviation vc :: "('a,'b) inst \<Rightarrow> 'a set"
+abbreviation vc :: "('a,'b) basic \<Rightarrow> 'a set"
   where "vc \<alpha> \<equiv> fst \<alpha>"
 
-abbreviation beh :: "('a,'b) inst \<Rightarrow> 'a rel"
+abbreviation beh :: "('a,'b) basic \<Rightarrow> 'a rel"
   where "beh \<alpha> \<equiv> fst (snd \<alpha>)"
+
+abbreviation id :: "('a,'b) basic \<Rightarrow> 'b"
+  where "id \<alpha> \<equiv> snd (snd \<alpha>)"
 
 text \<open>
 A While language with non-deterministic choice, iteration and parallel composition.
@@ -19,7 +22,7 @@ refinement properties. These have no evaluation semantics or rules however.
 \<close>
 datatype ('a,'b) com =
   Nil
-  | Basic "('a,'b) inst"
+  | Basic "('a,'b) basic"
   | Seq "('a,'b) com" "('a,'b) com" (infixr ";" 80)
   | Choice "('a,'b) com" "('a,'b) com" (infixr "\<sqinter>" 150)
   | Loop "('a,'b) com" ("_*" [100] 150)
