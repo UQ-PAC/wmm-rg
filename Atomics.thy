@@ -44,16 +44,24 @@ lemma stable_wp\<^sub>tI:
 
 section \<open>Atomic Properties\<close>
 
+locale atomic =
+  fixes vc :: "'a \<Rightarrow> 'b set"
+  and beh :: "'a \<Rightarrow> 'b rel"
+
+context atomic
+begin
+
 text \<open>Weakest precondition of a basic instruction, based on the locale's 
       verification conditions and behaviours.\<close>
-abbreviation wp\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'a set \<Rightarrow> 'a set"
+abbreviation wp\<^sub>\<alpha> :: "'a \<Rightarrow> 'b set \<Rightarrow> 'b set"
   where "wp\<^sub>\<alpha> \<alpha> Q \<equiv> wp (vc \<alpha>) (beh \<alpha>) Q"
 
 text \<open>Weakest precondition of a program, only covering basic instructions, environment steps and 
       sequential composition as these are sufficient for the logic's checks.\<close>
-fun wp\<^sub>c :: "('a,'b) com \<Rightarrow> 'a set \<Rightarrow> 'a set"
+fun wp\<^sub>c :: "('a,'b) com \<Rightarrow> 'b set \<Rightarrow> 'b set"
   where 
     "wp\<^sub>c (Basic \<alpha>) Q = wp\<^sub>\<alpha> \<alpha> Q" |
+    "wp\<^sub>c (Rel r) Q = wp UNIV r Q" |
     "wp\<^sub>c (c\<^sub>1 ; c\<^sub>2) Q = wp\<^sub>c c\<^sub>1 (wp\<^sub>c c\<^sub>2 Q)" |
     "wp\<^sub>c _ Q = undefined"
 
@@ -62,17 +70,24 @@ definition refine :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool" 
   where "c \<sqsubseteq> c' \<equiv> \<forall>Q. wp\<^sub>c c Q \<subseteq> wp\<^sub>c c' Q"
 
 text \<open>Merge the verification condition and behaviour to define evaluation\<close>
-definition eval :: "('a,'b) basic \<Rightarrow> 'a rpred"
+definition eval :: "'a \<Rightarrow> 'b rpred"
   where "eval \<alpha> \<equiv> {(m,m'). m \<in> vc \<alpha> \<longrightarrow> (m,m') \<in> beh \<alpha>}"
 
 text \<open>Specification check, ensuring an instruction conforms to a relation\<close>
-abbreviation guar :: "('a,'b) basic \<Rightarrow> 'a rpred \<Rightarrow> bool"
-  where "guar \<alpha> G \<equiv> {(m,m'). m \<in> vc \<alpha>} \<inter> beh \<alpha> \<subseteq> G"
+abbreviation guar :: "'a \<Rightarrow> 'b rpred \<Rightarrow> bool"
+  where "guar \<alpha> G \<equiv> {(m,m'). m \<in> vc \<alpha>} \<inter> beh \<alpha> \<subseteq> G\<^sup>="
+
+end
 
 section \<open>Atomic Rule\<close>
 
+locale atomic_rule = atomic
+
+context atomic_rule
+begin
+
 text \<open>Rule for an atomic operation\<close>
-definition atomic_rule :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) basic \<Rightarrow> 'a pred \<Rightarrow> bool" 
+definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'a \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [40,0,0,0,40] 40)
   where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> guar \<alpha> G \<and> stable R P \<and> stable R Q"
 
@@ -107,11 +122,13 @@ lemma atomic_frameI [intro]:
   unfolding atomic_rule_def
 proof (safe, goal_cases)
   case (1 x)
-  hence "{(m,m'). m \<in> P \<inter> vc \<alpha>} \<inter> beh \<alpha> \<subseteq> R\<^sub>2" "x \<in> vc \<alpha>"
+  hence "{(m,m'). m \<in> P \<inter> vc \<alpha>} \<inter> beh \<alpha> \<subseteq> R\<^sub>2\<^sup>=" "x \<in> vc \<alpha>"
     using assms(1,3) by (auto simp: wp_def atomic_rule_def)
   hence "x \<in> wp\<^sub>\<alpha> \<alpha> M" using assms(2) 1 by (auto simp: wp_def stable_def)
   moreover have "x \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
   ultimately show ?case by (auto simp: wp_def)
 qed (insert assms, auto simp: atomic_rule_def wp_def)
+
+end
 
 end

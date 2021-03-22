@@ -6,10 +6,15 @@ chapter \<open>Local Rules\<close>
 
 text \<open>Define the rely/guarantee rules for a local program.\<close>
 
+locale local_rules = atomic_rule
+
+context local_rules
+begin
+
 section \<open>Base Rules\<close>
 
 text \<open>Rules of the logic over a thread, similar to standard Hoare-logic\<close>
-inductive lrules :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'a pred \<Rightarrow> bool" 
+inductive lrules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>l _ {_} _" [20,0,0,0,20] 20)
 where
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { Nil } P" |
@@ -95,5 +100,20 @@ next
     then show ?case using 1 choice(5)[OF b a] by blast
   qed
 qed blast+
+
+lemma [intro]:
+  "stable R {}"
+  by (auto simp: stable_def)
+
+lemma falseI:
+  assumes "\<forall>\<beta> \<in> basics c. guar \<beta> G" "local c"
+  shows "R,G \<turnstile>\<^sub>l {} {c} {}"
+  using assms
+proof (induct c)
+  case (Basic x)
+  then show ?case using atomic_rule_def by force
+qed auto
+
+end
 
 end

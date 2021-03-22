@@ -8,7 +8,7 @@ text \<open>Define the rely/guarantee rules for a concurrent program.\<close>
 
 print_locale interference
 
-locale global_rules = interference 
+locale global_rules = interference + local_rules
 
 context global_rules
 begin
@@ -16,7 +16,7 @@ begin
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
-inductive rules :: "'a rpred \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'a pred \<Rightarrow> bool" 
+inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
 where
   thread[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> R,G \<turnstile> P { c } Q" |

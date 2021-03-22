@@ -12,7 +12,7 @@ models based on a notion of interfering local operation pairs.
 - Soundness.thy: Definition and proof of soundness
 
 ## TODO
-- [ ] Specialise semantics for ARMv8
+- [x] Specialise semantics for ARMv8
 - [ ] Finish verification of executable interference analysis
 - [ ] Add WP + verify some examples using Nieto's automation
 - [ ] State dependent reordering

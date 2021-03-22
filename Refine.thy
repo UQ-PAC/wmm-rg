@@ -9,11 +9,11 @@ This extension to the soundness proof demonstrates the rely/guarantee validity
 property over the real execution given an abstract implementation.
 \<close>
 
-definition act_ref
-  where "act_ref \<alpha> \<beta> \<equiv> vc \<alpha> \<subseteq> vc \<beta> \<and> beh \<beta> \<subseteq> beh \<alpha> \<and> snd (snd \<alpha>) = snd (snd \<beta>)"
-
 locale refine = soundness +
-  assumes fwd_act_ref: "\<And>(\<gamma> :: ('a,'b) basic) \<beta> \<alpha>. act_ref \<beta> \<alpha> \<Longrightarrow> \<gamma> \<hookleftarrow> \<alpha>\<langle>\<gamma>\<rangle> \<Longrightarrow> \<gamma> \<hookleftarrow> \<beta>\<langle>\<gamma>\<rangle> \<and> act_ref \<beta>\<langle>\<gamma>\<rangle> \<alpha>\<langle>\<gamma>\<rangle>"
+  fixes act_ref :: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  assumes ref_vc: "act_ref \<alpha> \<beta> \<Longrightarrow> vc \<alpha> \<subseteq> vc \<beta>"
+  assumes ref_beh: "act_ref \<alpha> \<beta> \<Longrightarrow> beh \<beta> \<subseteq> beh \<alpha>"
+  assumes ref_re: "act_ref \<gamma>\<^sub>1 \<gamma>\<^sub>2 \<Longrightarrow> \<gamma>\<^sub>2 \<hookleftarrow> \<alpha>\<langle>\<gamma>\<^sub>2\<rangle> \<Longrightarrow> act_ref \<beta> \<alpha> \<Longrightarrow> \<gamma>\<^sub>1 \<hookleftarrow> \<beta>\<langle>\<gamma>\<^sub>1\<rangle> \<and> act_ref \<beta>\<langle>\<gamma>\<^sub>1\<rangle> \<alpha>\<langle>\<gamma>\<^sub>2\<rangle>"
 
 context refine
 begin
@@ -47,32 +47,17 @@ next
   show ?case using 5(4,3,2,1) by cases force+
 qed auto
 
-lemma lang_ref_fwd_eq:
-  assumes "lang_ref c\<^sub>1 c\<^sub>2" "\<alpha>' < c\<^sub>2 <\<^sub>c \<alpha>"
-  shows "\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>"
-  using assms
-proof (induct c\<^sub>1 c\<^sub>2 arbitrary: \<alpha> \<alpha>' rule: lang_ref.induct)
-  case (2 \<alpha> \<beta>)
-  then show ?case by (auto simp: act_ref_def)
-next
-  case (3 c\<^sub>1 c\<^sub>2 c\<^sub>3 c\<^sub>4)
-  then show ?case by (meson lang_ref.simps(3) reorder_com.simps(3))
-qed auto
-
 lemma fwd_ref:
-  "\<alpha>' < c <\<^sub>c \<alpha> \<Longrightarrow> act_ref \<beta> \<alpha> \<Longrightarrow> \<exists>\<beta>'. \<beta>' < c <\<^sub>c \<beta> \<and> act_ref \<beta>' \<alpha>'"
-proof (induct c arbitrary: \<alpha> \<alpha>' \<beta>)
-  case (Basic \<gamma>)
-  then show ?case using fwd_act_ref by auto
-next
-  case (Seq c1 c2)
-  then show ?case by (smt reorder_com.simps(3))
-qed auto
-
-lemma lang_ref_fwd_ref:
   assumes "lang_ref c\<^sub>1 c\<^sub>2" "\<alpha>' < c\<^sub>2 <\<^sub>c \<alpha>" "act_ref \<beta> \<alpha>"
   obtains \<beta>' where "\<beta>' < c\<^sub>1 <\<^sub>c \<beta>" "act_ref \<beta>' \<alpha>'"
-  using assms fwd_ref lang_ref_fwd_eq by blast
+  using assms
+proof (induct c\<^sub>1 c\<^sub>2 arbitrary: \<alpha> \<beta> \<alpha>' rule: lang_ref.induct)
+  case (2 \<gamma>\<^sub>1 \<gamma>\<^sub>2)
+  then show ?case using ref_re by force
+next
+  case (3 c\<^sub>1 c\<^sub>2 c\<^sub>3 c\<^sub>4)
+  then show ?case by (smt lang_ref.simps(3) reorder_com.simps(3))
+qed auto
 
 lemma lang_ref_prg:
   assumes "lang_ref c\<^sub>1 c\<^sub>2" "c\<^sub>2 \<mapsto>[\<alpha>,r,\<alpha>'] c\<^sub>2'" 
@@ -93,7 +78,7 @@ next
     proof (rule 3(2)[OF _ _ ooo(3)], goal_cases)
       case (1 \<beta> r' \<beta>' c\<^sub>1')
       obtain \<beta>' where "\<beta>' < c\<^sub>1 <\<^sub>c \<beta>" "act_ref \<beta>' \<alpha>" 
-        using lang_ref_fwd_ref[OF _ ooo(4) 1(3), of c\<^sub>1] 3(4) by auto
+        using fwd_ref[OF _ ooo(4) 1(3), of c\<^sub>1] 3(4) by auto
       then show ?case using 3(3) 3(4,5) 1 ooo by (meson lang_ref.simps(3) semantics.ooo)
     next
       case 2
@@ -119,7 +104,7 @@ next
   then obtain \<alpha> r \<alpha>' where \<alpha>: "c\<^sub>2 \<mapsto>[\<alpha>,r,\<alpha>'] (fst s')" "(snd s,snd s') \<in> eval \<alpha>" by auto
   then obtain \<beta> r' \<beta>' c\<^sub>1' where \<beta>: 
       "c\<^sub>1 \<mapsto>[\<beta>,r',\<beta>'] c\<^sub>1'" "lang_ref c\<^sub>1' (fst s')" "vc \<beta> \<subseteq> vc \<alpha>" "beh \<alpha> \<subseteq> beh \<beta>" 
-    using lang_ref_prg act_ref_def prg(8) by metis
+    using lang_ref_prg ref_vc ref_beh prg(8) by metis
   then obtain P' M where p: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
     using g_stepI[OF prg(5) \<beta>(1)] by metis
   hence "rely R (s' # t)" "pre M (s' # t)" "(snd s, snd s') \<in> G\<^sup>="

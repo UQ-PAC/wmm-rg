@@ -10,9 +10,13 @@ Also introduces a notion of configuration, that couples programs and memory stat
 with transitions for the program and the environment.
 \<close>
 
-type_synonym ('a,'b) config = "('a,'b) com \<times> 'a"
+type_synonym ('a,'b) config = "('a,'b) com \<times> 'b"
 
-locale semantics = reordering 
+locale semantics = reordering fwd re + atomic vc beh
+  for vc :: "'a \<Rightarrow> 'b set"
+  and beh :: "'a \<Rightarrow> 'b rel"
+  and fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
+  and re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
 
 context semantics
 begin
@@ -24,7 +28,7 @@ Semantics that collects reordering effects.
 Given c \<mapsto>[\<alpha>,r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha> c', such that
 r should be the program \<alpha>' has to reorder with in c to execute and 
 \<alpha> should be \<alpha>' forwarded across r.\<close>
-inductive execute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive execute :: "('a,'b) com \<Rightarrow> 'a \<Rightarrow> ('a,'b) com \<Rightarrow> 'a \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_,_,_] _" [71,0,0,0,71] 70)
   where
   act[intro]:  "Basic \<alpha> \<mapsto>[\<alpha>,Nil,\<alpha>] Nil" |

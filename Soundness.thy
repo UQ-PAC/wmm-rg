@@ -4,11 +4,16 @@ begin
 
 chapter \<open>Soundness\<close>
 
+locale soundness = global_rules 
+
+context soundness
+begin
+
 section \<open>Helper Definitions\<close>
 
 text \<open>Strongest postcondition across arbitrary environment steps, 
       used to compute some new intermediate states for reasoning\<close>
-definition sp :: "('a,'b) basic \<Rightarrow> 'a rpred \<Rightarrow> 'a pred \<Rightarrow> 'a pred"
+definition sp :: "'a \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
   where "sp \<alpha> R P \<equiv> {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> beh \<alpha> \<and> (m'',m) \<in> R\<^sup>* }"
 
 text \<open>Re-establish an atomic judgement with its strongest postcondition\<close>
@@ -23,11 +28,6 @@ proof -
     using assms unfolding atomic_rule_def wp_def stable_def sp_def by fastforce
   ultimately show ?thesis by auto
 qed
-
-locale soundness = global_rules 
-
-context soundness
-begin
 
 section \<open>Reordering Rules\<close> 
 
@@ -57,7 +57,7 @@ proof -
     using assms(1,2)  unfolding atomic_rule_def by (auto intro!: stable_wp\<^sub>tI)
   hence "P \<subseteq>  wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<beta> ( wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<alpha> Q)))" unfolding wp_def by blast
   hence exec: "P \<subseteq>  wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<alpha>\<langle>\<beta>\<rangle> ( wp UNIV (R\<^sup>* ) (wp\<^sub>\<alpha> \<beta> Q)))" using ref by (auto simp: refine_def)
-  hence vc: "P \<subseteq> fst \<alpha>\<langle>\<beta>\<rangle>" by (auto simp: wp_def)
+  hence vc: "P \<subseteq> vc \<alpha>\<langle>\<beta>\<rangle>" by (auto simp: wp_def)
 
   \<comment> \<open>Establish the late judgement over \<beta>\<close>
   have "R,G \<turnstile>\<^sub>A ?M {\<beta>} Q" 
@@ -252,26 +252,26 @@ fun cp :: "('a,'b) com \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
   where "cp c t = (t \<in> transitions \<and> fst (t ! 0) = c)"
 
 text \<open>All traces that satisfy a precondition in their first state\<close>
-fun pre :: "'a pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun pre :: "'b pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
   where 
     "pre P (s#t) = (snd s \<in> P)" | 
     "pre P [] = True"
 
 text \<open>All traces that satisfy a postcondition in their final state given termination\<close>
-fun post :: "'a pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun post :: "'b pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
   where 
     "post Q [s] = (fst s = Nil \<longrightarrow> snd s \<in> Q)" | 
     "post Q (s#t) = post Q t" | 
     "post Q [] = True"
 
 text \<open>All traces where program steps satisfy a guarantee\<close>
-fun gurn :: "'a rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun gurn :: "'b rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
   where
     "gurn G (s#s'#t) = (gurn G (s'#t) \<and> (s -c\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> G\<^sup>=))" |
     "gurn G _ = True"
 
 text \<open>All traces where environment steps satisfy a rely\<close>
-fun rely :: "'a rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun rely :: "'b rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
   where
     "rely R (s#s'#t) = (rely R (s'#t) \<and> (s -e\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> R))" |
     "rely R _ = True"
@@ -302,7 +302,7 @@ next
   then obtain P' M where p: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>} M" "R,G \<turnstile> M {fst s'} Q"
     using g_stepI[OF prg(5) \<alpha>(1)] by metis    
   hence "rely R (s' # t)" "pre M (s' # t)" "(snd s, snd s') \<in> G\<^sup>="
-    using prg \<alpha>(2) by (auto simp: eval_def atomic_rule_def wp_def)
+    using prg \<alpha>(2) apply (auto simp: eval_def atomic_rule_def wp_def) by fastforce+
   thus ?case using prg p(3) by auto
 next
   case (sil s s' t)

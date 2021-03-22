@@ -11,25 +11,19 @@ From these definitions we can recursively define reordering and forwarding over 
 \<close>
 
 locale reordering =
-  fixes fwd :: "('a,'b) basic \<Rightarrow> 'b \<Rightarrow> ('a,'b) basic"
-  and re :: "'b \<Rightarrow> 'b \<Rightarrow> bool" 
+  fixes fwd :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("_\<langle>_\<rangle>" [1000,0] 1000)
+  and re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
 
 context reordering
 begin
 
-abbreviation re_abv (infix "\<hookleftarrow>" 100)
-  where "\<alpha> \<hookleftarrow> \<beta> \<equiv> re (id \<alpha>) (id \<beta>)"
-
-abbreviation fwd_abv ("_\<langle>_\<rangle>" [1000,0] 1000)
-  where "\<alpha>\<langle>\<beta>\<rangle> \<equiv> fwd (\<alpha>) (id \<beta>)"
-
 text \<open>Combine forwarding and reordering into a single definition\<close>
-abbreviation reorder_inst :: "('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
+abbreviation reorder_inst :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
   ("_ < _ <\<^sub>a _" [100,0,100] 100)
   where "\<beta>' < \<alpha> <\<^sub>a \<beta> \<equiv> \<beta>' = \<beta>\<langle>\<alpha>\<rangle> \<and> \<alpha> \<hookleftarrow> \<beta>\<langle>\<alpha>\<rangle>"
 
 text \<open>Recursively define reordering of an instruction earlier than a program\<close>
-fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
+fun reorder_com :: "('a)  \<Rightarrow> ('a,'b) com \<Rightarrow> ('a) \<Rightarrow> bool"
   ("_ < _ <\<^sub>c _" [100,0,100] 100)
   where
     "\<alpha>' < Nil <\<^sub>c \<alpha> = (\<alpha>' = \<alpha>)" |
@@ -38,7 +32,7 @@ fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b
     "_ < _ <\<^sub>c _ = False"
 
 text \<open>Recursively define forwarding of an instruction across a program\<close>
-fun fwd_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic"
+fun fwd_com :: "('a) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a)"
   ("_\<llangle>_\<rrangle>" [1000,0] 1000)
   where
     "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>\<beta>\<rangle>" |
