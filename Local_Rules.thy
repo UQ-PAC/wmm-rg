@@ -137,4 +137,99 @@ proof (induct c)
   then show ?case by (intro bigchoice ballI false_seqI) auto
 qed auto
 
+section \<open>State Expansion\<close>
+
+(*
+fun expand_com
+  where
+    "expand_com m r Nil Nil = True" |
+    "expand_com m r (Basic \<alpha>) (Basic \<beta>) = (vc \<alpha> = expand\<^sub>P m (vc \<beta>) \<and> beh \<alpha> = expand\<^sub>G m r (beh \<beta>))" |
+    "expand_com m r (c\<^sub>1 ; c\<^sub>2) (c\<^sub>3 ; c\<^sub>4) = (expand_com m r c\<^sub>1 c\<^sub>3 \<and> expand_com m r c\<^sub>2 c\<^sub>4)" |
+    "expand_com m r (c\<^sub>1 \<cdot> c\<^sub>2) (c\<^sub>3 \<cdot> c\<^sub>4) = (expand_com m r c\<^sub>1 c\<^sub>3 \<and> expand_com m r c\<^sub>2 c\<^sub>4)" |
+    "expand_com m r (c\<^sub>1 \<sqinter> c\<^sub>2) (c\<^sub>3 \<sqinter> c\<^sub>4) = (expand_com m r c\<^sub>1 c\<^sub>3 \<and> expand_com m r c\<^sub>2 c\<^sub>4)" |
+    "expand_com m r (Loop c\<^sub>1) (Loop c\<^sub>2) = (expand_com m r c\<^sub>1 c\<^sub>2)" |
+    "expand_com m r (BigChoice S\<^sub>1) (BigChoice S\<^sub>2) = (True)" |
+    "expand_com m r _ _ = False" *)
+
+definition expand_act
+  where "expand_act m r \<alpha> = (tag \<alpha>, expand\<^sub>P m (vc \<alpha>),  expand\<^sub>G m r (beh \<alpha>))"
+
+fun expand_com
+  where
+    "expand_com m r Nil = Nil" |
+    "expand_com m r (Basic \<alpha>) = (Basic (expand_act m r \<alpha>))" |
+    "expand_com m r (c\<^sub>1 ; c\<^sub>2) = (expand_com m r c\<^sub>1 ; expand_com m r c\<^sub>2)" |
+    "expand_com m r (c\<^sub>1 \<cdot> c\<^sub>2) = (expand_com m r c\<^sub>1 \<cdot> expand_com m r c\<^sub>2)" |
+    "expand_com m r (c\<^sub>1 \<sqinter> c\<^sub>2)  = (expand_com m r c\<^sub>1 \<sqinter> expand_com m r c\<^sub>2)" |
+    "expand_com m r (Loop c) = Loop (expand_com m r c)" |
+    "expand_com m r (BigChoice S\<^sub>1) = (BigChoice ((map (expand_act m r)) ` S\<^sub>1))" |
+    "expand_com m r (Rel R) = Rel (expand\<^sub>G m r R)" |
+    "expand_com m r (c\<^sub>1 || c\<^sub>2) = (expand_com m r c\<^sub>1 || expand_com m r c\<^sub>2)"
+
+lemma expand\<^sub>P_mono[intro]:
+  assumes "P \<subseteq> Q"
+  shows "expand\<^sub>P m P \<subseteq> expand\<^sub>P m Q"
+  using assms unfolding expand\<^sub>P_def
+  by auto
+
+lemma expand\<^sub>R_mono[intro]:
+  assumes "P \<subseteq> Q"
+  shows "expand\<^sub>R m P \<subseteq> expand\<^sub>R m Q"
+  using assms unfolding expand\<^sub>R_def
+  by auto
+
+lemma expand\<^sub>G_mono[intro]:
+  assumes "P \<subseteq> Q"
+  shows "expand\<^sub>G m r P \<subseteq> expand\<^sub>G m r Q"
+  using assms unfolding expand\<^sub>G_def
+  by auto
+
+lemma
+  assumes "R,G \<turnstile>\<^sub>l P {c :: ('b,'a) com} Q"
+  assumes "valid_expand m r"
+  shows "expand\<^sub>R m R,expand\<^sub>G m r G \<turnstile>\<^sub>l expand\<^sub>P m P {expand_com m r c :: ('b,'c) com} expand\<^sub>P m Q"
+  using assms
+proof (induct)
+  case (nil R P G)
+  then show ?case using expand_stable by fastforce
+next
+  case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
+  then show ?case by fastforce
+next
+  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
+  then show ?case by fastforce
+next
+  case (choice R G P c\<^sub>1 Q c\<^sub>2)
+  then show ?case by fastforce
+next
+  case (bigchoice S R G P Q)
+  show ?case
+    apply simp
+    apply (intro ballI lrules.bigchoice)
+  proof -
+    fix s assume "s \<in> map (expand_act m r) ` S"
+    then obtain s' where s: "s' \<in> S" "s = map (expand_act m r) s'" by auto
+    hence "(expand\<^sub>R m R,expand\<^sub>G m r G \<turnstile>\<^sub>l expand\<^sub>P m P {expand_com m r (seq2com s')} expand\<^sub>P m Q)"
+      using bigchoice by auto
+    moreover have "expand_com m r (seq2com s') = seq2com s"
+      unfolding s(2)  by (induct s') auto
+    ultimately show "expand\<^sub>R m R,expand\<^sub>G m r G \<turnstile>\<^sub>l expand\<^sub>P m P {seq2com s} expand\<^sub>P m Q" by simp
+  qed
+next
+  case (loop R P G c)
+  then show ?case using expand_stable by fastforce
+next
+  case (basic R G P \<alpha> Q)
+  then show ?case apply (simp add: expand_act_def) by (intro lrules.basic atomic_expandI) auto
+next
+  case (conseq R G P c Q P' R' G' Q')
+  show ?case
+    apply (rule lrules.conseq[OF conseq(2)[OF conseq(7)]])
+    using conseq(3,4,5,6) expand\<^sub>P_mono apply fast
+    using conseq(3,4,5,6) expand\<^sub>R_mono apply blast
+    using conseq(3,4,5,6) expand\<^sub>G_mono apply blast
+    using conseq(3,4,5,6) expand\<^sub>P_mono apply fast
+    done
+qed
+
 end

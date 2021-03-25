@@ -152,9 +152,7 @@ proof (induct arbitrary: P R G Q)
   case (act \<alpha>)
   then show ?case
     apply (elim basicE)
-    apply simp
-    apply (meson atomic_rule_def nil lrules.conseq order_refl)
-    done
+    by simp (meson atomic_rule_def nil lrules.conseq order_refl)
 next
   case (seq c\<^sub>1 c \<alpha>' c\<^sub>1' c\<^sub>2)
   obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using seq by fast
