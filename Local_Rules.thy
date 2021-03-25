@@ -6,15 +6,10 @@ chapter \<open>Local Rules\<close>
 
 text \<open>Define the rely/guarantee rules for a local program.\<close>
 
-locale local_rules = atomic_rule
-
-context local_rules
-begin
-
 section \<open>Base Rules\<close>
 
 text \<open>Rules of the logic over a thread, similar to standard Hoare-logic\<close>
-inductive lrules :: "('b,'c) rpred \<Rightarrow> ('b,'c) rpred \<Rightarrow> ('b,'c) pred \<Rightarrow> ('a,'b,'c) com \<Rightarrow> ('b,'c) pred \<Rightarrow> bool" 
+inductive lrules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>l _ {_} _" [20,0,0,0,20] 20)
 where
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { Nil } P" |
@@ -36,13 +31,13 @@ These mostly deal with complexities introduced by support conseq.
 lemma nilE [elim!]:
   assumes "R,G \<turnstile>\<^sub>l P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
-  using assms by (induct R G P "Nil :: ('a,'b,'c) com" Q) blast+
+  using assms by (induct R G P "Nil :: ('b,'a) com" Q) blast+
 
 lemma basicE [elim!]:
   assumes "R,G \<turnstile>\<^sub>l P {Basic \<beta>} Q"
   obtains P' Q' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} Q'" "Q' \<subseteq> Q"
   using assms 
-proof (induct R G P "Basic \<beta> :: ('a,'b,'c) com" Q)
+proof (induct R G P "Basic \<beta> :: ('b,'a) com" Q)
   case (basic R G P Q)
   then show ?case by auto
 next
@@ -131,24 +126,15 @@ lemma stable_preE:
 lemma false_seqI:
   assumes "\<forall>\<beta> \<in> set s. guar \<beta> G"
   shows "R,G \<turnstile>\<^sub>l {} {seq2com s} {}"
-  using assms
-proof (induct s)
-  case (Cons a s)
-  then show ?case using atomic_rule_def by fastforce
-qed auto
+  using assms by (induct s) auto
 
 lemma falseI:
   assumes "\<forall>\<beta> \<in> basics c. guar \<beta> G" "local c"
   shows "R,G \<turnstile>\<^sub>l {} {c} {}"
   using assms
 proof (induct c)
-  case (Basic x)
-  then show ?case using atomic_rule_def by force
-next
   case (BigChoice S)
-  then show ?case using false_seqI by auto
+  then show ?case by (intro bigchoice ballI false_seqI) auto
 qed auto
-
-end
 
 end

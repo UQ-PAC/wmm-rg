@@ -4,30 +4,40 @@ begin
 
 chapter \<open>While Language Syntax\<close>
 
-type_synonym 'a seq = "'a list"
+type_synonym ('a,'b) basic = "('a \<times> 'b set \<times> 'b rel)"
+type_synonym ('a,'b) seq = "('a,'b) basic list"
+
+abbreviation tag :: "('a,'b) basic \<Rightarrow> 'a"
+  where "tag \<equiv> fst"
+
+abbreviation vc :: "('a,'b) basic \<Rightarrow> 'b set"
+  where "vc \<alpha> \<equiv> fst (snd \<alpha>)"
+
+abbreviation beh :: "('a,'b) basic \<Rightarrow> 'b rel"
+  where "beh \<alpha> \<equiv> snd (snd \<alpha>)"
 
 text \<open>
 A While language with non-deterministic choice, iteration and parallel composition.
 Also includes special commands for environment steps, which is useful for describing
 refinement properties. These have no evaluation semantics or rules however.
 \<close>
-datatype ('a,'b,'c) com =
+datatype ('a,'b) com =
   Nil
-  | Basic "'a"
-  | Seq "('a,'b,'c) com" "('a,'b,'c) com" (infixr ";" 80)
-  | Ord "('a,'b,'c) com" "('a,'b,'c) com" (infixr "\<cdot>" 80)
-  | BigChoice "'a seq set" ("\<Sqinter> _" 150)
-  | Choice "('a,'b,'c) com" "('a,'b,'c) com" (infixr "\<sqinter>" 150)
-  | Loop "('a,'b,'c) com" ("_*" [100] 150)
-  | Parallel "('a,'b,'c) com" "('a,'b,'c) com"  (infixr "||" 150)
-  | Rel "('b \<times> 'c) rel"
+  | Basic "('a,'b) basic"
+  | Seq "('a,'b) com" "('a,'b) com" (infixr ";" 80)
+  | Ord "('a,'b) com" "('a,'b) com" (infixr "\<cdot>" 80)
+  | BigChoice "('a,'b) seq set" ("\<Sqinter> _" 150)
+  | Choice "('a,'b) com" "('a,'b) com" (infixr "\<sqinter>" 150)
+  | Loop "('a,'b) com" ("_*" [100] 150)
+  | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
+  | Rel "'b rel"
 
 text \<open>Convert a sequence to a command\<close>
 fun seq2com
   where "seq2com [] = Nil" | "seq2com (\<alpha>#t) = Basic \<alpha> \<cdot> seq2com t"
 
 text \<open>Ensure there is no parallelism within a program\<close>
-fun local :: "('a,'b,'c) com \<Rightarrow> bool"
+fun local :: "('a,'b) com \<Rightarrow> bool"
   where 
     "local (c\<^sub>1 || c\<^sub>2) = False" |
     "local (Rel r) = False" |
@@ -38,7 +48,7 @@ fun local :: "('a,'b,'c) com \<Rightarrow> bool"
     "local _ = True"
 
 text \<open>Identify all operations in a program\<close>
-fun basics :: "('a,'b,'c) com \<Rightarrow> 'a set"
+fun basics :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
   where
     "basics (Basic \<beta>) = {\<beta>}" |
     "basics (Seq c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
@@ -49,10 +59,7 @@ fun basics :: "('a,'b,'c) com \<Rightarrow> 'a set"
     "basics (Loop c) = basics c" |
     "basics _ = {}"
 
-abbreviation fullR
-  where "fullR R \<equiv> {((g,l),(g',l)) | l g g'. (g,g') \<in> R}"
-
 abbreviation Env
-  where "Env R \<equiv> Rel (fullR (R\<^sup>*))"
+  where "Env R \<equiv> Rel (R\<^sup>*)"
 
 end
