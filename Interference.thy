@@ -21,7 +21,7 @@ text \<open>
 Independence of two instructions \<beta> and \<alpha> under environment R, 
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.\<close>
-definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
+definition inter\<^sub>\<alpha> :: "('b,'c) rpred \<Rightarrow> ('b,'c) rpred \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool"
   where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
           Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>\<beta>\<rangle> ; Env R ; Basic \<beta> \<and>
           guar \<alpha>\<langle>\<beta>\<rangle> G"
@@ -31,12 +31,14 @@ Independence of program c and instruction \<alpha> under environment R,
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.
 Define by recursively iterating over the program and capturing the forwarding throughout.\<close>
-fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) com \<Rightarrow> 'a \<Rightarrow> bool"
+fun inter\<^sub>c :: "('b,'c) rpred \<Rightarrow> ('b,'c) rpred \<Rightarrow> ('a,'b,'c) com \<Rightarrow> 'a \<Rightarrow> bool"
   where
     "inter\<^sub>c R G (Basic \<beta>) \<alpha> = inter\<^sub>\<alpha> R G \<beta> \<alpha>" |
     "inter\<^sub>c R G (c\<^sub>1 ; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
-    "inter\<^sub>c R G (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
-    "inter\<^sub>c R G (c*) \<alpha> = inter\<^sub>c R G c \<alpha>" |
+    "inter\<^sub>c R G (c\<^sub>1 \<cdot> c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
+    "inter\<^sub>c R G (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = False" |
+    "inter\<^sub>c R G (\<Sqinter> S) \<alpha> = False" |
+    "inter\<^sub>c R G (c*) \<alpha> = False" |
     "inter\<^sub>c R G _ \<alpha> = True"
 
 text \<open>Compute possible reorderings of the program using the instrumented semantics\<close>
@@ -44,7 +46,7 @@ inductive reorder_trace
   where 
     "reorder_trace [] c" |
     "c \<leadsto> c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace t c" |
-    "c \<mapsto>[\<alpha>,r,\<alpha>'] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace ((r,\<alpha>')#t) c"
+    "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace ((r,\<alpha>)#t) c"
 
 text \<open>Ensure all reorderings enforce the necessary interference property\<close>
 definition inter
@@ -60,11 +62,11 @@ lemma inter_silentI [intro]:
 
 text \<open>Interference check is preserved across an execution step and prevents interference\<close>
 lemma indep_stepI [intro]:
-  assumes "inter R G c" "c \<mapsto>[\<alpha>,r,\<alpha>'] c'"
-  shows "inter R G c' \<and> inter\<^sub>c R G r \<alpha>'"
+  assumes "inter R G c" "c \<mapsto>[r,\<alpha>] c'"
+  shows "inter R G c' \<and> inter\<^sub>c R G r \<alpha>"
 proof -
-  have "reorder_trace [(r, \<alpha>')] c" using assms reorder_trace.intros by simp
-  hence "inter\<^sub>c R G r \<alpha>'" using assms by (auto simp: inter_def)
+  have "reorder_trace [(r, \<alpha>)] c" using assms reorder_trace.intros by simp
+  hence "inter\<^sub>c R G r \<alpha>" using assms by (auto simp: inter_def)
   thus ?thesis using assms reorder_trace.intros(3)[OF assms(2)] inter_def by force
 qed
 
