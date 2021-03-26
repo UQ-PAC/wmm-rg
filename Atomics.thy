@@ -181,4 +181,134 @@ next
   thus "x = x'" using b by auto
 qed
 
+section \<open>Auxiliary State\<close>
+
+definition aux\<^sub>P
+  where "aux\<^sub>P r P \<equiv> {m. \<exists>m'. (m,m') \<in> r\<^sup>= \<and> m' \<in> P}"
+
+definition aux\<^sub>R
+  where "aux\<^sub>R r R \<equiv> {(m,m'). \<forall>n. (m,n) \<in> r\<^sup>= \<longrightarrow> (\<exists>n'. (m',n') \<in> r\<^sup>= \<and> (n,n') \<in> R)}"
+
+definition aux\<^sub>G
+  where "aux\<^sub>G r R \<equiv> {(m,m'). \<exists>n n'. (m,n) \<in> r\<^sup>= \<and> (m',n') \<in> r\<^sup>= \<and> (n,n') \<in> R\<^sup>=}"
+
+lemma aux\<^sub>P_mono [intro]:
+  "P \<subseteq> Q \<Longrightarrow> aux\<^sub>P a P \<subseteq> aux\<^sub>P a Q"
+  unfolding aux\<^sub>P_def by auto
+
+lemma aux\<^sub>R_mono [intro]:
+  "P \<subseteq> Q \<Longrightarrow> aux\<^sub>R a P \<subseteq> aux\<^sub>R a Q"
+  unfolding aux\<^sub>R_def by fast
+
+lemma aux\<^sub>P_self [intro]:
+  "P \<subseteq> aux\<^sub>P r P"
+  unfolding aux\<^sub>P_def by auto
+
+lemma aux\<^sub>G_self [intro]:
+  "R \<subseteq> aux\<^sub>G r R"
+  unfolding aux\<^sub>G_def by auto
+
+lemma aux_stable [intro]:
+  assumes "stable R P" 
+  shows "stable (aux\<^sub>R r R) (aux\<^sub>P r P)"
+  unfolding stable_def aux\<^sub>R_def aux\<^sub>P_def
+proof (clarsimp, goal_cases)
+  case (1 m n p)
+  then obtain n' where a: "(p, n') \<in> r\<^sup>=" "(n, n') \<in> R" by auto
+  hence "n' \<in> P" using 1 assms by (auto simp: stable_def)
+  then show ?case using a(1) by auto
+qed
+
+lemma aux_wp [intro]:
+  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "beh \<alpha>' = aux\<^sub>R r (beh \<alpha>)" "vc \<alpha>' = aux\<^sub>P r (vc \<alpha>)"
+  shows "aux\<^sub>P r P \<subseteq> wp\<^sub>\<alpha> \<alpha>' (aux\<^sub>P r Q)"
+  unfolding wp_def aux\<^sub>P_def
+proof (clarsimp, (intro conjI; clarsimp), goal_cases)
+  case (1 n m')
+  then show ?case using assms(1,3) by (auto simp: wp_def aux\<^sub>P_def)
+next
+  case (2 n m n')
+  then show ?case using assms(1) unfolding assms(2) aux\<^sub>R_def wp_def by blast
+qed
+
+lemma aux_guar [intro]:
+  assumes "guar \<alpha> G" "beh \<alpha>' = aux\<^sub>R r (beh \<alpha>)" "vc \<alpha>' = aux\<^sub>P r (vc \<alpha>)"
+  shows "guar \<alpha>' (aux\<^sub>G r G)"
+  unfolding wp_def aux\<^sub>G_def assms(2,3) aux\<^sub>P_def aux\<^sub>R_def
+proof (clarify, goal_cases)
+  case (1 m m' n)
+  then obtain n' where a: "(m', n') \<in> r\<^sup>=" "(n, n') \<in> beh \<alpha>" by auto
+  hence "(n,n') \<in> G\<^sup>=" using assms(1) 1 by auto
+  thus ?case using a(1) 1(3) by blast
+qed
+
+lemma atomic_auxI [intro]:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" 
+  assumes "beh \<alpha>' = aux\<^sub>R r (beh \<alpha>)"
+  assumes "vc \<alpha>' = aux\<^sub>P r (vc \<alpha>)"
+  shows "aux\<^sub>R r R,aux\<^sub>G r G \<turnstile>\<^sub>A aux\<^sub>P r P {\<alpha>'} aux\<^sub>P r Q"
+  unfolding atomic_rule_def
+proof (intro conjI)
+  show "stable (aux\<^sub>R r R) (aux\<^sub>P r P)" using assms(1) by (auto simp: atomic_rule_def)
+next
+  show "stable (aux\<^sub>R r R) (aux\<^sub>P r Q)" using assms(1) by (auto simp: atomic_rule_def)
+next
+  have "guar \<alpha> G" using assms(1) by (auto simp: atomic_rule_def)
+  thus "guar \<alpha>' (aux\<^sub>G r G)" using aux_guar assms(2,3) by blast
+next
+  have "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms(1) by (auto simp: atomic_rule_def)
+  thus "aux\<^sub>P r P \<subseteq> wp\<^sub>\<alpha> \<alpha>' (aux\<^sub>P r Q)" using aux_wp assms(2,3) by blast
+qed
+
+abbreviation aux\<^sub>\<alpha>
+  where "aux\<^sub>\<alpha> r \<alpha> \<equiv> (tag \<alpha>, aux\<^sub>P r (vc \<alpha>), aux\<^sub>R r (beh \<alpha>))"
+
+fun aux\<^sub>c
+  where
+    "aux\<^sub>c r Nil = Nil" |
+    "aux\<^sub>c r (Basic \<alpha>) = (Basic (aux\<^sub>\<alpha> r \<alpha>))" |
+    "aux\<^sub>c r (c\<^sub>1 ; c\<^sub>2) = (aux\<^sub>c r c\<^sub>1 ; aux\<^sub>c r c\<^sub>2)" |
+    "aux\<^sub>c r (c\<^sub>1 \<cdot> c\<^sub>2) = (aux\<^sub>c r c\<^sub>1 \<cdot> aux\<^sub>c r c\<^sub>2)" |
+    "aux\<^sub>c r (c\<^sub>1 \<sqinter> c\<^sub>2)  = (aux\<^sub>c r c\<^sub>1 \<sqinter> aux\<^sub>c r c\<^sub>2)" |
+    "aux\<^sub>c r (Loop c) = Loop (aux\<^sub>c r c)" |
+    "aux\<^sub>c r (BigChoice S\<^sub>1) = (BigChoice ((map (aux\<^sub>\<alpha> r)) ` S\<^sub>1))" |
+    "aux\<^sub>c r (Rel R) = Rel (aux\<^sub>R r R)" |
+    "aux\<^sub>c r (c\<^sub>1 || c\<^sub>2) = (aux\<^sub>c r c\<^sub>1 || aux\<^sub>c r c\<^sub>2)"
+
+lemma aux\<^sub>c_nilE [elim!]:
+  assumes "aux\<^sub>c r c = Nil"
+  obtains "c = Nil"
+  using assms
+  by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_basicE [elim!]:
+  assumes "aux\<^sub>c r c = Basic \<alpha>"
+  obtains \<beta> where "c = Basic \<beta>" "\<alpha> = aux\<^sub>\<alpha> r \<beta>"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_seqE [elim!]:
+  assumes "aux\<^sub>c r c = c\<^sub>1 ; c\<^sub>2"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ; c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_ordE [elim!]:
+  assumes "aux\<^sub>c r c = c\<^sub>1 \<cdot> c\<^sub>2"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<cdot> c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_choiceE [elim!]:
+  assumes "aux\<^sub>c r c = c\<^sub>1 \<sqinter> c\<^sub>2"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<sqinter> c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_loopE [elim!]:
+  assumes "aux\<^sub>c r c = Loop c\<^sub>1"
+  obtains c\<^sub>1' where "c = Loop c\<^sub>1'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" 
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux_local [intro]:
+  assumes "local c" 
+  shows "local (aux\<^sub>c r c)"
+  using assms by (induct c rule: local.induct) auto
+
 end

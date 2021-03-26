@@ -19,7 +19,8 @@ where
   bigchoice[intro]: "\<forall>s \<in> S. R,G \<turnstile>\<^sub>l P { seq2com s } Q \<Longrightarrow> R,G \<turnstile>\<^sub>l P { \<Sqinter> S } Q" |
   loop[intro]:   "stable R P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c } P \<Longrightarrow> R,G \<turnstile>\<^sub>l P { c* } P" |
   basic[intro]:  "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile>\<^sub>l P { Basic \<alpha> } Q" |
-  conseq[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> R',G' \<turnstile>\<^sub>l P' { c } Q'"
+  conseq[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> R',G' \<turnstile>\<^sub>l P' { c } Q'" |
+  aux[intro]: "R,G \<turnstile>\<^sub>l P { c } Q \<Longrightarrow> aux\<^sub>R r R,aux\<^sub>G r G \<turnstile>\<^sub>l aux\<^sub>P r P { aux\<^sub>c r c } aux\<^sub>P r Q"
 
 section \<open>Derived Properties\<close>
 
@@ -31,36 +32,58 @@ These mostly deal with complexities introduced by support conseq.
 lemma nilE [elim!]:
   assumes "R,G \<turnstile>\<^sub>l P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
-  using assms by (induct R G P "Nil :: ('b,'a) com" Q) blast+
+  using assms
+proof (induct R G P "Nil :: ('b,'a) com" Q)
+  case (aux R G P c Q r)
+  then show ?case using aux\<^sub>P_mono aux_stable aux\<^sub>c_nilE by metis
+qed blast+
 
 lemma basicE [elim!]:
   assumes "R,G \<turnstile>\<^sub>l P {Basic \<beta>} Q"
-  obtains P' Q' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} Q'" "Q' \<subseteq> Q"
+  obtains P' Q' a where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} Q'" "Q' \<subseteq> Q"
   using assms 
-proof (induct R G P "Basic \<beta> :: ('b,'a) com" Q)
+proof (induct R G P "Basic \<beta> :: ('b,'a) com" Q arbitrary: \<beta>)
   case (basic R G P Q)
   then show ?case by auto
 next
   case (conseq R G P Q P' R' G' Q')
   then show ?case using order.trans atomic_conseqI by metis
-qed
-
+next
+  case (aux R G P c Q r)
+  then obtain \<alpha> where \<alpha>: "c = Basic \<alpha>" "\<beta> = aux\<^sub>\<alpha> r \<alpha>" by auto
+  show ?case
+  proof (rule aux(2)[OF \<alpha>(1)], goal_cases)
+    case (1 P' Q')
+    show ?case using 1(1,3) aux(4)[OF _ atomic_auxI[OF 1(2), of \<beta> r]] aux\<^sub>P_mono \<alpha>(2) by auto blast
+  qed
+qed 
+ 
 lemma seqE [elim]:
   assumes "R,G \<turnstile>\<^sub>l P {c\<^sub>1 ; c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M" "R,G \<turnstile>\<^sub>l M {c\<^sub>2} Q"
   using assms 
-  by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
+proof (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2)
+  case (aux R G P c Q r)
+  thus ?case by auto
+qed blast+
 
 lemma ordE [elim]:
   assumes "R,G \<turnstile>\<^sub>l P {c\<^sub>1 \<cdot> c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M" "R,G \<turnstile>\<^sub>l M {c\<^sub>2} Q"
   using assms 
-  by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
+proof (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2)
+  case (aux R G P Q a)
+  thus ?case by auto
+qed blast+
 
 lemma choiceE [elim]:
   assumes "R,G \<turnstile>\<^sub>l P {c\<^sub>1 \<sqinter> c\<^sub>2} Q"
   obtains "R,G \<turnstile>\<^sub>l P {c\<^sub>1} Q" "R,G \<turnstile>\<^sub>l P {c\<^sub>2} Q"
-  using assms by (induct R G P "c\<^sub>1 \<sqinter> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) auto
+  using assms 
+proof (induct R G P "c\<^sub>1 \<sqinter> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) 
+  case (aux R G P Q a)
+  thus ?case by auto
+qed auto
 
 lemma loopE [elim]:
   assumes "R,G \<turnstile>\<^sub>l P { c* } Q"
@@ -72,6 +95,10 @@ proof (induct R G P "c*" Q arbitrary: c)
 next
   case (conseq R G P Q P' R' G' Q')
   then show ?case using lrules.conseq stable_conseqI by (metis subset_iff)
+next
+  case (aux R G P c' Q r)
+  then obtain b where "c' = Loop b" "aux\<^sub>c r b = c" by auto 
+  thus ?case using aux by (metis lrules.aux aux\<^sub>P_mono aux_stable) 
 qed
 
 text \<open>No local judgement can be established over parallel composition or env steps\<close>
@@ -116,6 +143,9 @@ next
 next
   case (conseq R G P c Q P' R' G' Q')
   then show ?case by (meson lrules.conseq order_refl stable_conseqI subset_trans)
+next
+  case (aux R G P c Q a)
+  thus ?case by (metis lrules.aux aux\<^sub>P_mono aux_stable)
 qed blast+
 
 lemma stable_preE:
@@ -230,6 +260,9 @@ next
     using conseq(3,4,5,6) expand\<^sub>G_mono apply blast
     using conseq(3,4,5,6) expand\<^sub>P_mono apply fast
     done
+next
+  case (aux R G P Q a)
+  thus ?case sorry
 qed
 
 end

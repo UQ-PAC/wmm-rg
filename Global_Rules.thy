@@ -22,45 +22,19 @@ where
                   R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                   R',G' \<turnstile> P' { c } Q'"  |
-  frame[intro]:  "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' M \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> M) {c} (Q \<inter> M)"
+  frame[intro]:  "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' M \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> M) {c} (Q \<inter> M)" |
+  aux[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> aux\<^sub>R r R,aux\<^sub>G r G \<turnstile> aux\<^sub>P r P { aux\<^sub>c r c } aux\<^sub>P r Q"
 
 subsection \<open>Properties\<close>
-
-lemma g_parE [elim]:
-  assumes "R,G \<turnstile> P { c\<^sub>1 || c\<^sub>2 } Q"
-  obtains R\<^sub>1 G\<^sub>1 P\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 Q\<^sub>2 where 
-    "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1" "R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2"
-    "P \<subseteq> P\<^sub>1 \<inter> P\<^sub>2" "R \<subseteq> R\<^sub>1 \<inter> R\<^sub>2" "G\<^sub>1 \<union> G\<^sub>2 \<subseteq> G" "Q\<^sub>1 \<inter> Q\<^sub>2 \<subseteq> Q" "G\<^sub>1 \<subseteq> R\<^sub>2" "G\<^sub>2 \<subseteq> R\<^sub>1"
-  using assms
-proof (induct R G P "c\<^sub>1 || c\<^sub>2" Q)
-  case (thread R G P Q)
-  then show ?case by blast
-next
-  case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 Q\<^sub>2)
-  show ?case using par(7)[OF par(1,3)] par(5,6) by blast
-next
-  case (conseq R G P Q P' R' G' Q')
-  show ?case
-  proof (rule conseq(2), goal_cases)
-    case (1 R\<^sub>1 G\<^sub>1 P\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 Q\<^sub>2)
-    then show ?case using conseq(3,4,5,6) conseq(7)[OF 1(1,2)] by blast
-  qed 
-next
-  case (frame R G P Q R' M)
-  show ?case
-  proof (rule frame(2), goal_cases)
-    case (1 R\<^sub>1 G\<^sub>1 P\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 Q\<^sub>2)
-    hence a: "R\<^sub>1 \<inter> R',G\<^sub>1 \<turnstile> P\<^sub>1 \<inter> M {c\<^sub>1} Q\<^sub>1 \<inter> M" "R\<^sub>2 \<inter> R',G\<^sub>2 \<turnstile> P\<^sub>2 \<inter> M {c\<^sub>2} Q\<^sub>2 \<inter> M"
-      using rules.frame frame(3,4) by auto
-    show ?case using 1(3,4,5,6,7,8) frame(4) frame(5)[OF a] by blast
-  qed 
-qed
 
 lemma g_nilE [elim!]:
   assumes "R,G \<turnstile> P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
   using assms 
-  by (induct R G P "Nil :: ('a,'b) com" Q) blast+
+proof (induct R G P "Nil :: ('a,'b) com" Q) 
+  case (aux R G P c Q r)
+  thus ?case using aux\<^sub>P_mono aux_stable aux\<^sub>c_nilE by metis
+qed blast+
 
 lemma g_stable_preE:
   assumes "R,G \<turnstile> P {c} Q"
@@ -79,6 +53,9 @@ next
     thus ?case using par(7)[of "P1 \<inter> P2"] 
       using 1 by (metis inf_mono stable_conjI)
   qed 
+next
+  case (aux R G P c Q r)
+  thus ?case by (metis rules.aux aux\<^sub>P_mono aux_stable)
 qed blast+
 
 end

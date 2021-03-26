@@ -114,6 +114,74 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
+lemma aux\<^sub>c_seqE2 [elim!]:
+  assumes "c\<^sub>1 ; c\<^sub>2 = aux\<^sub>c r c "
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ; c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_ordE [elim!]:
+  assumes "c\<^sub>1 \<cdot> c\<^sub>2 = aux\<^sub>c r c"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<cdot> c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_parE [elim!]:
+  assumes "c\<^sub>1 || c\<^sub>2 = aux\<^sub>c r c"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' || c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_choiceE [elim!]:
+  assumes "c\<^sub>1 \<sqinter> c\<^sub>2 = aux\<^sub>c r c"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<sqinter> c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_loopE [elim!]:
+  assumes "Loop c\<^sub>1 = aux\<^sub>c r c"
+  obtains c\<^sub>1' where "c = Loop c\<^sub>1'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" 
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux\<^sub>c_bigchoiceE [elim!]:
+  assumes "(\<Sqinter> S) = aux\<^sub>c r c"
+  obtains S' where "c = \<Sqinter> S'" "S = (map (aux\<^sub>\<alpha> r)) ` S'" 
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux_rewriteE:
+  assumes "aux\<^sub>c r c \<leadsto> c\<^sub>a"
+  obtains c' where "c \<leadsto> c'" "aux\<^sub>c r c' = c\<^sub>a"
+  using assms
+proof (induct "aux\<^sub>c r c" c\<^sub>a arbitrary: r c)
+  case (bigc s S)
+  then show ?case apply auto  sorry
+qed (auto; force)+
+
+lemma aux\<^sub>c_basicE [elim!]:
+  assumes "Basic \<alpha> = aux\<^sub>c r c"
+  obtains \<beta> where "c = Basic \<beta>" "\<alpha> = aux\<^sub>\<alpha> r \<beta>"
+  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
+
+lemma aux_execE:
+  assumes "aux\<^sub>c r c \<mapsto>[p,\<alpha>] c\<^sub>a"
+  obtains c' \<beta> where "c \<mapsto>[p,\<beta>] c'" "aux\<^sub>c r c' = c\<^sub>a" "\<alpha> = aux\<^sub>\<alpha> r \<beta>"
+  using assms
+proof (induct "aux\<^sub>c r c" p \<alpha> c\<^sub>a arbitrary: r c)
+  case (act \<alpha>)
+  then show ?case apply auto by force
+next
+  case (seq c\<^sub>1 r' \<alpha> c\<^sub>1' c\<^sub>2)
+  then show ?case apply auto by force
+next
+  case (ord c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
+  then show ?case apply auto by force
+next
+  case (ooo c\<^sub>1 r' \<alpha> c\<^sub>1' \<alpha>' c\<^sub>2)
+  then show ?case sorry
+next
+  case (par1 c\<^sub>1 r' \<alpha> c\<^sub>1' c\<^sub>2)
+  then show ?case apply auto by force
+next
+  case (par2 c\<^sub>2 r' \<alpha> c\<^sub>2' c\<^sub>1)
+  then show ?case apply auto by force
+qed
+
 text \<open>Local judgements are preserved across silent steps\<close>
 lemma rewriteI [intro]:
   assumes "R,G \<turnstile>\<^sub>l P {c} Q"
@@ -129,6 +197,9 @@ next
 next
   case (loop R P G c)
   thus ?case by cases blast+
+next
+  case (aux R G P c Q a)
+  thus ?case apply (elim aux_rewriteE) using lrules.aux by metis
 qed auto
 
 text \<open>Global judgements are preserved across silent steps\<close>
@@ -140,6 +211,9 @@ lemma g_rewriteI [intro]:
 proof (induct arbitrary: c' rule: rules.induct)
   case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
   show ?case using par(7,1,2,3,4,5,6) by cases blast+
+next
+  case (aux R G P c Q r)
+  thus ?case apply (elim aux_rewriteE) using rules.aux by metis
 qed auto
 
 text \<open>Local judgements are preserved across reordered interference-free execution steps\<close>
@@ -211,7 +285,10 @@ next
 next
   case (thread R G P c Q)
   then show ?case using stepI[OF thread(3,1)] thread(2) indep_stepI[OF thread(2,3)] by auto 
-qed
+next
+  case (aux R G P c Q r)
+  thus ?case apply (elim aux_execE) sorry
+qed 
 
 section \<open>Soundness\<close>
 
