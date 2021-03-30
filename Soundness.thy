@@ -1,10 +1,10 @@
 theory Soundness
-  imports Global_Rules
+  imports Rules
 begin
 
 chapter \<open>Soundness\<close>
 
-locale soundness = global_rules 
+locale soundness = rules 
 
 context soundness
 begin
@@ -30,14 +30,14 @@ proof -
   let ?M="sp \<alpha>\<langle>tag \<beta>\<rangle> R P"
 
   \<comment> \<open>Establish stability for P, Q and the new intermediate state, in addition to guarantees\<close>
-  have stablePQ: "stable R P" "stable R Q" "guar \<alpha> G" "guar \<beta> G"
+  have stablePQ: "stable R P" "stable R Q" "guar\<^sub>\<alpha> \<alpha> G" "guar\<^sub>\<alpha> \<beta> G"
     using assms(1,2) by (auto simp: atomic_rule_def)
   have stableM: "stable R ?M"  unfolding stable_def sp_def by force
 
   \<comment> \<open>Extract order independence properties\<close> 
   have ref: "Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>tag \<beta>\<rangle> ; Env R ; Basic \<beta>"
     using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
-  have g: "guar \<alpha>\<langle>tag \<beta>\<rangle> G" using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
+  have g: "guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G" using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
 
   \<comment> \<open>Show transition from P to Q is independent of order\<close>
   have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> wp UNIV ( (R\<^sup>* )) M" "P \<subseteq>  wp UNIV ( (R\<^sup>* )) P" "Q \<subseteq>  wp UNIV ( (R\<^sup>* )) Q"
@@ -66,8 +66,8 @@ text \<open>
   interference property.
 \<close>
 lemma reorder_prog:
-  assumes "R,G \<turnstile>\<^sub>l P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c R G c \<alpha>"
-  obtains M' P' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M'" "R,G \<turnstile>\<^sub>l M' {c} Q"
+  assumes "R,G \<turnstile> P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c R G c \<alpha>"
+  obtains M' P' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M'" "R,G \<turnstile> M' {c} Q"
   using assms
 proof (induct c arbitrary: R G P M Q \<alpha>)
   case Nil
@@ -80,16 +80,16 @@ next
     using atomic_pre[OF Basic(3)] \<beta>(2,3) Basic(3) by (auto simp: atomic_rule_def)
   obtain M' where m'': "R,G \<turnstile>\<^sub>A P' {\<alpha>\<langle>tag \<beta>\<rangle>} M'" "R,G \<turnstile>\<^sub>A M' {\<beta>} Q"
     using reorder_action[OF \<beta>(2) m'(1)] Basic by auto
-  have "R,G \<turnstile>\<^sub>l M' {Basic \<beta>} Q" by (rule lrules.basic[OF m''(2)])
+  have "R,G \<turnstile> M' {Basic \<beta>} Q" by (rule rules.basic[OF m''(2)])
   then show ?case using Basic(1) \<beta>(1) m''(1) by auto
 next
   case (Seq c\<^sub>1 c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} M" using Seq(4) by fast
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Seq(4) by fast
   have i: "inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle>" "inter\<^sub>c R G c\<^sub>2 \<alpha>" using Seq by auto
   show ?case
   proof (rule Seq(2)[OF _ m(2) Seq(5) i(2)], goal_cases outer)
     case (outer P' N')
-    hence c1: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} P'" using m(1) conseq by auto
+    hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
     show ?case 
     proof (rule Seq(1)[OF _ c1 outer(2) i(1)], goal_cases inner)
       case (inner P'' M'')
@@ -98,12 +98,12 @@ next
   qed
 next
   case (Ord c\<^sub>1 c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} M" using Ord(4) by fast
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Ord(4) by fast
   have i: "inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle>" "inter\<^sub>c R G c\<^sub>2 \<alpha>" using Ord by auto
   show ?case
   proof (rule Ord(2)[OF _ m(2) Ord(5) i(2)], goal_cases outer)
     case (outer P' N')
-    hence c1: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} P'" using m(1) conseq by auto
+    hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
     show ?case 
     proof (rule Ord(1)[OF _ c1 outer(2) i(1)], goal_cases inner)
       case (inner P'' M'')
@@ -114,181 +114,113 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
-lemma aux\<^sub>c_seqE2 [elim!]:
-  assumes "c\<^sub>1 ; c\<^sub>2 = aux\<^sub>c r c "
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ; c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux\<^sub>c_ordE [elim!]:
-  assumes "c\<^sub>1 \<cdot> c\<^sub>2 = aux\<^sub>c r c"
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<cdot> c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux\<^sub>c_parE [elim!]:
-  assumes "c\<^sub>1 || c\<^sub>2 = aux\<^sub>c r c"
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' || c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux\<^sub>c_choiceE [elim!]:
-  assumes "c\<^sub>1 \<sqinter> c\<^sub>2 = aux\<^sub>c r c"
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<sqinter> c\<^sub>2'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" "aux\<^sub>c r c\<^sub>2' = c\<^sub>2"
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux\<^sub>c_loopE [elim!]:
-  assumes "Loop c\<^sub>1 = aux\<^sub>c r c"
-  obtains c\<^sub>1' where "c = Loop c\<^sub>1'" "aux\<^sub>c r c\<^sub>1' = c\<^sub>1" 
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux\<^sub>c_bigchoiceE [elim!]:
-  assumes "(\<Sqinter> S) = aux\<^sub>c r c"
-  obtains S' where "c = \<Sqinter> S'" "S = (map (aux\<^sub>\<alpha> r)) ` S'" 
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux_rewriteE:
-  assumes "aux\<^sub>c r c \<leadsto> c\<^sub>a"
-  obtains c' where "c \<leadsto> c'" "aux\<^sub>c r c' = c\<^sub>a"
-  using assms
-proof (induct "aux\<^sub>c r c" c\<^sub>a arbitrary: r c)
-  case (bigc s S)
-  then show ?case apply auto  sorry
-qed (auto; force)+
-
-lemma aux\<^sub>c_basicE [elim!]:
-  assumes "Basic \<alpha> = aux\<^sub>c r c"
-  obtains \<beta> where "c = Basic \<beta>" "\<alpha> = aux\<^sub>\<alpha> r \<beta>"
-  using assms by (cases "(r,c)" rule: aux\<^sub>c.cases) auto
-
-lemma aux_execE:
-  assumes "aux\<^sub>c r c \<mapsto>[p,\<alpha>] c\<^sub>a"
-  obtains c' \<beta> where "c \<mapsto>[p,\<beta>] c'" "aux\<^sub>c r c' = c\<^sub>a" "\<alpha> = aux\<^sub>\<alpha> r \<beta>"
-  using assms
-proof (induct "aux\<^sub>c r c" p \<alpha> c\<^sub>a arbitrary: r c)
-  case (act \<alpha>)
-  then show ?case apply auto by force
-next
-  case (seq c\<^sub>1 r' \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case apply auto by force
-next
-  case (ord c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case apply auto by force
-next
-  case (ooo c\<^sub>1 r' \<alpha> c\<^sub>1' \<alpha>' c\<^sub>2)
-  then show ?case sorry
-next
-  case (par1 c\<^sub>1 r' \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case apply auto by force
-next
-  case (par2 c\<^sub>2 r' \<alpha> c\<^sub>2' c\<^sub>1)
-  then show ?case apply auto by force
-qed
-
-text \<open>Local judgements are preserved across silent steps\<close>
-lemma rewriteI [intro]:
-  assumes "R,G \<turnstile>\<^sub>l P {c} Q"
-  assumes "c \<leadsto> c'"
-  shows "R,G \<turnstile>\<^sub>l P {c'} Q"
-  using assms
-proof (induct arbitrary: c' rule: lrules.induct)
-  case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
-  show ?case using seq(5,1,2,3,4) by cases blast+
-next
-  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
-  show ?case using ord(5,1,2,3,4) by cases blast+
-next
-  case (loop R P G c)
-  thus ?case by cases blast+
-next
-  case (aux R G P c Q a)
-  thus ?case apply (elim aux_rewriteE) using lrules.aux by metis
-qed auto
-
-text \<open>Global judgements are preserved across silent steps\<close>
-lemma g_rewriteI [intro]:
+text \<open>Judgements are preserved across silent steps\<close>
+lemma rewrite_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q"
   assumes "c \<leadsto> c'"
   shows "R,G \<turnstile> P {c'} Q"
   using assms
 proof (induct arbitrary: c' rule: rules.induct)
-  case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
-  show ?case using par(7,1,2,3,4,5,6) by cases blast+
+  case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
+  thus ?case by (cases rule: silentE, auto) blast+
 next
-  case (aux R G P c Q r)
-  thus ?case apply (elim aux_rewriteE) using rules.aux by metis
-qed auto
+  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
+  thus ?case by (cases rule: silentE, auto) blast+
+qed (cases rule: silentE, auto)+
 
-text \<open>Local judgements are preserved across reordered interference-free execution steps\<close>
-lemma stepI:
-  assumes "c \<mapsto>[r,\<alpha>] c'" "R,G \<turnstile>\<^sub>l P {c} Q"
-  assumes "inter\<^sub>c R G r \<alpha>"
-  shows "\<exists>P' M. P \<subseteq> P' \<and> (R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M) \<and> (R,G \<turnstile>\<^sub>l M {c'} Q)"
-  using assms
+text \<open>Judgements are preserved across thread-local execution steps\<close>
+lemma lexecute_ruleI [intro]:
+  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
+  shows "\<exists>P' M. P \<subseteq> P' \<and> (R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M) \<and> R,G \<turnstile> M {c'} Q"
+  using assms(2,1,3)
 proof (induct arbitrary: P R G Q)
   case (act \<alpha>)
-  then show ?case
-    apply (elim basicE)
-    by simp (meson atomic_rule_def nil lrules.conseq order_refl)
+  then show ?case by clarsimp (meson atomic_rule_def nil rules.conseq order_refl)
 next
-  case (seq c\<^sub>1 c \<alpha>' c\<^sub>1' c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using seq by fast
-  then show ?case using seq(2)[OF m(1) seq(4)] m(2) by blast
+  case (ino c\<^sub>1 c \<alpha>' c\<^sub>1' c\<^sub>2)
+  then obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" by auto
+  then show ?case using ino(2)[OF m(1) ino(4)] m(2) by blast
 next
   case (ooo c\<^sub>2 c \<alpha> c\<^sub>2' \<alpha>' c\<^sub>1)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using ooo(4) by blast
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" using ooo(4) by blast
   have i: "inter\<^sub>c R G c\<^sub>1 (\<alpha>\<llangle>c\<rrangle>)" "inter\<^sub>c R G c \<alpha>" using ooo by auto
-  obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M" "R,G \<turnstile>\<^sub>l M {c\<^sub>2'} Q"
+  obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M" "R,G \<turnstile> M {c\<^sub>2'} Q"
     using ooo(2)[OF m(2) i(2)] by blast
-  hence m'': "R,G \<turnstile>\<^sub>l P {c\<^sub>1} P'" using m(1) by blast
-  then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis lrules.seq)
+  hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
+  then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 next
   case (ord c\<^sub>1 c \<alpha> c\<^sub>1' c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile>\<^sub>l P {c\<^sub>1} M'" "R,G \<turnstile>\<^sub>l M' {c\<^sub>2} Q" using ord by fast
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" using ord by fast
   then show ?case using ord(2)[OF m(1) ord(4)] m(2) by blast
-qed auto
+qed
 
-text \<open>Global judgements are preserved across execution steps - reordering or not \<close>
-lemma g_stepI:
+text \<open>Judgements are preserved across global execution steps\<close>
+lemma gexecute_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q"
-  assumes "c \<mapsto>[r,\<alpha>] c'"
-  shows "\<exists>P' M. P \<subseteq> P' \<and> (R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M) \<and> (R,G \<turnstile> M {c'} Q)"
+  assumes "c \<mapsto>[g] c'"
+  shows "\<exists>M v. P \<subseteq> wp v g M \<and> guar v g G \<and> R,G \<turnstile> M {c'} Q"
   using assms
-proof (induct arbitrary: \<alpha> c' rule: rules.induct)
+proof (induct arbitrary: g c' rule: rules.induct)
   case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
   show ?case using par(7)
   proof cases
     case (par1 c\<^sub>1')
     obtain M\<^sub>2 where m2: "P\<^sub>2 \<subseteq> M\<^sub>2" "stable R\<^sub>2 M\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2} Q\<^sub>2" using par
-      by (meson g_stable_preE)
-    obtain P M\<^sub>1 where m1: "P\<^sub>1 \<subseteq> P" "R\<^sub>1,G\<^sub>1 \<turnstile>\<^sub>A P { \<alpha>\<llangle>r\<rrangle> } M\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1'} Q\<^sub>1" 
+      by (meson stable_preE)
+    obtain M\<^sub>1 v where m1: "P\<^sub>1 \<subseteq> wp v g M\<^sub>1" "guar v g G\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1'} Q\<^sub>1" 
       using par1 par(2)[OF par1(2)] by blast
     hence "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> M\<^sub>1 \<inter> M\<^sub>2 {c'} Q\<^sub>1 \<inter> Q\<^sub>2" using par1 m2 par by blast
-    moreover have "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile>\<^sub>A P \<inter> M\<^sub>2 { \<alpha>\<llangle>r\<rrangle> } M\<^sub>1 \<inter> M\<^sub>2" 
-      using m1(2) m2(2) par.hyps(6) by blast
-    ultimately show ?thesis using m2(1) m1(1) by blast
+    moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp v g (M\<^sub>1 \<inter> M\<^sub>2)" 
+      using m1(1,2) m2(1,2) par.hyps(6) unfolding guar_def wp_def stable_def
+      by auto blast
+    ultimately show ?thesis using m1(2) unfolding guar_def by blast
   next
     case (par2 c\<^sub>2')
     obtain M\<^sub>1 where m1: "P\<^sub>1 \<subseteq> M\<^sub>1" "stable R\<^sub>1 M\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1} Q\<^sub>1" using par
-      by (meson g_stable_preE)
-    obtain P M\<^sub>2 where m2: "P\<^sub>2 \<subseteq> P" "R\<^sub>2,G\<^sub>2 \<turnstile>\<^sub>A P { \<alpha>\<llangle>r\<rrangle> } M\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2'} Q\<^sub>2"
+      by (meson stable_preE)
+    obtain M\<^sub>2 v where m2: "P\<^sub>2 \<subseteq> wp v g M\<^sub>2" "guar v g G\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2'} Q\<^sub>2" 
       using par2 par(4)[OF par2(2)] by blast
     hence "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> M\<^sub>1 \<inter> M\<^sub>2 {c'} Q\<^sub>1 \<inter> Q\<^sub>2" using par2 m1 par by blast
-    moreover have "R\<^sub>2 \<inter> R\<^sub>1,G\<^sub>1 \<union> G\<^sub>2 \<turnstile>\<^sub>A P \<inter> M\<^sub>1 { \<alpha>\<llangle>r\<rrangle> } M\<^sub>2 \<inter> M\<^sub>1" 
-      using atomic_invI[OF m2(2) m1(2) par(5)] by blast
-    ultimately show ?thesis using m2(1) m1(1) by (metis inf_commute inf_mono)
+    moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp v g (M\<^sub>1 \<inter> M\<^sub>2)" 
+      using m1(1,2) m2(1,2) par.hyps(5) unfolding guar_def wp_def stable_def
+      by auto blast
+    ultimately show ?thesis using m2(2) unfolding guar_def by blast
   qed 
- next
+next
   case (conseq R G P c Q P' R' G' Q')
-  thus ?case using rules.conseq atomic_conseqI by (smt dual_order.trans order_refl)
+  thus ?case by (smt Un_iff guar_def rules.conseq subset_iff)
 next
-  case (frame R G P c Q R' M')
-  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c'} Q" by metis
-  thus ?case using rules.frame atomic_invI frame(3,4) by blast
-next
-  case (thread R G P c Q)
-  then show ?case using stepI[OF thread(3,1)] thread(2) indep_stepI[OF thread(2,3)] by auto 
-next
-  case (aux R G P c Q r)
-  thus ?case apply (elim aux_execE) sorry
-qed 
+  case (inv R G P c Q R' M')
+  then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {c'} Q" by metis
+  hence "P \<inter> M' \<subseteq> wp v g (M \<inter> M')" using inv(3,4) unfolding stable_def guar_def wp_def apply auto by blast
+  thus ?case using rules.inv p(2,3) inv(3,4) by blast
+next       
+  case (thread R G P c Q op l)
+  show ?case using thread(4)
+  proof (cases)
+    case (thr r' \<alpha>' c'' l')
+    hence i: "inter R G c''" "inter\<^sub>c R G r' \<alpha>'" using thread indep_stepI by auto
+    then obtain P' M where p: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>'\<llangle>r'\<rrangle>} M" "R,G \<turnstile> M {c''} Q" 
+      using lexecute_ruleI[OF thread(1) thr(3)] by auto
+    hence a: "P \<subseteq> wp\<^sub>\<alpha> \<alpha>'\<llangle>r'\<rrangle> M" "guar\<^sub>\<alpha> \<alpha>'\<llangle>r'\<rrangle> G" unfolding atomic_rule_def by auto
+    hence "thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l (vc \<alpha>'\<llangle>r'\<rrangle>)) g (thr\<^sub>P op l' M)"
+      unfolding wp_def thr(1) thr\<^sub>P_def by auto
+    moreover have "guar (thr\<^sub>P op l (vc \<alpha>'\<llangle>r'\<rrangle>)) g (thr\<^sub>G op G)"
+      using a(2) unfolding thr(1) thr\<^sub>P_def thr\<^sub>G_def guar_def by auto
+    ultimately show ?thesis using p i unfolding thr(2) by blast
+  qed 
+(* next
+  case (aux R G P c Q r')
+  thus ?case sorry then obtain c'' p' \<beta> where a: "c \<mapsto>[p',\<beta>] c''" "aux\<^sub>c r' c'' = c'" "\<alpha> = aux\<^sub>\<alpha> r' \<beta>" "r = aux\<^sub>c r' p'"
+    apply (elim aux_execE) by blast
+  then obtain P' M where p: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>\<llangle>p'\<rrangle>} M" "R,G \<turnstile> M {c''} Q"
+    using aux(2)[OF a(1)] by blast
+  have "aux\<^sub>P r' P \<subseteq> aux\<^sub>P r' P'" using p by (simp add: aux\<^sub>P_mono)
+  moreover have "aux\<^sub>R r' R,aux\<^sub>G r' G \<turnstile> aux\<^sub>P r' M {c'} aux\<^sub>P r' Q" using p  a(2) by blast
+  moreover have "aux\<^sub>R r' R,aux\<^sub>G r' G \<turnstile>\<^sub>A aux\<^sub>P r' P' {\<alpha>\<llangle>r\<rrangle>} aux\<^sub>P r' M"
+    using p(2) unfolding a by simp blast
+  ultimately show ?case by blast*)
+qed auto
 
 section \<open>Soundness\<close>
 
@@ -335,24 +267,18 @@ lemma sound_transitions:
   shows "post Q t \<and> gurn G t"
   using assms
 proof (induct arbitrary: c P rule: transitions.induct)
-  case (one s)
-  thus ?case by force
-next
   case (env s s' t)
-  then obtain P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by (metis g_stable_preE) 
+  then obtain P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by (metis stable_preE) 
   thus ?case using env by (auto simp: stable_def)
 next
   case (prg s s' t)
-  then obtain \<alpha> r where \<alpha>: "c \<mapsto>[r,\<alpha>] (fst s')" "(snd s,snd s') \<in> eval \<alpha>\<llangle>r\<rrangle>" by auto
-  then obtain P' M where p: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {fst s'} Q"
-    using g_stepI[OF prg(5) \<alpha>(1)] by metis    
+  then obtain g where \<alpha>: "c \<mapsto>[g] (fst s')" "(snd s,snd s') \<in> g" by auto
+  then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {fst s'} Q"
+    using gexecute_ruleI[OF prg(5) \<alpha>(1)] by metis
   hence "rely R (s' # t)" "pre M (s' # t)" "(snd s, snd s') \<in> G\<^sup>="
-    using prg \<alpha>(2) apply (auto simp: eval_def atomic_rule_def wp_def) by fastforce+
+    using prg \<alpha>(2) by (auto simp: atomic_rule_def wp_def guar_def)
   thus ?case using prg p(3) by auto
-next
-  case (sil s s' t)
-  thus ?case by auto
-qed
+qed force+
 
 theorem sound:
   assumes "R,G \<turnstile> P { c } Q"

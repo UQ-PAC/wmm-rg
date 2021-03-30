@@ -24,16 +24,22 @@ Semantics that collects reordering effects.
 Given c \<mapsto>[r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha><r> c', such that
 r should be the program \<alpha>' has to reorder with in c to execute and 
 \<alpha> should be \<alpha>' forwarded across r.\<close>
-inductive execute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_,_] _" [71,0,0,71] 70)
   where
   act[intro]: "Basic \<alpha> \<mapsto>[Nil,\<alpha>] Nil" |
-  seq[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ; c\<^sub>2" |
+  ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
-  ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>[c\<^sub>2 ; r ,\<alpha>] c\<^sub>2 ; c\<^sub>1'" |
-  par1[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' || c\<^sub>2" |
-  par2[intro]: "c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1 || c\<^sub>2'"
-inductive_cases glb_execute[elim]: "c \<mapsto>[r,\<alpha>] c'"
+  ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>[c\<^sub>2 ; r ,\<alpha>] c\<^sub>2 ; c\<^sub>1'"
+inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
+
+inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+  ("_ \<mapsto>[_] _" [71,0,71] 70)
+  where
+  thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> Thread l m c \<mapsto>[{(g,g'). (m g l,m g' l') \<in> beh \<alpha>\<llangle>r\<rrangle>}] Thread l' m c'" |
+  par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
+  par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
+inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
 
 text \<open>Small step semantics for a silent step\<close>
 inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -66,6 +72,15 @@ lemma [simp]:
   "c \<mapsto>[r,\<alpha>'] c = False"
   using execute_neq by blast
 
+lemma gexecute_neq:
+  assumes "c \<mapsto>[g] c'"
+  shows "c \<noteq> c'"
+  using assms by (induct) auto
+
+lemma [simp]:
+  "c \<mapsto>[g] c = False"
+  using gexecute_neq by blast
+
 lemma [intro]:
   "local (seq2com s)"
   by (induct s) auto
@@ -78,7 +93,7 @@ lemma local_silent:
 text \<open>An execution step will not introduce parallelism\<close>
 lemma local_execute:
   "c \<mapsto>[r,\<alpha>'] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
-  by (induct rule: execute.induct) auto
+  by (induct rule: lexecute.induct) auto
 
 section \<open>Transition Definitions\<close>
 
@@ -90,7 +105,7 @@ abbreviation env_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarr
 
 text \<open>Program Execution Transition\<close>
 abbreviation exec_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
-  where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>r \<alpha>. fst s \<mapsto>[r,\<alpha>] (fst s') \<and> (snd s,snd s') \<in> eval \<alpha>\<llangle>r\<rrangle>"
+  where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>g. fst s \<mapsto>[g] (fst s') \<and> (snd s,snd s') \<in> g"
 
 text \<open>Program Silent Transition\<close>
 abbreviation sil_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)

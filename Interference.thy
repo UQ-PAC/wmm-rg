@@ -24,7 +24,7 @@ cannot invalidate sequential reasoning.\<close>
 definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
           Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>tag \<beta>\<rangle> ; Env R ; Basic \<beta> \<and>
-          guar \<alpha>\<langle>tag \<beta>\<rangle> G"
+          guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G"
 
 text \<open>
 Independence of program c and instruction \<alpha> under environment R,
@@ -36,10 +36,8 @@ fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) com 
     "inter\<^sub>c R G (Basic \<beta>) \<alpha> = inter\<^sub>\<alpha> R G \<beta> \<alpha>" |
     "inter\<^sub>c R G (c\<^sub>1 ; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (c\<^sub>1 \<cdot> c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
-    "inter\<^sub>c R G (c\<^sub>1 \<sqinter> c\<^sub>2) \<alpha> = False" |
-    "inter\<^sub>c R G (\<Sqinter> S) \<alpha> = False" |
-    "inter\<^sub>c R G (c*) \<alpha> = False" |
-    "inter\<^sub>c R G _ \<alpha> = True"
+    "inter\<^sub>c R G (Nil) \<alpha> = True" |
+    "inter\<^sub>c R G _ \<alpha> = False"
 
 text \<open>Compute possible reorderings of the program using the instrumented semantics\<close>
 inductive reorder_trace
