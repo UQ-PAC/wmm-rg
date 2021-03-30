@@ -56,22 +56,12 @@ fun basics :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
     "basics (Thread _ _ c) = basics c" |
     "basics _ = {}"
 
-fun compare :: "(('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> bool) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
-  where
-    "compare T Nil Nil = True" |
-    "compare T (Basic \<alpha>) (Basic \<beta>) = (T \<alpha> \<beta>)" |
-    "compare T (Seq c\<^sub>1 c\<^sub>2) (Seq c\<^sub>1' c\<^sub>2') = (compare T c\<^sub>1 c\<^sub>1' \<and> compare T c\<^sub>2 c\<^sub>2')" |
-    "compare T (Ord c\<^sub>1 c\<^sub>2) (Ord c\<^sub>1' c\<^sub>2') = (compare T c\<^sub>1 c\<^sub>1' \<and> compare T c\<^sub>2 c\<^sub>2')" |
-    "compare T (c\<^sub>1 \<sqinter> c\<^sub>2) (c\<^sub>1' \<sqinter> c\<^sub>2') = (compare T c\<^sub>1 c\<^sub>1' \<and> compare T c\<^sub>2 c\<^sub>2')" |
-    "compare T (Loop c) (Loop c') = (compare T c c')" |
-    "compare T (Thread s m c) (Thread s' m' c') = (compare T c c')" |
-    "compare _ _ _ = False"
-
-abbreviation Env
+text \<open>Shorthand for an environment step\<close>
+abbreviation Env :: "'b rel \<Rightarrow> ('a,'b) com"
   where "Env R \<equiv> Basic (undefined,UNIV,R\<^sup>*)"
 
 text \<open>Convert a sequence to a command\<close>
-fun seq2com
+fun seq2com :: "('a,'b) seq \<Rightarrow> ('a,'b) com"
   where "seq2com [] = Nil" | "seq2com (\<alpha>#t) = Basic \<alpha> \<cdot> seq2com t"
 
 end

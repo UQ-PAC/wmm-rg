@@ -13,26 +13,9 @@ begin
 
 section \<open>Global Rules\<close>
 
-definition thr\<^sub>P
-  where "thr\<^sub>P op l P \<equiv> {m. op m l \<in> P}"
-
-definition thr\<^sub>G
-  where "thr\<^sub>G op G \<equiv> {(m,m') |m m' l l'. (op m l,op m' l') \<in> G}"
-
-definition thr\<^sub>R
-  where "thr\<^sub>R op R \<equiv> {(m,m') |m m'. \<forall>l. (op m l,op m' l) \<in> R}"
-
-lemma thr\<^sub>P_mono:
-  "P \<subseteq> Q \<Longrightarrow> thr\<^sub>P op l P \<subseteq> thr\<^sub>P op l Q"
-  unfolding thr\<^sub>P_def by auto
-
-lemma thr\<^sub>P_stable:
-  "stable R P \<Longrightarrow> stable (thr\<^sub>R op R) (thr\<^sub>P op l P)"
-  unfolding thr\<^sub>P_def thr\<^sub>R_def stable_def by auto
-
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
 inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> ('a,'b) com \<Rightarrow> 'b set \<Rightarrow> bool" 
-  ("_,_ \<turnstile> _ {_} _" [69,0,0,0,69] 69)
+  ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
 where
   basic[intro]:  "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
@@ -41,7 +24,8 @@ where
   choice[intro]: "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 \<sqinter> c\<^sub>2 } Q" |
   seqset[intro]: "\<forall>s \<in> S. R,G \<turnstile> P { seq2com s } Q \<Longrightarrow> R,G \<turnstile> P { \<Sqinter> S } Q" |
   loop[intro]:   "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c* } P" |
-  thread[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Thread l op c } Q" |
+  thread[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> 
+                  thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Thread l op c } thr\<^sub>Q op Q" |
   par[intro]:    "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                   R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
@@ -92,7 +76,7 @@ lemma stable_preE:
   using assms 
 proof (induct)
   case (thread R G P c Q op l)
-  then show ?case by (metis thr\<^sub>P_stable thr\<^sub>P_mono rules.thread)
+  then show ?case by (metis thr_stable thr_mono rules.thread)
 next 
   case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
   obtain P\<^sub>1' where 1: "P\<^sub>1 \<subseteq> P\<^sub>1'" "stable R\<^sub>1 P\<^sub>1'" "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1' {c\<^sub>1} Q\<^sub>1" using par by auto

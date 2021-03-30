@@ -36,7 +36,7 @@ inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
   where
-  thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> Thread l m c \<mapsto>[{(g,g'). (m g l,m g' l') \<in> beh \<alpha>\<llangle>r\<rrangle>}] Thread l' m c'" |
+  thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> Thread l op c \<mapsto>[thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)] Thread l' op c'" |
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
