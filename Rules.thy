@@ -1,5 +1,5 @@
 theory Rules
-  imports Interference
+  imports Interference Syntatic_Refine
 begin
 
 chapter \<open>Rules\<close>
@@ -16,7 +16,7 @@ section \<open>Global Rules\<close>
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
 inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> ('a,'b) com \<Rightarrow> 'b set \<Rightarrow> bool" 
   ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
-where
+  where
   basic[intro]:  "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
   seq[intro]:    "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ; c\<^sub>2 } M" |
@@ -30,14 +30,23 @@ where
                   R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                   R',G' \<turnstile> P' { c } Q'"  |
-  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" 
+  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" |
+  refine[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> refine c c' \<Longrightarrow> R,G \<turnstile> P {c'} Q" |
+  aux[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> aux\<^sub>C r c c' \<Longrightarrow> aux\<^sub>R r R,aux\<^sub>G r G \<turnstile> aux\<^sub>P r P {c'} aux\<^sub>P r Q"
 
 subsection \<open>Properties\<close>
 
 lemma nilE [elim!]:
   assumes "R,G \<turnstile> P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
-  using assms by (induct R G P "Nil :: ('a,'b) com" Q) blast+
+  using assms 
+proof (induct R G P "Nil :: ('a,'b) com" Q)
+  case (refine R G P c\<^sub>1 Q)
+  thus ?case by auto
+next
+  case (aux R G P c Q r)
+  thus ?case using aux\<^sub>P_mono aux_stable apply auto by blast
+qed blast+
 
 lemma basicE [elim!]:
   assumes "R,G \<turnstile> P {Basic \<beta>} Q"
@@ -56,20 +65,35 @@ next
     case (1 P' Q')
     thus ?case using inv(3,4) inv(5)[of "P' \<inter> I" "Q' \<inter> I"] atomic_invI by blast
   qed
+next
+  case (refine R G P c Q)
+  then obtain \<alpha> where a: "c = Basic \<alpha>" "refine\<^sub>\<alpha> \<alpha> \<beta>" by (auto)
+  show ?case 
+  proof (rule refine(2)[OF a(1)], goal_cases)
+    case (1 P' Q')
+    then show ?case using refine(4) a(2) atomic_refineI by metis
+  qed
+next
+  case (aux R G P c Q r)
+  then obtain \<alpha> where a: "c = Basic \<alpha>" "aux\<^sub>\<alpha> r \<alpha> \<beta>" by (auto)
+  show ?case
+  proof (rule aux(2)[OF a(1)], goal_cases)
+    case (1 P' Q')
+    then show ?case using aux(4) a(2) atomic_auxI aux\<^sub>P_mono by metis
+  qed
 qed
 
 lemma seqE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 ; c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms 
-  by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
+  using assms by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
 
 lemma ordE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 \<cdot> c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms 
-  by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
+  using assms by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
 
+text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:
   assumes "R,G \<turnstile> P {c} Q"
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
@@ -108,7 +132,15 @@ next
   case (inv R G P c Q R' I)
   then obtain P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by auto
   then show ?case using inv rules.inv by blast
+next
+  case (aux R G P c Q r c')
+  thus ?case using aux\<^sub>P_mono aux_stable by (metis rules.aux)
 qed blast+
+
+text \<open>A variant of the thread rule that eliminates all references to the local state\<close>
+lemma thread_allI:
+  "R,G \<turnstile> P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>A op P { Thread l op c } thr\<^sub>Q op Q"
+  by (rule conseq[OF thread]) (auto simp: thr\<^sub>A_def thr\<^sub>P_def)
 
 end
 

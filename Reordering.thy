@@ -13,6 +13,7 @@ From these definitions we can recursively define reordering and forwarding over 
 locale reordering =
   fixes fwd :: "('a,'b) basic \<Rightarrow> 'a \<Rightarrow> ('a,'b) basic" ("_\<langle>_\<rangle>" [1000,0] 1000)
   and re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
+  assumes tag_fwd: "tag a = tag b \<Longrightarrow> tag a\<langle>c\<rangle> = tag b\<langle>c\<rangle>"
 
 context reordering
 begin
