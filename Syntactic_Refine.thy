@@ -1,6 +1,12 @@
-theory Syntatic_Refine
+theory Syntactic_Refine
   imports Semantics
 begin
+
+text \<open>
+Needed some concepts to modify the basic actions in a program.
+Series of definitions to compare two programs, mostly to eliminate references to auxiliary state
+or 'refine' by relating the behaviours of the basic actions.
+\<close>
 
 fun seq_rel
   where 
@@ -9,66 +15,32 @@ fun seq_rel
     "seq_rel T _ _ = False"
 
 definition seq_set_rel
+  where "seq_set_rel T S S' \<equiv> (\<forall>s' \<in> S'. \<exists>s \<in> S. seq_rel T s s')"
+
+inductive syntax_rel
   where
-    "seq_set_rel T S S' \<equiv> (\<forall>s' \<in> S'. \<exists>s \<in> S. seq_rel T s s')"
+    "syntax_rel I T Nil Nil" |
+    "T \<alpha> \<beta> \<Longrightarrow> syntax_rel I T (Basic \<alpha>) (Basic \<beta>)" |
+    "syntax_rel I T c\<^sub>1 c\<^sub>1' \<Longrightarrow> syntax_rel I T c\<^sub>2 c\<^sub>2' \<Longrightarrow> syntax_rel I T (Seq c\<^sub>1 c\<^sub>2) (Seq c\<^sub>1' c\<^sub>2')" |
+    "syntax_rel I T c\<^sub>1 c\<^sub>1' \<Longrightarrow> syntax_rel I T c\<^sub>2 c\<^sub>2' \<Longrightarrow> syntax_rel I T (Ord c\<^sub>1 c\<^sub>2) (Ord c\<^sub>1' c\<^sub>2')" |
+    "syntax_rel I T c\<^sub>1 c\<^sub>1' \<Longrightarrow> syntax_rel I T c\<^sub>2 c\<^sub>2' \<Longrightarrow> syntax_rel I T (Choice c\<^sub>1 c\<^sub>2) (Choice c\<^sub>1' c\<^sub>2')" |
+    "syntax_rel I T c\<^sub>1 c\<^sub>1' \<Longrightarrow> syntax_rel I T c\<^sub>2 c\<^sub>2' \<Longrightarrow> syntax_rel I T (Parallel c\<^sub>1 c\<^sub>2) (Parallel c\<^sub>1' c\<^sub>2')" |
+    "syntax_rel I T c c' \<Longrightarrow> syntax_rel I T (Loop c) (Loop c')" |
+    "I op \<Longrightarrow> syntax_rel I T c c' \<Longrightarrow> syntax_rel I T (Thread l op c) (Thread l op c')" |
+    "seq_set_rel T S S' \<Longrightarrow> syntax_rel I T (SeqChoice S) (SeqChoice S')"
 
-fun syntax_rel
-  where 
-    "syntax_rel I T Nil Nil = True" |
-    "syntax_rel I T (Basic \<alpha>) (Basic \<beta>) = T \<alpha> \<beta>" |
-    "syntax_rel I T (Seq c\<^sub>1 c\<^sub>2) (Seq c\<^sub>1' c\<^sub>2') = (syntax_rel I T c\<^sub>1 c\<^sub>1' \<and> syntax_rel I T c\<^sub>2 c\<^sub>2' )" |
-    "syntax_rel I T (Ord c\<^sub>1 c\<^sub>2) (Ord c\<^sub>1' c\<^sub>2') = (syntax_rel I T c\<^sub>1 c\<^sub>1' \<and> syntax_rel I T c\<^sub>2 c\<^sub>2' )" |
-    "syntax_rel I T (Choice c\<^sub>1 c\<^sub>2) (Choice c\<^sub>1' c\<^sub>2') = (syntax_rel I T c\<^sub>1 c\<^sub>1' \<and> syntax_rel I T c\<^sub>2 c\<^sub>2' )" |
-    "syntax_rel I T (Parallel c\<^sub>1 c\<^sub>2) (Parallel c\<^sub>1' c\<^sub>2') = (syntax_rel I T c\<^sub>1 c\<^sub>1' \<and> syntax_rel I T c\<^sub>2 c\<^sub>2' )" |
-    "syntax_rel I T (Loop c) (Loop c') = (syntax_rel I T c c')" |
-    "syntax_rel I T (Thread l op c) (Thread l' op' c') = (l = l' \<and> op = op' \<and> I op \<and> syntax_rel I T c c')" |
-    "syntax_rel I T (SeqChoice S) (SeqChoice S') = (seq_set_rel T S S')" |
-    "syntax_rel I T _ _ = False"
+inductive_cases syntax_relE[elim]: "syntax_rel I T c c'"
+declare syntax_rel.intros [intro]
 
-lemma syntax_rel_nilE [elim!]:
-  assumes "syntax_rel I T c Nil"
-  obtains "c = Nil"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
+lemma [elim!]:
+  assumes "syntax_rel I T  c (c\<^sub>1 ; c\<^sub>2)"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ; c\<^sub>2'" "syntax_rel I T  c\<^sub>1' c\<^sub>1" "syntax_rel I T  c\<^sub>2' c\<^sub>2"
+  using assms by (cases rule: syntax_relE, blast, auto)
 
-lemma syntax_rel_basicE [elim!]:
-  assumes "syntax_rel I T c (Basic \<beta>)"
-  obtains \<alpha> where "c = Basic \<alpha>" "T \<alpha> \<beta>"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_seqE [elim!]:
-  assumes "syntax_rel I T c (c\<^sub>1 ; c\<^sub>2)"
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ; c\<^sub>2'" "syntax_rel I T c\<^sub>1' c\<^sub>1" "syntax_rel I T c\<^sub>2' c\<^sub>2"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_ordE [elim!]:
-  assumes "syntax_rel I T c (c\<^sub>1 \<cdot> c\<^sub>2)"
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<cdot> c\<^sub>2'" "syntax_rel I T c\<^sub>1' c\<^sub>1" "syntax_rel I T c\<^sub>2' c\<^sub>2"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_choiceE [elim!]:
-  assumes "syntax_rel I T c (Choice c\<^sub>1 c\<^sub>2)"
-  obtains c\<^sub>1' c\<^sub>2' where "c = Choice c\<^sub>1' c\<^sub>2'" "syntax_rel I T c\<^sub>1' c\<^sub>1" "syntax_rel I T c\<^sub>2' c\<^sub>2"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_parE [elim!]:
-  assumes "syntax_rel I T c (Parallel c\<^sub>1 c\<^sub>2)"
-  obtains c\<^sub>1' c\<^sub>2' where "c = Parallel c\<^sub>1' c\<^sub>2'" "syntax_rel I T c\<^sub>1' c\<^sub>1" "syntax_rel I T c\<^sub>2' c\<^sub>2"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_loopE [elim!]:
-  assumes "syntax_rel I T c (Loop c\<^sub>1)"
-  obtains c\<^sub>1' where "c = Loop c\<^sub>1'" "syntax_rel I T c\<^sub>1' c\<^sub>1"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_seqsetE [elim!]:
-  assumes "syntax_rel I T c (\<Sqinter> S)"
-  obtains S' where "c = \<Sqinter> S'" "seq_set_rel T S' S"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
-
-lemma syntax_rel_threadE [elim!]:
-  assumes "syntax_rel I T c (Thread l op c\<^sub>1)"
-  obtains c\<^sub>1' where "c = Thread l op c\<^sub>1'" "syntax_rel I T c\<^sub>1' c\<^sub>1" "I op"
-  using assms by (cases "(I,T,c,Nil :: ('c, 'a) com)" rule: syntax_rel.cases) auto
+lemma [elim!]:
+  assumes "syntax_rel I T  c (c\<^sub>1 \<cdot> c\<^sub>2)"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' \<cdot> c\<^sub>2'" "syntax_rel I T  c\<^sub>1' c\<^sub>1" "syntax_rel I T  c\<^sub>2' c\<^sub>2"
+  using assms by (cases rule: syntax_relE, blast, auto)
 
 lemma seq_rel [intro]:
   assumes "seq_rel T s s'"
@@ -154,8 +126,8 @@ lemma syntax_rel_silent:
   using assms(2,1)
 proof (induct arbitrary: c\<^sub>1)
   case (bigc s S)
-  then show ?case by (clarsimp simp: seq_set_rel_def) blast
-qed force+
+  then show ?case by (cases rule: syntax_relE, blast) (auto simp: seq_set_rel_def)
+qed (cases rule: syntax_relE, blast, auto; force)+
 
 lemma syntax_rel_re:
   assumes "\<alpha>' < r <\<^sub>c \<alpha>" "syntax_rel I T r' r" "tag \<alpha> = tag \<beta>" "\<forall>\<alpha> \<beta>. T \<alpha> \<beta> \<longrightarrow> tag \<alpha> = tag \<beta>"
@@ -166,27 +138,15 @@ proof (induct \<alpha>' r \<alpha> arbitrary: r' \<beta> rule: reorder_com.induc
   then show ?case by fastforce
 next
   case (2 \<alpha>' \<beta>' \<alpha>)
-  then show ?case using assms(4) apply auto defer 1 
-    apply (subgoal_tac "tag \<beta>' = a")
-    defer 1
-    apply (metis assms(4) fst_conv)
-    defer 1
-    apply simp
-    using tag_fwd apply metis
-    apply (subgoal_tac "tag \<beta>' = a")
-    defer 1
-    apply (metis assms(4) fst_conv)
-    apply simp
-    apply (subgoal_tac "tag \<alpha>\<langle>a\<rangle> = tag \<beta>\<langle>a\<rangle>")
-    apply simp
-    apply (metis prod.collapse)
-    using tag_fwd by blast
+  then show ?case
+    apply (cases rule: syntax_relE, blast; simp)
+    using assms(4) tag_fwd by (intro conjI) metis+
 next
   case (3 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
-  then show ?case by (smt reorder_com.simps(3) syntax_rel_seqE)
+  then show ?case by clarsimp (metis eq_fst_iff)
 next
   case (4 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
-  then show ?case by (smt reorder_com.simps(4) syntax_rel_ordE)
+  then show ?case by clarsimp (metis eq_fst_iff)
 qed auto
 
 lemma syntax_rel_local:
@@ -210,7 +170,7 @@ proof (induct arbitrary: c\<^sub>1)
     show ?thesis unfolding c(1) using b(1) d by (rule lexecute.ooo)
   qed    
   ultimately show ?case using b(3) by metis
-qed force+
+qed (cases rule: syntax_relE, blast; simp; fast)+
 
 lemma ref_tag:
   "\<forall>\<alpha> \<beta>. refine\<^sub>\<alpha> \<alpha> \<beta> \<longrightarrow> tag \<alpha> = tag \<beta>"
@@ -222,14 +182,14 @@ lemma aux_tag:
 
 lemma refine_fwd [simp]:
   "refine r' r \<Longrightarrow> \<beta>\<llangle>r'\<rrangle> = \<beta>\<llangle>r\<rrangle>"
-proof (induct "refine\<^sub>I :: 'b merge \<Rightarrow> bool" refine\<^sub>\<alpha> r r' arbitrary: \<beta> rule: syntax_rel.induct)
+proof (induct "refine\<^sub>I :: 'b merge \<Rightarrow> bool" refine\<^sub>\<alpha> r' r arbitrary: \<beta> rule: syntax_rel.induct)
   case (2 \<alpha> \<beta>)
   then show ?case by (auto simp: refine\<^sub>\<alpha>_def)
 qed auto
 
 lemma aux_fwd [simp]:
   "aux\<^sub>C a r' r \<Longrightarrow> \<beta>\<llangle>r'\<rrangle> = \<beta>\<llangle>r\<rrangle>"
-proof (induct "aux\<^sub>I a" "aux\<^sub>\<alpha> a" r r' arbitrary: \<beta> rule: syntax_rel.induct)
+proof (induct "aux\<^sub>I a" "aux\<^sub>\<alpha> a" r' r arbitrary: \<beta> rule: syntax_rel.induct)
   case (2 \<alpha> \<beta>)
   then show ?case by (auto simp: aux\<^sub>\<alpha>_def)
 qed auto
@@ -253,10 +213,10 @@ proof (induct arbitrary: c\<^sub>1)
   ultimately show ?case by metis
 next
   case (par1 c\<^sub>3 g c\<^sub>1' c\<^sub>2)
-  then show ?case by clarsimp (meson gexecute.par1 syntax_rel.simps(6))
+  then show ?case by (cases rule: syntax_relE, blast; simp) (meson gexecute.par1 syntax_rel.intros(6))
 next
   case (par2 c\<^sub>2 g c\<^sub>2' c\<^sub>1)
-  then show ?case by clarsimp (meson gexecute.par2 syntax_rel.simps(6))
+  then show ?case by (cases rule: syntax_relE, blast; simp) (meson gexecute.par2 syntax_rel.intros(6))
 qed
 
 lemma aux_thr2glb:
@@ -294,10 +254,10 @@ proof (induct arbitrary: c\<^sub>1)
   ultimately show ?case by metis
 next
   case (par1 c\<^sub>3 g c\<^sub>1' c\<^sub>2)
-  then show ?case by clarsimp (meson gexecute.par1 syntax_rel.simps(6))
+  then show ?case by (cases rule: syntax_relE, blast; simp) (meson gexecute.par1 syntax_rel.intros(6))
 next
   case (par2 c\<^sub>2 g c\<^sub>2' c\<^sub>1)
-  then show ?case by clarsimp (meson gexecute.par2 syntax_rel.simps(6))
+  then show ?case by (cases rule: syntax_relE, blast; simp) (meson gexecute.par2 syntax_rel.intros(6))
 qed
 
 end

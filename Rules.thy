@@ -1,5 +1,5 @@
 theory Rules
-  imports Interference Syntatic_Refine
+  imports Interference Syntactic_Refine
 begin
 
 chapter \<open>Rules\<close>
@@ -45,7 +45,7 @@ proof (induct R G P "Nil :: ('a,'b) com" Q)
   thus ?case by auto
 next
   case (aux R G P c Q r)
-  thus ?case using aux\<^sub>P_mono aux_stable apply auto by blast
+  thus ?case using aux\<^sub>P_mono aux_stable by blast
 qed blast+
 
 lemma basicE [elim!]:
@@ -86,7 +86,8 @@ qed
 lemma seqE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 ; c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
+  using assms 
+  by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
 
 lemma ordE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 \<cdot> c\<^sub>2} Q"
