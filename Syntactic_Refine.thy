@@ -26,7 +26,8 @@ inductive syntax_rel
     "syntax_rel I T c\<^sub>1 c\<^sub>1' \<Longrightarrow> syntax_rel I T c\<^sub>2 c\<^sub>2' \<Longrightarrow> syntax_rel I T (Choice c\<^sub>1 c\<^sub>2) (Choice c\<^sub>1' c\<^sub>2')" |
     "syntax_rel I T c\<^sub>1 c\<^sub>1' \<Longrightarrow> syntax_rel I T c\<^sub>2 c\<^sub>2' \<Longrightarrow> syntax_rel I T (Parallel c\<^sub>1 c\<^sub>2) (Parallel c\<^sub>1' c\<^sub>2')" |
     "syntax_rel I T c c' \<Longrightarrow> syntax_rel I T (Loop c) (Loop c')" |
-    "I op \<Longrightarrow> syntax_rel I T c c' \<Longrightarrow> syntax_rel I T (Thread l op c) (Thread l op c')" |
+    "I op \<Longrightarrow> syntax_rel I T c c' \<Longrightarrow> syntax_rel I T (Thread op c) (Thread op c')" |
+    "I op \<Longrightarrow> syntax_rel I T c c' \<Longrightarrow> syntax_rel I T (State l op c) (State l op c')" |
     "seq_set_rel T S S' \<Longrightarrow> syntax_rel I T (SeqChoice S) (SeqChoice S')"
 
 inductive_cases syntax_relE[elim]: "syntax_rel I T c c'"
@@ -200,15 +201,15 @@ lemma refine_global:
   using assms(2,1)
 proof (induct arbitrary: c\<^sub>1)
   case (thr c r \<alpha> c' l op l')
-  then obtain c\<^sub>2 where c: "c\<^sub>1 = Thread l op c\<^sub>2" "refine c\<^sub>2 c" by auto
+  then obtain c\<^sub>2 where c: "c\<^sub>1 = State l op c\<^sub>2" "refine c\<^sub>2 c" by auto
   obtain c\<^sub>2' r' \<beta> where b: "c\<^sub>2 \<mapsto>[r',\<beta>] c\<^sub>2'" "refine c\<^sub>2' c'" "refine\<^sub>\<alpha> \<beta> \<alpha>" "refine r' r"
     using syntax_rel_local[OF c(2) thr(1) ref_tag] by auto
   hence d: "beh \<beta>\<llangle>r'\<rrangle> \<supseteq> beh \<alpha>\<llangle>r\<rrangle>" by (auto simp: refine\<^sub>\<alpha>_def)
   hence "(thr2glb op l l' (beh \<beta>\<llangle>r'\<rrangle>)) \<supseteq> thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)"
     using d unfolding thr2glb_def by blast
-  moreover have "refine (Thread l' op c\<^sub>2') (Thread l' op c')"
+  moreover have "refine (State l' op c\<^sub>2') (State l' op c')"
     using b(2) by (auto simp: refine\<^sub>I_def)
-  moreover have "c\<^sub>1 \<mapsto>[thr2glb op l l' (beh \<beta>\<llangle>r'\<rrangle>)] Thread l' op c\<^sub>2'" 
+  moreover have "c\<^sub>1 \<mapsto>[thr2glb op l l' (beh \<beta>\<llangle>r'\<rrangle>)] State l' op c\<^sub>2'" 
     unfolding c(1) using b(1) by auto
   ultimately show ?case by metis
 next
@@ -241,15 +242,15 @@ lemma aux_global:
   using assms(2,1)
 proof (induct arbitrary: c\<^sub>1)
   case (thr c r' \<alpha> c' l op l')
-  then obtain c\<^sub>2 where c: "c\<^sub>1 = Thread l op c\<^sub>2" "aux\<^sub>C r c\<^sub>2 c" "aux\<^sub>I r op" by auto
+  then obtain c\<^sub>2 where c: "c\<^sub>1 = State l op c\<^sub>2" "aux\<^sub>C r c\<^sub>2 c" "aux\<^sub>I r op" by auto
   obtain c\<^sub>2' r'' \<beta> where b: "c\<^sub>2 \<mapsto>[r'',\<beta>] c\<^sub>2'" "aux\<^sub>C r c\<^sub>2' c'" "aux\<^sub>\<alpha> r \<beta> \<alpha>" "aux\<^sub>C r r'' r'"
     using syntax_rel_local[OF c(2) thr(1) aux_tag] by auto
   hence d: "aux\<^sub>R r (beh \<beta>\<llangle>r''\<rrangle>) \<supseteq> beh \<alpha>\<llangle>r'\<rrangle>" by (auto simp: aux\<^sub>\<alpha>_def)
   hence "aux\<^sub>R r (thr2glb op l l' (beh \<beta>\<llangle>r''\<rrangle>)) \<supseteq> thr2glb op l l' (beh \<alpha>\<llangle>r'\<rrangle>)"
     using c(3) aux_thr2glb by metis
-  moreover have "aux\<^sub>C r (Thread l' op c\<^sub>2') (Thread l' op c')"
+  moreover have "aux\<^sub>C r (State l' op c\<^sub>2') (State l' op c')"
     using b(2) c(3) by auto
-  moreover have "c\<^sub>1 \<mapsto>[thr2glb op l l' (beh \<beta>\<llangle>r''\<rrangle>)] Thread l' op c\<^sub>2'" 
+  moreover have "c\<^sub>1 \<mapsto>[thr2glb op l l' (beh \<beta>\<llangle>r''\<rrangle>)] State l' op c\<^sub>2'" 
     unfolding c(1) using b(1) by auto
   ultimately show ?case by metis
 next

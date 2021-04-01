@@ -36,7 +36,7 @@ inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
   where
-  thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> Thread l op c \<mapsto>[thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)] Thread l' op c'" |
+  thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> State l op c \<mapsto>[thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)] State l' op c'" |
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
@@ -60,7 +60,8 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   par2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1 || c\<^sub>2'" |
   parE1[intro]: "Nil || c \<leadsto> c" |
   parE2[intro]: "c || Nil \<leadsto> c" |
-  thrE[intro]:  "Thread l op Nil \<leadsto> Nil" 
+  stE[intro]:   "State l op Nil \<leadsto> Nil" |
+  thrE[intro]:  "Thread op c \<leadsto> State l op c"
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>

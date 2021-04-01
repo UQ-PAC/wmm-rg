@@ -127,7 +127,7 @@ next
   case (aux R G P c Q r c'')
   thus ?case using syntax_rel_silent rules.aux by metis
 next
-  case (thread R G P c Q l op)
+  case (state R G P c Q l op)
   thus ?case 
   proof (cases rule: silentE, auto, goal_cases)
     case (1 M)
@@ -140,6 +140,15 @@ next
       apply simp
       apply simp
       using 1 unfolding thr\<^sub>P_def thr\<^sub>Q_def by auto
+  qed
+next
+  case (thread R G P c Q op c')
+  thus ?case 
+  proof (cases rule: silentE, auto, goal_cases)
+    case (1 l)
+    show ?case
+      apply (rule conseq[OF state[OF 1(1,3)]])
+      by (auto simp: thr\<^sub>A_def thr\<^sub>P_def)
   qed
 qed (cases rule: silentE, auto)+
 
@@ -210,16 +219,16 @@ next
   hence "P \<inter> M' \<subseteq> wp v g (M \<inter> M')" using inv(3,4) by (auto simp: stable_def guar_def wp_def) blast
   thus ?case using rules.inv p(2,3) inv(3,4) by blast
 next
-  case (thread R G P c Q op l)
+  case (state R G P c Q op l)
   \<comment> \<open>Convert the global execution step into a local execution step\<close>
-  obtain r \<alpha> c\<^sub>t l' where thr: "g = thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)" "c' = Thread l' op c\<^sub>t" "c \<mapsto>[r,\<alpha>] c\<^sub>t"
-    using thread by auto
+  obtain r \<alpha> c\<^sub>t l' where thr: "g = thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)" "c' = State l' op c\<^sub>t" "c \<mapsto>[r,\<alpha>] c\<^sub>t"
+    using state by auto
   \<comment> \<open>As this is the thread rule case, we have the interference-freedom property\<close>
   \<comment> \<open>Split this interference-freedom property based on the local execution step\<close>
-  hence i: "inter R G c\<^sub>t" "inter\<^sub>c R G r \<alpha>" using thread indep_stepI by auto
+  hence i: "inter R G c\<^sub>t" "inter\<^sub>c R G r \<alpha>" using state indep_stepI by auto
   \<comment> \<open>Use the lexecute rule to extract the desired logic judgement and properties\<close>
   then obtain M where p: "P \<subseteq> wp\<^sub>\<alpha> \<alpha>\<llangle>r\<rrangle> M" "guar\<^sub>\<alpha> \<alpha>\<llangle>r\<rrangle> G" "R,G \<turnstile> M {c\<^sub>t} Q" 
-    using lexecute_ruleI[OF thread(1) thr(3)] by (auto simp: atomic_rule_def)
+    using lexecute_ruleI[OF state(1) thr(3)] by (auto simp: atomic_rule_def)
   \<comment> \<open>Demonstrate these properties are preserved when the local state is obfuscated\<close>
   hence "thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l (vc \<alpha>\<llangle>r\<rrangle>)) g (thr\<^sub>P op l' M)"
     using thr_wp thr(1) by fast

@@ -103,10 +103,18 @@ lemma thr_mono:
   "P \<subseteq> Q \<Longrightarrow> thr\<^sub>P op l P \<subseteq> thr\<^sub>P op l Q"
   unfolding thr\<^sub>P_def by auto
 
+lemma thr_mono':
+  "P \<subseteq> Q \<Longrightarrow> thr\<^sub>A op P \<subseteq> thr\<^sub>A op Q"
+  unfolding thr\<^sub>A_def by auto
+
 text \<open>The predicate transformations preserve stability\<close>
 lemma thr_stable:
   "stable R P \<Longrightarrow> stable (thr\<^sub>R op R) (thr\<^sub>P op l P)"
   unfolding thr\<^sub>P_def thr\<^sub>R_def stable_def by auto
+
+lemma thr_stable':
+  "stable R P \<Longrightarrow> stable (thr\<^sub>R op R) (thr\<^sub>A op P)"
+  unfolding thr\<^sub>A_def thr\<^sub>R_def stable_def by auto
 
 lemma thr_wp:
   "P \<subseteq> wp v r M \<Longrightarrow> thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l v) (thr2glb op l l' r) (thr\<^sub>P op l' M)"

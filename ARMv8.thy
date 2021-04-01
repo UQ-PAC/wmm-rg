@@ -1,4 +1,4 @@
-theory ARMv82
+theory ARMv8
   imports Syntax Semantics
 begin
 
@@ -9,6 +9,7 @@ section \<open>State Encoding\<close>
 type_synonym ('v,'r) state = "(('v \<Rightarrow> 'v) \<times> ('r \<Rightarrow> 'v))"
 type_synonym ('v,'r) pred  = "('v,'r) state \<Rightarrow> bool"
 type_synonym ('v,'r) rpred = "('v \<Rightarrow> 'v) \<Rightarrow> ('v \<Rightarrow> 'v) \<Rightarrow> bool"
+type_synonym ('v,'r) gpred  = "('v \<Rightarrow> 'v) \<Rightarrow> bool"
 
 named_theorems pred_defs
 definition conj  (infixr "\<and>\<^sub>p" 35)
@@ -127,23 +128,17 @@ abbreviation ntest
 section \<open>Sub-Instruction Specification Language\<close>
 
 text \<open>Wrap instructions in more abstract specification to facilitate verification\<close>
-type_synonym ('v,'r) ispec = "(('v,'r) pred \<times> ('v,'r) inst)"
+type_synonym ('v,'r) ispec = "(('v,'r) inst,('v,'r) state) basic"
 
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
-fun fwd\<^sub>s :: "('v,'r) ispec \<Rightarrow> ('v,'r) ispec \<Rightarrow> ('v,'r) ispec" 
-  where "fwd\<^sub>s (vc,\<alpha>) (_,\<beta>) =  (vc,fwd\<^sub>i \<alpha> \<beta>)" 
+fun fwd\<^sub>s :: "('v,'r) ispec \<Rightarrow> ('v,'r) inst \<Rightarrow> ('v,'r) ispec" 
+  where "fwd\<^sub>s (\<alpha>,v,_) \<beta> =  (fwd\<^sub>i \<alpha> \<beta>,v,beh\<^sub>i (fwd\<^sub>i \<alpha> \<beta>))" 
 
-fun beh\<^sub>s :: "('v,'r) ispec \<Rightarrow> ('v,'r) state rel" 
-  where "beh\<^sub>s (_,\<alpha>) = beh\<^sub>i \<alpha>" 
+abbreviation no_vc :: "('v,'r) inst \<Rightarrow> (('v,'r) inst,('v,'r) state) basic" ("\<lfloor>_\<rfloor>" 100)
+  where "no_vc \<alpha> \<equiv> (\<alpha>, UNIV, beh\<^sub>i \<alpha>)"
 
-fun vc\<^sub>s :: "('v,'r) ispec \<Rightarrow> ('v,'r) state set" 
-  where "vc\<^sub>s (p,\<alpha>) = Collect p" 
-
-abbreviation no_vc ("\<lfloor>_\<rfloor>" 100)
-  where "no_vc \<alpha> \<equiv> (\<lambda>x. True, \<alpha>)"
-
-abbreviation yes_vc ("\<lfloor>_,_\<rfloor>" 100)
-  where "yes_vc v \<alpha> \<equiv> (v, \<alpha>)"
+abbreviation with_vc :: "('v,'r) pred \<Rightarrow> ('v,'r) inst \<Rightarrow> (('v,'r) inst,('v,'r) state) basic" ("\<lfloor>_,_\<rfloor>" 100)
+  where "with_vc v \<alpha> \<equiv> (\<alpha>, Collect v, beh\<^sub>i \<alpha>)"
 
 section \<open>While Language Definition\<close>
 

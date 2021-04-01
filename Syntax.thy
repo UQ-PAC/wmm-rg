@@ -30,13 +30,15 @@ datatype ('a,'b) com =
   | Choice "('a,'b) com" "('a,'b) com" (infixr "\<sqinter>" 150)
   | Loop "('a,'b) com" ("_*" [100] 150)
   | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
-  | Thread 'b "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a,'b) com"
+  | State 'b "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a,'b) com"
+  | Thread "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a,'b) com"
 
 text \<open>Ensure there is no parallelism within a program\<close>
 fun local :: "('a,'b) com \<Rightarrow> bool"
   where 
     "local (c\<^sub>1 || c\<^sub>2) = False" |
-    "local (Thread _ _ _) = False" |
+    "local (Thread _ _) = False" |
+    "local (State _ _ _) = False" |
     "local (c\<^sub>1 ; c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
     "local (c\<^sub>1 \<cdot> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |        
     "local (c\<^sub>1 \<sqinter> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |  
@@ -53,7 +55,8 @@ fun basics :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
     "basics (SeqChoice S) = (\<Union>s \<in> S. set s)" |
     "basics (Parallel c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Loop c) = basics c" |
-    "basics (Thread _ _ c) = basics c" |
+    "basics (Thread _ c) = basics c" |
+    "basics (State _ _ c) = basics c" |
     "basics _ = {}"
 
 text \<open>Shorthand for an environment step\<close>
