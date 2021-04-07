@@ -67,13 +67,39 @@ abbreviation ld
 
 section \<open>Sub-Instruction Language Definition\<close>
 
+datatype ('v,'r) exp = Reg 'r | Val 'v | Glb 'v 'v | Exp "'v list \<Rightarrow> 'v" "('v,'r) exp list"
+
+fun ev
+  where 
+    "ev m (Reg r) = m r" | 
+    "ev _ (Val v) = v" |
+    "ev _ (Glb v _) = v" |
+    "ev m (Exp f rs) = f (map (ev m) rs)"
+
+fun deps
+  where 
+    "deps (Reg r) = {r}" |
+    "deps (Exp _ rs) = \<Union>(deps ` set rs)" |
+    "deps _ = {}"
+
+fun addrs
+  where
+    "addrs (Glb _ v) = {v}" |
+    "addrs (Exp _ rs) = \<Union>(addrs ` set rs)" |
+    "addrs _ = {}"
+
+fun subst
+  where
+    "subst (Reg r) r' e = (if r = r' then e else Reg r)" |
+    "subst (Exp f rs) r e = (Exp f (map (\<lambda>x. subst x r e) rs))" |
+    "subst e _ _ = e"
+
 text \<open>Capture a simple set of sub-instructions, covering memory operations and fences\<close>
 datatype ('v,'r) inst =
-    load 'v 'v
-  | store 'v 'r
-  | cas 'v 'v 'v
-  | op 'r "'v list \<Rightarrow> 'v" "'r list"
-  | test "'v list \<Rightarrow> bool" "'r list"
+    load 'v "('v,'r) exp"
+  | store 'v "('v,'r) exp"
+  | op 'r "('v,'r) exp"
+  | test "('v,'r) exp" "'v \<Rightarrow> 'v \<Rightarrow> bool" "('v,'r) exp"
   | fence
   | cfence
   | stfence
@@ -81,11 +107,10 @@ datatype ('v,'r) inst =
 text \<open>Sub-Instruction Behaviour\<close>
 fun beh\<^sub>i :: "('v,'r) inst \<Rightarrow> ('v,'r) state rel"
   where
-    "beh\<^sub>i (store addr r) = {(m,m'). m' = m (addr :=\<^sub>1 rg m r)}" |
-    "beh\<^sub>i (load addr val) = {(m,m'). m' = m \<and> ld m addr = val}" |
-    "beh\<^sub>i (cas addr tst val) = {(m,m'). (m' = m \<and> ld m addr \<noteq> tst) \<or> (m' = m (addr :=\<^sub>1 val) \<and> ld m addr = tst)}" |
-    "beh\<^sub>i (op r f rs) = {(m,m'). m' = m (r :=\<^sub>2 f (map (rg m) rs))}" |
-    "beh\<^sub>i (test f rs) = {(m,m'). m = m' \<and> f (map (rg m) rs)}" |
+    "beh\<^sub>i (store addr e) = {(m,m'). m' = m (addr :=\<^sub>1 ev (snd m) e)}" |
+    "beh\<^sub>i (load addr e) = {(m,m'). m' = m \<and> ld m addr = ev (snd m) e}" |
+    "beh\<^sub>i (op r e) = {(m,m'). m' = m (r :=\<^sub>2 ev (snd m) e)}" |
+    "beh\<^sub>i (test e\<^sub>1 f e\<^sub>2) = {(m,m'). m = m' \<and> f (ev (snd m) e\<^sub>1) (ev (snd m) e\<^sub>2)}" |
     "beh\<^sub>i _ = Id"
 
 text \<open>Sub-Instruction Reordering\<close>
@@ -95,35 +120,43 @@ fun re\<^sub>i :: "('v,'r) inst \<Rightarrow> ('v,'r) inst \<Rightarrow> bool"
     "re\<^sub>i fence _ = False" |
     "re\<^sub>i (store _ _) stfence = False" |
     "re\<^sub>i stfence (store _ _) = False" | 
-    "re\<^sub>i (test _ _) cfence = False" |
+    "re\<^sub>i (test _ _ _) cfence = False" |
     "re\<^sub>i cfence (load _ _) = False" |
-    "re\<^sub>i (load y _) (load x _) = (y \<noteq> x)" |
-    "re\<^sub>i (load y _) (store x _) = (y \<noteq> x)" |
+    "re\<^sub>i (load y _) (load x e) = (y \<noteq> x \<and> y \<notin> addrs e)" |
+    "re\<^sub>i (load y _) (store x e) = (y \<noteq> x \<and> y \<notin> addrs e)" |
+    "re\<^sub>i (load y e) (op r e') = (y \<notin> addrs e' \<and> r \<notin> deps e)" |
+    "re\<^sub>i (load y _) (test e\<^sub>1 _ e\<^sub>2) = (y \<notin> addrs e\<^sub>1 \<union> addrs e\<^sub>2)" |
     "re\<^sub>i (store x _) (load y _) = (y \<noteq> x)" |
     "re\<^sub>i (store x _) (store y _) = (y \<noteq> x)" |
-    "re\<^sub>i (store _ r) (op r' _ _) = (r \<noteq> r')" |
-    "re\<^sub>i (op r _ rs) (op r' _ rs') = (r \<notin> set rs' \<and> r' \<notin> set rs \<and> r \<noteq> r')" |
-    "re\<^sub>i (op r _ _) (test _ rs') = (r \<notin> set rs')" |
-    "re\<^sub>i (op r _ _) (store _ r') = (r \<noteq> r')" |
-    "re\<^sub>i (test _ _) (store _ _) = False" |
-    "re\<^sub>i (test _ rs) (op r _ _) = (r \<notin> set rs)" |
+    "re\<^sub>i (store _ e) (op r _) = (r \<notin> deps e)" |
+    "re\<^sub>i (op r e) (op r' e') = (r \<notin> deps e' \<and> r' \<notin> deps e \<and> r \<noteq> r')" |
+    "re\<^sub>i (op r _) (test e\<^sub>1 _ e\<^sub>2) = (r \<notin> deps e\<^sub>1 \<and> r \<notin> deps e\<^sub>2)" |
+    "re\<^sub>i (op r _) (store _ e) = (r \<notin> deps e)" |
+    "re\<^sub>i (op r _) (load v e) = (r \<notin> deps e)" |
+    "re\<^sub>i (test _ _ _) (store _ _) = False" |
+    "re\<^sub>i (test e\<^sub>1 _ e\<^sub>2) (op r _) = (r \<notin> deps e\<^sub>1 \<and> r \<notin> deps e\<^sub>2)" |
     "re\<^sub>i _ _ = True"
 
 text \<open>Sub-Instruction Forwarding\<close>
 fun fwd\<^sub>i :: "('v,'r) inst \<Rightarrow> ('v,'r) inst \<Rightarrow> ('v,'r) inst" 
   where
-    "fwd\<^sub>i (load v\<^sub>a v) (store v\<^sub>a' r) = (if v\<^sub>a = v\<^sub>a' then test (\<lambda>x. x ! 0 = v) [r] else load v\<^sub>a v)" |
+    "fwd\<^sub>i (load v\<^sub>a r\<^sub>a) (store v\<^sub>b r\<^sub>b) = (if v\<^sub>a = v\<^sub>b then test r\<^sub>a (=) r\<^sub>b else load v\<^sub>a r\<^sub>a)" |
+    "fwd\<^sub>i (store v\<^sub>a e) (op r e') = (store v\<^sub>a (subst e r e'))" |
+    "fwd\<^sub>i (load v\<^sub>a e) (op r e') = (load v\<^sub>a (subst e r e'))" |
+    "fwd\<^sub>i (test e\<^sub>1 f e\<^sub>2) (op r e) = (test (subst e\<^sub>1 r e) f (subst e\<^sub>2 r e))" |
+    "fwd\<^sub>i (op r e) (op r' e') = (op r (subst e r' e'))" |
     "fwd\<^sub>i \<alpha> _ = \<alpha>"
 
 text \<open>Common Sub-Instructions\<close>
+
 abbreviation eq
-  where "eq r v \<equiv> test (\<lambda>x. x ! 0 = v) [r]"
+  where "eq r v \<equiv> test (Reg r) (=) (Val v)"
 
 abbreviation assign
-  where "assign r v \<equiv> op r (\<lambda>x. v) []"
+  where "assign r v \<equiv> op r (Exp (\<lambda>x. v) [])"
 
 abbreviation ntest
-  where "ntest f rs \<equiv> test (\<lambda>x. \<not> f x) rs"
+  where "ntest e\<^sub>1 f e\<^sub>2 \<equiv> test e\<^sub>1 (\<lambda>x y. \<not> f x y) e\<^sub>2"
 
 section \<open>Sub-Instruction Specification Language\<close>
 
@@ -146,9 +179,9 @@ datatype ('v,'r) lang =
   Skip
   | Load "('v,'r) pred" 'r 'r
   | Store "('v,'r) pred" 'r 'r
-  | Op 'r "'v list \<Rightarrow> 'v" "'r list"
+  | Op 'r "('v,'r) exp"
   | Seq "('v,'r) lang" "('v,'r) lang"
-  | If "'v list \<Rightarrow> bool" "'r list" "('v,'r) lang" "('v,'r) lang"
-  | While "'v list \<Rightarrow> bool" "'r list" "('v,'r) pred" "('v,'r) lang"
+  | If "('v,'r) exp" "'v \<Rightarrow> 'v \<Rightarrow> bool" "('v,'r) exp" "('v,'r) lang" "('v,'r) lang"
+  | While "('v,'r) exp" "'v \<Rightarrow> 'v \<Rightarrow> bool" "('v,'r) exp" "('v,'r) pred" "('v,'r) lang"
 
 end
