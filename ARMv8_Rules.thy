@@ -4,46 +4,76 @@ begin
 
 section \<open>Predicate Transformations\<close>
 
-definition stabilize 
-  where "stabilize R P \<equiv> \<lambda>(g,l). \<forall>g'. R g g' \<longrightarrow> P (g',l)"
+definition glb :: "('v,'r,'a) tstate_scheme \<Rightarrow> ('v,'a) gstate_scheme"
+  where "glb m \<equiv> \<lparr> st = st m, \<dots> = more m \<rparr>"
+
+definition set_glb :: "('v,'r,'a) tstate_scheme \<Rightarrow> ('v,'a) gstate_scheme \<Rightarrow> ('v,'r,'a) tstate_scheme"
+  where "set_glb m g \<equiv> \<lparr> st = st g, rg = rg m, \<dots> = gstate.more g \<rparr>"
+
+definition stabilize :: "('v,'a) rpred \<Rightarrow> ('v,'r,'a) pred \<Rightarrow> ('v,'r,'a) pred"
+  where "stabilize R P \<equiv> \<lambda>m. \<forall>g. R (glb m,g) \<longrightarrow> P (set_glb m g)"
+
+definition aux_upd
+  where "aux_upd a \<equiv> \<lambda>m. m\<lparr>tstate.more := a m\<rparr>"
 
 text \<open>Transform a predicate based on an instruction\<close>
-fun wp\<^sub>i :: "('v,'r) inst \<Rightarrow> ('v,'r) pred \<Rightarrow> ('v,'r) pred" 
+fun wp\<^sub>i :: "('v,'r,'a) inst \<Rightarrow> ('v,'r,'a) pred \<Rightarrow> ('v,'r,'a) pred" 
   where 
-    "wp\<^sub>i (load v e) Q = (\<lambda>m. ld m v = ev (snd m) e \<longrightarrow> Q m)" | 
-    "wp\<^sub>i (store v e) Q = (\<lambda>m. Q (m (v :=\<^sub>1 ev (snd m) e)))" | 
-    "wp\<^sub>i (op r e) Q = (\<lambda>m. Q (m (r :=\<^sub>2 ev (snd m) e)))" |
-    "wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) Q = (\<lambda>m. f (ev (snd m) e\<^sub>1) (ev (snd m) e\<^sub>2) \<longrightarrow> Q m)" | 
+    "wp\<^sub>i (load v e a) Q = (\<lambda>m. st m v = ev (rg m) e \<longrightarrow> Q (aux_upd a m))" | 
+    "wp\<^sub>i (store v e a) Q = (\<lambda>m. Q (aux_upd a (m(v :=\<^sub>s ev (rg m) e))))" | 
+    "wp\<^sub>i (op r e) Q = (\<lambda>m. Q (m (r :=\<^sub>r ev (rg m) e)))" |
+    "wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) Q = (\<lambda>m. f (ev (rg m) e\<^sub>1) (ev (rg m) e\<^sub>2) \<longrightarrow> Q m)" | 
+    "wp\<^sub>i (cas\<^sub>T v e\<^sub>1 e\<^sub>2 a) Q = (\<lambda>m. st m v = ev (rg m) e\<^sub>1 \<longrightarrow> Q (aux_upd a (m(v :=\<^sub>s ev (rg m) e\<^sub>2))))" | 
+    "wp\<^sub>i (cas\<^sub>F v e\<^sub>1 e\<^sub>2 a) Q = (\<lambda>m. st m v \<noteq> ev (rg m) e\<^sub>1 \<longrightarrow> Q (aux_upd a m))" | 
     "wp\<^sub>i _ Q = Q"
 
+fun guar\<^sub>i
+  where
+    "guar\<^sub>i (load v e a) G = (\<lambda>m. st m v = ev (rg m) e \<longrightarrow> G (glb m,glb (aux_upd a m)))" |
+    "guar\<^sub>i (store v e a) G = (\<lambda>m. G (glb m,glb (aux_upd a (m(v :=\<^sub>s ev (rg m) e)))))" |
+    "guar\<^sub>i (cas\<^sub>T v e\<^sub>1 e\<^sub>2 a) G = 
+      (\<lambda>m. st m v = ev (rg m) e\<^sub>1 \<longrightarrow> G (glb m,glb (aux_upd a (m(v :=\<^sub>s ev (rg m) e\<^sub>2)))))" | 
+    "guar\<^sub>i (cas\<^sub>F v e\<^sub>1 e\<^sub>2 a) G = 
+      (\<lambda>m. st m v \<noteq> ev (rg m) e\<^sub>1 \<longrightarrow> G (glb m,glb (aux_upd a m)))" | 
+    "guar\<^sub>i _ _ = (\<lambda>m. True)"
+
+definition step\<^sub>R :: "('v,'a) rpred \<Rightarrow> ('v,'r,'a) tstate_scheme rel"
+  where "step\<^sub>R R \<equiv> {(m,m'). R (glb m, glb m') \<and> rg m = rg m'}"
+
+definition step :: "('v,'a) rpred \<Rightarrow> ('v,'r,'a) tstate_scheme rel"
+  where "step R \<equiv> {(m,m'). R (glb m, glb m')}"
+
 text \<open>The WP predicate transformer given a rely R and guarantee G\<close>
-fun wp :: "('v,'r) rpred \<Rightarrow> ('v,'r) rpred \<Rightarrow> ('v,'r) lang \<Rightarrow> ('v,'r) pred \<Rightarrow> ('v,'r) pred"
+fun wp :: "('v,'a) rpred \<Rightarrow> ('v,'a) rpred \<Rightarrow> ('v,'r,'a) lang \<Rightarrow> ('v,'r,'a) pred \<Rightarrow> ('v,'r,'a) pred"
   where
     "wp R G Skip Q = Q" |
-    "wp R G (Load v r\<^sub>a r) Q = stabilize R (v \<and>\<^sub>p (\<lambda>m. Q (m (r :=\<^sub>2 ld m (rg m r\<^sub>a)))))" |
-    "wp R G (Store v r\<^sub>a r) Q = stabilize R (v \<and>\<^sub>p (\<lambda>m. Q (m (rg m r\<^sub>a :=\<^sub>1 rg m r))))" |
+    "wp R G Fence Q = Q" |
+    "wp R G (Load v r\<^sub>a r a) Q = stabilize R (v \<and>\<^sub>p (\<lambda>m. Q (aux_upd a (m (r :=\<^sub>r st m (rg m r\<^sub>a))))))" |
+    "wp R G (Store v r\<^sub>a r a) Q = stabilize R (v \<and>\<^sub>p (\<lambda>m. Q (aux_upd a (m (rg m r\<^sub>a :=\<^sub>s rg m r)))))" |
     "wp R G (Op r e) Q = wp\<^sub>i (op r e) Q" |
+    "wp R G (Test p) Q = stabilize R (p \<longrightarrow>\<^sub>p Q)" |
+    "wp R G (Assert p) Q = (stabilize R p \<and>\<^sub>p Q)" |
+    "wp R G (CAS v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q = 
+      stabilize R (
+        v \<and>\<^sub>p 
+        (\<lambda>m. st m (rg m r\<^sub>a) = rg m r\<^sub>1 \<longrightarrow> Q (aux_upd a (m(rg m r\<^sub>a :=\<^sub>s rg m r\<^sub>2, r :=\<^sub>r T)))) \<and>\<^sub>p 
+        (\<lambda>m. st m (rg m r\<^sub>a) \<noteq> rg m r\<^sub>1 \<longrightarrow> Q (aux_upd a (m(r :=\<^sub>r F)))))" |
     "wp R G (Seq c\<^sub>1 c\<^sub>2) Q = wp R G c\<^sub>1 (wp R G c\<^sub>2 Q)" |
-    "wp R G (If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) (wp R G c\<^sub>1 Q) \<and>\<^sub>p wp\<^sub>i (ntest e\<^sub>1 f e\<^sub>2) (wp R G c\<^sub>2 Q))" |
-    "wp R G (While e\<^sub>1 f e\<^sub>2 I c) Q = (stabilize R I \<and>\<^sub>p
-                                (assert (I \<turnstile>\<^sub>p (wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) (wp R G c (stabilize R I))) \<and>\<^sub>p 
-                                              wp\<^sub>i (ntest e\<^sub>1 f e\<^sub>2) Q)))"
-
-abbreviation state
-  where "state P \<equiv> Collect P"
-
-definition step\<^sub>R :: "('v,'r) rpred \<Rightarrow> ('v,'r) state rel"
-  where "step\<^sub>R P \<equiv> {((g,l),(g',l')). P g g' \<and> l = l'}"
-
-definition step\<^sub>G :: "('v,'r) rpred \<Rightarrow> ('v,'r) state rel"
-  where "step\<^sub>G P \<equiv> {((g,l),(g',l')). P g g'}"
+    "wp R G (If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2) Q = (
+      wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) (wp R G c\<^sub>1 Q) \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) (wp R G c\<^sub>2 Q))" |
+    "wp R G (While e\<^sub>1 f e\<^sub>2 I c) Q = 
+      (stabilize R I \<and>\<^sub>p assert (
+        I \<turnstile>\<^sub>p wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) (wp R G c (stabilize R I)) \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) Q))" |
+    "wp R G (DoWhile I c e\<^sub>1 f e\<^sub>2) Q = 
+      (stabilize R I \<and>\<^sub>p assert (
+        I \<turnstile>\<^sub>p wp R G c (wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) (stabilize R I) \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) Q)))"
 
 section \<open>Wellformedness\<close>
 
 text \<open>Couple all wellformedness conditions into a single definition\<close>
-definition wellformed :: "('v,'r) rpred \<Rightarrow> ('v,'r) rpred \<Rightarrow> ('v,'r) pred \<Rightarrow> bool"
+definition wellformed :: "('v,'a) rpred \<Rightarrow> ('v,'a) rpred \<Rightarrow> ('v,'r,'a) pred \<Rightarrow> bool"
   where "wellformed R G Q \<equiv> 
-    stable (step\<^sub>R R) (state Q) \<and> reflexive R \<and> transitive R \<and> reflexive G" 
+    stable (step\<^sub>R R) (Collect Q) \<and> reflexive R \<and> transitive R \<and> reflexive G" 
 
 text \<open>Establish wellformedness of a false predicate\<close>
 lemma wf_false:
@@ -53,14 +83,14 @@ lemma wf_false:
 text \<open>Show that a stabilized predicate is stable\<close>
 lemma stabilize_stable [intro]:
   assumes wf: "wellformed R G P"
-  shows "stable (step\<^sub>R R) (state (stabilize R Q))"
+  shows "stable (step\<^sub>R R) (Collect (stabilize R Q))"
   unfolding stable_def step\<^sub>R_def
 proof (clarsimp)
-  fix g l g'
-  assume a: "(stabilize R Q) (g,l)" "R g g'"
-  have "\<forall>g''. R g' g'' \<longrightarrow> R g g''"
+  fix m m'
+  assume a: "stabilize R Q m" "R (glb m, glb m')" "rg m = rg m'"
+  have "\<forall>g''. R (glb m',g'') \<longrightarrow> R (glb m,g'')"
     using assms a(2) unfolding wellformed_def transitive_def by blast
-  thus "(stabilize R Q) (g',l)" using a(1) by (auto simp: stabilize_def)
+  thus "stabilize R Q m'" using a(1,3) by (auto simp: stabilize_def set_glb_def)
 qed
 
 text \<open>Stabilization preserves wellformedness\<close>
@@ -68,64 +98,76 @@ lemma stabilize_wellformed [intro]:
   assumes "wellformed R G P"
   shows "wellformed R G (stabilize R Q)" (is "wellformed R G ?P")
 proof -
-  have "stable (step\<^sub>R R) (state ?P)" 
+  have "stable (step\<^sub>R R) (Collect ?P)" 
     using stabilize_stable assms by blast
   thus ?thesis using assms unfolding wellformed_def by blast
 qed
+
+lemma stable_conj [intro]:
+  assumes "stable R (Collect P)" "stable R (Collect Q)"
+  shows "stable R (Collect (P \<and>\<^sub>p Q))"
+  using assms by (auto simp: stable_def pred_defs)
+
+lemma wellformed_conjI [intro]:
+  assumes "wellformed R G P" "wellformed R G Q"
+  shows "wellformed R G (P \<and>\<^sub>p Q)"
+  using assms by (auto simp: wellformed_def)
+
+lemma [simp]:
+  "set_glb m (glb m) = m"
+  by (auto simp: set_glb_def glb_def)
 
 text \<open>Elimination rule to ignore the stabilization process\<close>
 lemma stabilizeE:
   assumes "stabilize R P m"
   assumes "wellformed R G Q"
   obtains "P m"
-  using assms unfolding wellformed_def reflexive_def stabilize_def by blast
+  using assms unfolding wellformed_def reflexive_def stabilize_def sorry
 
 section \<open>Program Wellformedness\<close>
 
-(*
-text \<open>We require all instructions in a program to conform to the guarantee\<close>
-
-text \<open>Compute the verification condition necessary for an instruction to conform to a guarantee G\<close>
-definition guar\<^sub>i :: "('v,'r) inst \<Rightarrow> ('v,'r) rpred \<Rightarrow> ('v,'r) pred"
-  where "guar\<^sub>i i G \<equiv> \<lambda>m. \<forall>m'. (m,m') \<in> beh\<^sub>i i \<longrightarrow> (G (fst m) (fst m') \<or> m = m')"
-
-fun guar\<^sub>s :: "('v,'r) ispec \<Rightarrow> ('v,'r) rpred \<Rightarrow> bool"
-  where "guar\<^sub>s (p,ts,\<alpha>) G = (p \<and>\<^sub>p ts \<turnstile>\<^sub>p guar\<^sub>i \<alpha> G)"
-*)
-
 text \<open>Ensure all operations have preconditions strong enough to discharge their guarantee\<close>
 fun guar\<^sub>c
-  where
-    "guar\<^sub>c (Store v r\<^sub>a r) G = (\<forall>m. v m \<longrightarrow> G (fst m) ((fst m)(rg m r\<^sub>a := rg m r)))" |
+  where 
+    "guar\<^sub>c (Load v r\<^sub>a r a) G = 
+      (\<forall>m. v m \<longrightarrow> G (glb m,glb (m\<lparr>tstate.more := a (m(r :=\<^sub>r st m (rg m r\<^sub>a)))\<rparr>)))" |
+    "guar\<^sub>c (Store v r\<^sub>a r a) G = 
+      (\<forall>m. v m \<longrightarrow> G (glb m,glb (aux_upd a (m(rg m r\<^sub>a :=\<^sub>s rg m r)))))" |
+    "guar\<^sub>c (CAS v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) G = 
+      ((\<forall>m. v m \<and> st m (rg m r\<^sub>a) = rg m r\<^sub>1 \<longrightarrow> G (glb m,glb (aux_upd a (m(rg m r\<^sub>a :=\<^sub>s rg m r\<^sub>2, r :=\<^sub>r T))))) \<and>
+      (\<forall>m. v m \<and> st m (rg m r\<^sub>a) \<noteq> rg m r\<^sub>1 \<longrightarrow> G (glb m,glb (aux_upd a (m(r :=\<^sub>r F))))))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (While e\<^sub>1 f e\<^sub>2 I c) G = (guar\<^sub>c c G)" |
+    "guar\<^sub>c (DoWhile I c e\<^sub>1 f e\<^sub>2) G = (guar\<^sub>c c G)" |
     "guar\<^sub>c _ _ = True"
 
 section \<open>Soundness\<close>
 
 text \<open>Convert the While language into the com language expected by the underlying logic\<close> 
-fun lift\<^sub>c :: "('v,'r) lang \<Rightarrow> (('v,'r) inst,('v,'r) state) com"
+fun lift\<^sub>c :: "('v,'r,'a) lang \<Rightarrow> (('v,'r,'a) inst, ('v,'r,'a) tstate_scheme) com"
   where
     "lift\<^sub>c Skip = com.Nil" |
+    "lift\<^sub>c Fence = Basic (\<lfloor>fence\<rfloor>)" |
     "lift\<^sub>c (Op r e) = Basic (\<lfloor>op r e\<rfloor>)" |
-    "lift\<^sub>c (Load c r\<^sub>a r) = \<Sqinter> {[\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>, \<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,load v\<^sub>a (Val v)\<rfloor>, \<lfloor>op r (Glb v v\<^sub>a)\<rfloor>] |v v\<^sub>a. True}" |
-    "lift\<^sub>c (Store c r\<^sub>a r) = \<Sqinter> {[\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>, \<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,store v\<^sub>a (Reg r)\<rfloor>] |v\<^sub>a. True}" |
-    "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1 ; lift\<^sub>c c\<^sub>2)" |
-    "lift\<^sub>c (If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2) = (Choice (com.Seq (Basic (\<lfloor>test e\<^sub>1 f e\<^sub>2\<rfloor>)) (lift\<^sub>c c\<^sub>1)) 
-                                    (com.Seq (Basic (\<lfloor>ntest e\<^sub>1 f e\<^sub>2\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" |
-    "lift\<^sub>c (While e\<^sub>1 f e\<^sub>2 I c) = (com.Seq ((com.Seq (Basic (\<lfloor>test e\<^sub>1 f e\<^sub>2\<rfloor>)) (lift\<^sub>c c))*) 
-                                      (Basic (\<lfloor>ntest e\<^sub>1 f e\<^sub>2\<rfloor>)))"
+    "lift\<^sub>c (Load c r\<^sub>a r a) = 
+      \<Sqinter> {[
+        \<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>, \<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,load v\<^sub>a (Val v) (\<lambda>m. a (m(r :=\<^sub>r v)))\<rfloor>, \<lfloor>op r (Glb v v\<^sub>a)\<rfloor>] 
+          |v v\<^sub>a. True}" |
+    "lift\<^sub>c (Store c r\<^sub>a r a) = \<Sqinter> {[\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>, \<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,store v\<^sub>a (Reg r) a\<rfloor>] |v\<^sub>a. True}" |
+    "lift\<^sub>c (CAS c r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) = (Choice
+      (\<Sqinter> {[\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>, \<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,cas\<^sub>T v\<^sub>a (Reg r\<^sub>1) (Reg r\<^sub>2) (\<lambda>m. a (m(r :=\<^sub>r T)))\<rfloor>, \<lfloor>op r (Glb T v\<^sub>a)\<rfloor>] |v\<^sub>a. True})
+      (\<Sqinter> {[\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>, \<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,cas\<^sub>F v\<^sub>a (Reg r\<^sub>1) (Reg r\<^sub>2) (\<lambda>m. a (m(r :=\<^sub>r F)))\<rfloor>, \<lfloor>op r (Glb F v\<^sub>a)\<rfloor>] |v\<^sub>a. True}))" |
+    "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1 ;; lift\<^sub>c c\<^sub>2)" |
+    "lift\<^sub>c (If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2) = (Choice (com.Seq (Basic (\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>)) (lift\<^sub>c c\<^sub>1)) 
+                                    (com.Seq (Basic (\<lfloor>ncmp e\<^sub>1 f e\<^sub>2\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" |
+    "lift\<^sub>c (While e\<^sub>1 f e\<^sub>2 I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>)) (lift\<^sub>c c))*) 
+                                      (Basic (\<lfloor>ncmp e\<^sub>1 f e\<^sub>2\<rfloor>)))" |
+    "lift\<^sub>c (DoWhile I c e\<^sub>1 f e\<^sub>2) = (com.Seq ((com.Seq (lift\<^sub>c c) (Basic (\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>)))*) (com.Seq (lift\<^sub>c c) (Basic (\<lfloor>ncmp e\<^sub>1 f e\<^sub>2\<rfloor>))))" |
+    "lift\<^sub>c (Test p) = Basic (nop, UNIV, {(m,m'). m = m' \<and> p m})" |
+    "lift\<^sub>c (Assert p) = Basic (nop, Collect p, Id)"
 
 subsection \<open>Interpretation of General Logic\<close>
-
-(*
-fun act_ref :: "('v,'r) ispec \<Rightarrow> ('v,'r) ispec \<Rightarrow> bool" 
-  where "act_ref (p,\<alpha>) (q,\<beta>) = (\<alpha> = \<beta> \<and> (p \<turnstile>\<^sub>p q))"
-
-fun re\<^sub>s :: "('v,'r) ispec \<Rightarrow> ('v,'r) ispec \<Rightarrow> bool" 
-  where "re\<^sub>s (_,\<alpha>) (_,\<beta>) = re\<^sub>i \<alpha> \<beta>" 
-*)
 
 interpretation rules fwd\<^sub>s re\<^sub>i
   by (unfold_locales) (auto simp: pred_defs)
@@ -134,10 +176,10 @@ abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
   where "rules_abv \<equiv> rules"
 
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
-  where "lifted_abv R G P c Q \<equiv> step\<^sub>R R,step\<^sub>G G \<turnstile> state P {lift\<^sub>c c} state Q"
+  where "lifted_abv R G P c Q \<equiv> step\<^sub>R R,step G \<turnstile> Collect P {lift\<^sub>c c} Collect Q"
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0,0] 45) 
-  where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c) (state P) (step\<^sub>R R) (step\<^sub>G G) (state Q)"
+  where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c) (Collect P) (step\<^sub>R R) (step G) (Collect Q)"
 
 text \<open>An ordering property on contexts\<close>
 definition context_order 
@@ -151,192 +193,236 @@ definition valid
 
 subsection \<open>Instruction Soundness\<close>
 
-lemma load_sound:
-  assumes "wellformed R G Q"
-  shows "R,G \<turnstile>\<^sub>s wp R G (Load c r\<^sub>a r) Q {Load c r\<^sub>a r} Q"
-proof (clarsimp simp del: beh\<^sub>i.simps, rule rules.seqset, clarsimp simp del: beh\<^sub>i.simps, intro rules.ord rules.basic)
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile> state Q {Nil} state Q" using assms by (auto simp: wellformed_def)
-next
-  fix v v\<^sub>a
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile>\<^sub>A (state (wp\<^sub>i (op r (Glb v v\<^sub>a)) Q)) {\<lfloor>op r (Glb v v\<^sub>a)\<rfloor>} state Q"
-    unfolding atomic_rule_def
-    apply (intro conjI)    
-       apply (clarsimp simp add: wp_def)
-    using assms 
-    apply (clarsimp simp add: step\<^sub>G_def pair_upd2_def wellformed_def reflexive_def guar_def)
-    using assms
-    apply (clarsimp simp add: step\<^sub>G_def pair_upd2_def wellformed_def stable_def step\<^sub>R_def)
-    apply (metis (full_types) snd_conv)
-    using assms
-    apply (clarsimp simp add: step\<^sub>G_def pair_upd2_def wellformed_def stable_def step\<^sub>R_def)
-    done
-next
-  fix v v\<^sub>a
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile>\<^sub>A 
-          (state (stabilize R ((\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c \<and>\<^sub>p wp\<^sub>i (load v\<^sub>a (Val v)) (wp\<^sub>i (op r (Glb v v\<^sub>a)) Q)))) 
-          {\<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c, load v\<^sub>a (Val v)\<rfloor>} state (wp\<^sub>i (op r (Glb v v\<^sub>a)) Q)"
-    unfolding atomic_rule_def
-    apply (intro conjI)
-    using assms
-    apply (auto simp: wp_def pred_defs guar_def elim!: stabilizeE)
-    apply (clarsimp simp add: step\<^sub>G_def pair_upd2_def wellformed_def reflexive_def stable_def step\<^sub>R_def)
-    apply (clarsimp simp add: step\<^sub>G_def pair_upd2_def wellformed_def reflexive_def stable_def step\<^sub>R_def)
-    apply (metis (full_types) snd_conv)
-    done
-next
-  fix v v\<^sub>a
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile>\<^sub>A 
-        (state
-          (stabilize R
-            (c \<and>\<^sub>p (\<lambda>m. Q (m(r :=\<^sub>2 ld m (rg m r\<^sub>a)))))))
-        {\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>}
-        (state (stabilize R ((\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c \<and>\<^sub>p wp\<^sub>i (load v\<^sub>a (Val v)) (wp\<^sub>i (op r (Glb v v\<^sub>a)) Q))))"
-    unfolding atomic_rule_def
-    apply (intro conjI)
-    using assms
-    apply (auto simp: guar_def step\<^sub>G_def wp_def pred_defs)
-    apply (auto simp: stabilize_def)
-    apply (auto simp: wellformed_def reflexive_def)
-    done
-qed
+lemma [simp]:
+  "glb (m\<lparr>rg := e\<rparr>) = glb m"
+  unfolding glb_def by auto
 
-lemma store_sound:
-  assumes "wellformed R G Q" "guar\<^sub>c (Store c r\<^sub>a r) G"
-  shows "R,G \<turnstile>\<^sub>s wp R G (Store c r\<^sub>a r) Q {Store c r\<^sub>a r} Q"
-proof (clarsimp simp del: beh\<^sub>i.simps, rule rules.seqset, clarsimp simp del: beh\<^sub>i.simps, intro rules.ord rules.basic)
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile> state Q {Nil} state Q" using assms by (auto simp: wellformed_def)
-next
-  fix v\<^sub>a
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile>\<^sub>A 
-          (state (stabilize R (((\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c) \<and>\<^sub>p wp\<^sub>i (store v\<^sub>a (Reg r)) Q)))
-          {\<lfloor>(\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c,store v\<^sub>a (Reg r)\<rfloor>} state Q"
-    unfolding atomic_rule_def
-    apply (intro conjI)    
-    using assms
-    apply (auto simp: wp_def pred_defs step\<^sub>G_def pair_upd1_def guar_def elim!: stabilizeE split: if_splits)
-    apply (subgoal_tac "(a(b r\<^sub>a := b r)) = (\<lambda>x. if x = b r\<^sub>a then rg (a, b) r else ld (a, b) x)")
-    apply force
-    apply auto[1]
-    by (auto simp: wellformed_def)
-next
-  fix v\<^sub>a
-  show "step\<^sub>R R,step\<^sub>G G \<turnstile>\<^sub>A 
-        state (stabilize R (c \<and>\<^sub>p (\<lambda>m. Q (m (rg m r\<^sub>a :=\<^sub>1 rg m r)))))
-        {\<lfloor>eq r\<^sub>a v\<^sub>a\<rfloor>}
-        (state (stabilize R (((\<lambda>m. rg m r\<^sub>a = v\<^sub>a) \<and>\<^sub>p c) \<and>\<^sub>p wp\<^sub>i (store v\<^sub>a (Reg r)) Q)))"
-    unfolding atomic_rule_def
-    apply (intro conjI)
-    using assms
-    apply (auto simp: guar_def wp_def pred_defs)
-    by (auto simp: stabilize_def step\<^sub>G_def wellformed_def reflexive_def)
-qed
+lemma [intro]:
+  "reflexive G \<Longrightarrow> G (m,m)"
+  by (auto simp: reflexive_def)
+
+lemma [intro!]:
+  "stable (step\<^sub>R R) (Collect Q) \<Longrightarrow> stable (step\<^sub>R R) {m. Q (m\<lparr>rg := f (rg m)\<rparr>)}"
+  by (auto simp add: wellformed_def stable_def step\<^sub>R_def)
+
+lemma [intro!]:
+  "stable (step\<^sub>R R) (Collect Q) \<Longrightarrow> stable (step\<^sub>R R) {m. f (rg m) \<longrightarrow> Q m}"
+  by (auto simp add: wellformed_def stable_def step\<^sub>R_def)
+
+fun stab\<^sub>i
+  where
+    "stab\<^sub>i R (load _ _ _) Q = stabilize R Q" |
+    "stab\<^sub>i R (store _ _ _) Q = stabilize R Q" |
+    "stab\<^sub>i R (cas\<^sub>T _ _ _ _) Q = stabilize R Q" |
+    "stab\<^sub>i R (cas\<^sub>F _ _ _ _) Q = stabilize R Q" |
+    "stab\<^sub>i _ _ Q = Q"
+
+lemma test[intro!]:
+  "wellformed R G Q \<Longrightarrow> wellformed R G (stab\<^sub>i R a (wp\<^sub>i a Q))"
+  by (cases a) (auto simp add: wellformed_def rg_upd_def)
+  
+lemma atomic_wp\<^sub>i:
+  assumes "wellformed R G Q" "c \<turnstile>\<^sub>p guar\<^sub>i a G"
+  shows "step\<^sub>R R,step G \<turnstile>\<^sub>A Collect (stabilize R (c \<and>\<^sub>p wp\<^sub>i a Q)) {\<lfloor>c, a\<rfloor>} Collect Q"
+  using assms by (cases a) (auto simp: atomic_rule_def guar_def wp_def rg_upd_def 
+                                       wellformed_def step_def aux_upd_def pred_defs 
+                                 elim!: stabilizeE)
+
+lemma atomic_wp\<^sub>i':
+  assumes "wellformed R G Q" "(\<lambda>m. True) \<turnstile>\<^sub>p guar\<^sub>i a G"
+  shows "step\<^sub>R R,step G \<turnstile>\<^sub>A Collect (stab\<^sub>i R a (wp\<^sub>i a Q)) {\<lfloor>a\<rfloor>} Collect Q"
+  using assms by (cases a) (auto simp: atomic_rule_def guar_def wp_def rg_upd_def 
+                                       wellformed_def step_def aux_upd_def pred_defs 
+                                 elim!: stabilizeE)
+
+lemma atomic_wp\<^sub>i_rw:
+  assumes "wellformed R G Q" "c \<turnstile>\<^sub>p guar\<^sub>i a G" "stable (step\<^sub>R R) (Collect P)" "P \<turnstile>\<^sub>p c \<and>\<^sub>p wp\<^sub>i a Q"
+  shows "step\<^sub>R R,step G \<turnstile>\<^sub>A Collect P {\<lfloor>c, a\<rfloor>} Collect Q"
+  using assms by (cases a) (auto simp: atomic_rule_def guar_def wp_def rg_upd_def 
+                                       wellformed_def step_def aux_upd_def pred_defs 
+                                 elim!: stabilizeE)
+
+lemma atomic_wp\<^sub>i_rw':
+  assumes "wellformed R G Q" "(\<lambda>m. True) \<turnstile>\<^sub>p guar\<^sub>i a G" "stable (step\<^sub>R R) (Collect P)" "P \<turnstile>\<^sub>p wp\<^sub>i a Q"
+  shows "step\<^sub>R R,step G \<turnstile>\<^sub>A Collect P {\<lfloor>a\<rfloor>} Collect Q"
+  using assms by (cases a) (auto simp: atomic_rule_def guar_def wp_def rg_upd_def 
+                                       wellformed_def step_def aux_upd_def pred_defs 
+                                 elim!: stabilizeE)
 
 (*
-lemma feqI:
-  "\<forall>x. f x = q x \<Longrightarrow> f = q"
-  by auto     
+lemma atomic_op [intro]:
+  "wellformed R G Q \<Longrightarrow> step\<^sub>R R,step G \<turnstile>\<^sub>A Collect (wp\<^sub>i R (op r e) Q) {\<lfloor>op r e\<rfloor>} Collect Q"
+  by (auto simp: atomic_rule_def guar_def wp_def rg_upd_def wellformed_def step_def)
 
-lemma ev_local [intro]:
-  "ev (a, b) e = ev (aa, b) e"
-proof (induct e arbitrary: a b aa)
-  case (Exp x1a x2a)
-  hence "map (ev (a, b)) x2a = map (ev (aa, b)) x2a" by auto
-  then show ?case unfolding ev.simps by argo
-qed auto *)
+lemma atomic_cmp [intro]:
+  "wellformed R G Q \<Longrightarrow> step\<^sub>R R,step G \<turnstile>\<^sub>A Collect (wp\<^sub>i R (cmp e\<^sub>1 f e\<^sub>2) Q) {\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>} Collect Q"
+  by (auto simp: atomic_rule_def guar_def wp_def wellformed_def step_def)
+
+lemma atomic_load [intro]:
+  assumes "wellformed R G Q" "guar\<^sub>c (Load c r\<^sub>a r a) G"
+  shows "step\<^sub>R R,step G \<turnstile>\<^sub>A Collect (stabilize R (c \<and>\<^sub>p wp\<^sub>i (load v\<^sub>a e a) Q)) {\<lfloor>c, load v\<^sub>a e a\<rfloor>} Collect Q"
+  using assms by (auto simp: atomic_rule_def wp_def pred_defs guar_def step_def wellformed_def elim!: stabilizeE)
+*)
+
+lemma nil [intro]:
+  assumes "wellformed R G Q"
+  shows "step\<^sub>R R,step G \<turnstile> Collect Q {Nil} Collect Q" 
+  using assms by (auto simp: wellformed_def)
+
+lemma [simp]:
+  "rg (set_glb m g) r\<^sub>a = rg m r\<^sub>a"
+  by (auto simp: set_glb_def)
+
+lemma [simp]:
+  "set_glb (set_glb m g) g' = set_glb m g'"
+  by (auto simp: set_glb_def)
+
+lemma [simp]:
+  "set_glb (m\<lparr>tstate.more := a\<rparr>) g = set_glb m g"
+    by (auto simp: set_glb_def)
+
+lemma [simp]:
+  "st (set_glb m g) = st g"
+  by (auto simp: set_glb_def)
+
+lemma [simp]:
+  "m(r :=\<^sub>r e)\<lparr>tstate.more := a\<rparr> = (m\<lparr>tstate.more := a\<rparr>)(r :=\<^sub>r e)"
+  by (auto simp: rg_upd_def)
+
+lemma ord_rotate:
+  "R,G \<turnstile> Q {c\<^sub>2} M \<Longrightarrow> R,G \<turnstile> P {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile> P {c\<^sub>1 \<cdot> c\<^sub>2} M"
+  by auto
+
+lemma load_sound:
+  assumes "wellformed R G Q" "guar\<^sub>c (Load c r\<^sub>a r a) G"
+  shows "R,G \<turnstile>\<^sub>s wp R G (Load c r\<^sub>a r a) Q {Load c r\<^sub>a r a} Q"
+  using assms
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro rules.seqset)
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro ord_rotate rules.basic)
+  apply (rule nil, simp)
+  apply (rule atomic_wp\<^sub>i')
+  apply (auto simp add: pred_defs)[2]
+  apply (rule atomic_wp\<^sub>i)
+  apply blast
+  apply (auto simp add: pred_defs aux_upd_def rg_upd_def)[1]
+  apply (rule atomic_wp\<^sub>i_rw')
+  apply auto
+  apply (auto simp: stabilize_def aux_upd_def pred_defs)
+  done
+
+lemma store_sound:
+  assumes "wellformed R G Q" "guar\<^sub>c (Store c r\<^sub>a r a) G"
+  shows "R,G \<turnstile>\<^sub>s wp R G (Store c r\<^sub>a r a) Q {Store c r\<^sub>a r a} Q"
+  using assms
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro rules.seqset)
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro ord_rotate rules.basic)
+  apply (rule nil, simp)
+  apply (rule atomic_wp\<^sub>i)
+  apply (auto simp add: pred_defs aux_upd_def rg_upd_def)[2]
+  apply (rule atomic_wp\<^sub>i_rw')
+  apply auto
+  apply (auto simp: stabilize_def aux_upd_def pred_defs)
+  done
+
+lemma [simp]:
+  "glb (m(r :=\<^sub>r T)) = glb m"
+  by (auto simp: glb_def rg_upd_def)
+
+lemma cas_sound:
+  assumes "wellformed R G Q" "guar\<^sub>c (CAS c r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) G"
+  shows "R,G \<turnstile>\<^sub>s wp R G (CAS c r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q {CAS c r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a} Q"
+  using assms
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro rules.choice rules.seqset)
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro ord_rotate rules.basic)
+  apply (rule nil, simp)
+  apply (rule atomic_wp\<^sub>i'; auto simp add: pred_defs)
+  apply (rule atomic_wp\<^sub>i)
+  apply blast
+  apply (auto simp add: pred_defs aux_upd_def)[1]
+  apply (rule atomic_wp\<^sub>i_rw')
+  apply auto[3]
+  apply (auto simp: stabilize_def aux_upd_def pred_defs)[1]
+  apply (clarsimp simp del: beh\<^sub>i.simps)
+  apply (intro ord_rotate rules.basic)
+  apply (rule nil, simp)
+  apply (rule atomic_wp\<^sub>i'; auto simp add: pred_defs)
+  apply (rule atomic_wp\<^sub>i)
+  apply blast
+  apply (auto simp add: pred_defs aux_upd_def)[1]
+  apply (rule atomic_wp\<^sub>i_rw')
+  apply auto[3]  
+  apply (auto simp: stabilize_def aux_upd_def pred_defs)[1]
+  done
 
 lemma op_sound:
   assumes "wellformed R G Q"
   shows "R,G \<turnstile>\<^sub>s wp R G (Op r e) Q {Op r e} Q"
+  using assms
+  apply (clarsimp simp del: wp.simps beh\<^sub>i.simps)
+  apply (rule rules.basic)
+  apply (rule atomic_wp\<^sub>i_rw')
+  apply (auto simp: pred_defs)
+  by (auto simp: wellformed_def rg_upd_def)
+
+lemma fence_sound:
+  assumes "wellformed R G Q"
+  shows "R,G \<turnstile>\<^sub>s wp R G (Fence) Q {Fence} Q"
   apply (clarsimp, rule rules.basic, simp add: atomic_rule_def, intro conjI)
   using assms
-  apply (auto simp: wp_def pred_defs step\<^sub>G_def guar_def pair_upd2_def wellformed_def reflexive_def)
-  apply (auto simp: stable_def step\<^sub>R_def)
-  by (metis (full_types) snd_conv)
-  
+  by (auto simp: wp_def pred_defs step_def guar_def wellformed_def reflexive_def)
 
-(*
-text \<open>WP correctly transforms the state for an instruction\<close>
-lemma wp_sound [intro]:
-  assumes wf: "wellformed R G Q" 
-  shows "state (stabilize R (wp\<^sub>s \<alpha> Q)) \<subseteq> wp\<^sub>\<alpha> \<alpha> (state Q)"
-  using wf by (cases \<alpha>, rename_tac p i, case_tac i) 
-              (auto simp add: state_def wp_def pred_defs elim!: stabilizeE)
+lemma test_sound:
+  assumes "wellformed R G Q"
+  shows "R,G \<turnstile>\<^sub>s wp R G (Test p) Q {Test p} Q"
+  apply (clarsimp, rule rules.basic, simp add: atomic_rule_def, intro conjI)
+  using assms
+  apply (auto simp: wp_def pred_defs elim!: stabilizeE)
+  by (auto simp: step_def guar_def wellformed_def reflexive_def)
 
-text \<open>The guar check is correct\<close>
-lemma guar_correct [simp]:
-  "guar \<alpha> (step G) = guar\<^sub>c (Inst \<alpha>) G"
-  by (cases \<alpha>) (auto simp: guar\<^sub>i_def pred_defs step_def)
-
-text \<open>WP soundly computes an instructions weakest precondition\<close>
-lemma inst_sound [intro]:
-  assumes "wellformed R G Q" "guar\<^sub>c (Inst \<alpha>) G"
-  shows "R,G \<turnstile>\<^sub>s wp R G (Inst \<alpha>) Q {Inst \<alpha>} Q"
-proof (clarsimp, rule lrules.basic, simp add: atomic_rule_def, intro conjI)
-  show "state (stabilize R (wp\<^sub>s \<alpha> Q)) \<subseteq> wp\<^sub>\<alpha> \<alpha> (state Q)" 
-    using assms(1) wp_sound by blast
-qed (insert assms, auto simp: wellformed_def)
-
-text \<open>Bundle the inst rule with a precondition rewrite\<close>
-lemma inst_conseq [intro]:
-  assumes "wellformed R G Q" "guar\<^sub>c (Inst \<alpha>) G"
-  assumes "P \<turnstile>\<^sub>p wp R G (Inst \<alpha>) Q"
-  shows "step R,step G \<turnstile>\<^sub>l state P {Basic \<alpha>} state Q"
-  using inst_sound[OF assms(1,2)] apply simp
-proof (rule lrules.conseq)
-  show "state P \<subseteq> state (wp R G (Inst \<alpha>) Q)"
-    using assms(3) by (auto simp: entail_def state_def)
-qed auto
-*)
+lemma assert_sound:
+  assumes "wellformed R G Q"
+  shows "R,G \<turnstile>\<^sub>s wp R G (Assert p) Q {Assert p} Q"
+  apply (clarsimp, rule rules.basic, simp add: atomic_rule_def, intro conjI)
+  using assms
+  apply (auto simp: wp_def pred_defs elim!: stabilizeE)[1]
+  using assms
+  apply (auto simp: step_def guar_def wellformed_def reflexive_def)
+  using assms by blast
 
 subsection \<open>Base Introduction Rules\<close>
 
 text \<open>Reflexive Ordering\<close>
-lemma reflOrd [intro]:
+lemma ord_refl [intro]:
   "R,G \<turnstile>\<^sub>w P \<ge> P"
   unfolding context_order_def by (auto simp: pred_defs)
 
 text \<open>Assert Ordering\<close>
-lemma assertOrd:
+lemma ord_assert:
   "R,G \<turnstile>\<^sub>w P \<and>\<^sub>p assert A \<ge> P"
   by (cases A) (auto simp: context_order_def pred_defs intro: wf_false) 
 
 text \<open>Stabilize Ordering\<close>
-lemma stabilizeOrd:
+lemma ord_stabilize:
   assumes "P \<turnstile>\<^sub>p Q" 
   shows "R,G \<turnstile>\<^sub>w stabilize R P \<ge> Q"
   using assms stabilizeE unfolding context_order_def entail_def
   by blast
 
 text \<open>Skip Rule\<close>
-lemma skipWP:
+lemma skip_wp:
   "R,G \<turnstile>\<^sub>w Q {Skip} Q"
   by (auto simp: context_order_def valid_def wellformed_def)
 
-(*
-text \<open>Instruction Rule\<close>
-lemma instWP:
-  "R,G \<turnstile>\<^sub>w wp R G (Inst \<alpha>) Q {Inst \<alpha>} Q"
-  unfolding valid_def using inst_sound[of R G Q \<alpha>] by auto
- *)
-
 text \<open>Sequential Rule\<close>
-lemma seqWP:
+lemma seq_wp:
   "R,G \<turnstile>\<^sub>w P {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w M {c\<^sub>2} P \<Longrightarrow> R,G \<turnstile>\<^sub>w M {Seq c\<^sub>2 c\<^sub>1} Q"
   unfolding valid_def by auto
-
-(*
-lemma guar_cond [simp]:
-  "guar\<^sub>i (Cond f r) G = (\<lambda>m. True)"
-  by (auto simp add: pred_defs guar\<^sub>i_def)
-*)
-
-lemma [simp]:
-  "(P \<turnstile>\<^sub>p P) = True"
-  by (auto simp add: pred_defs)
-
-lemma [simp]:
-  "(PTrue \<and>\<^sub>p PTrue) = PTrue"
-  by (auto simp: pred_defs)
 
 text \<open>Stabilization preserves entailment\<close>
 lemma stabilize_entail [intro]:
@@ -351,16 +437,16 @@ lemma stabilize_entail' [intro]:
   using assms
   by (clarsimp simp add: entail_def stabilize_def wellformed_def stable_def step\<^sub>R_def reflexive_def)
 
-lemma test_sound:
+lemma cmp_sound:
   assumes "wellformed R G Q"
-  assumes "P \<turnstile>\<^sub>p wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) Q"
-  shows "step\<^sub>R R,step\<^sub>G G \<turnstile> state P {Basic (\<lfloor>test e\<^sub>1 f e\<^sub>2\<rfloor>)} state Q"
-  apply (rule rules.conseq[of "step\<^sub>R R" "step\<^sub>G G" "state (wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) Q)" _ "state Q"])
+  assumes "P \<turnstile>\<^sub>p wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) Q"
+  shows "step\<^sub>R R,step G \<turnstile> Collect P {Basic (\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>)} Collect Q"
+  apply (rule rules.conseq[of "step\<^sub>R R" "step G" "Collect (wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) Q)" _ "Collect Q"])
   apply (rule rules.basic)
   unfolding atomic_rule_def
   apply (intro conjI)
   apply (clarsimp simp: wp_def)
-  using assms apply (clarsimp simp: guar_def wellformed_def reflexive_def step\<^sub>G_def)
+  using assms apply (clarsimp simp: guar_def wellformed_def reflexive_def step_def)
   using assms apply (auto simp: wellformed_def step\<^sub>R_def stable_def)[2]
   using assms(2) apply (clarsimp simp: pred_defs)[1]
   by auto
@@ -369,14 +455,14 @@ text \<open>If Rule\<close>
 lemma ifWP:
   assumes "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q"
   assumes "R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q"
-  shows "R,G \<turnstile>\<^sub>w (wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) P\<^sub>1 \<and>\<^sub>p wp\<^sub>i (ntest e\<^sub>1 f e\<^sub>2) P\<^sub>2) {If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2} Q"
+  shows "R,G \<turnstile>\<^sub>w (wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) P\<^sub>1 \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) P\<^sub>2) {If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2} Q"
   using assms
   unfolding valid_def
   apply (clarsimp simp del: beh\<^sub>i.simps)
   apply (intro impI conjI rules.choice rules.seq stabilize_wellformed; assumption?)
-  apply (rule test_sound; simp)
+  apply (rule cmp_sound; simp)
   apply (simp add: pred_defs)
-  apply (rule test_sound; simp)
+  apply (rule cmp_sound; simp)
   apply (simp add: pred_defs)
   unfolding wellformed_def
   apply simp
@@ -384,25 +470,49 @@ lemma ifWP:
 
 text \<open>While Rule\<close>
 lemma whileWP:
-  assumes "I \<turnstile>\<^sub>p wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) P \<and>\<^sub>p wp\<^sub>i (ntest e\<^sub>1 f e\<^sub>2) Q"
+  assumes "I \<turnstile>\<^sub>p wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) P \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) Q"
   assumes "R,G \<turnstile>\<^sub>w P {c} stabilize R I" (is "R,G \<turnstile>\<^sub>w P {c} ?I")
   shows "R,G \<turnstile>\<^sub>w ?I {While e\<^sub>1 f e\<^sub>2 I c} Q"
   unfolding valid_def lift\<^sub>c.simps
 proof (intro impI conjI rules.choice rules.seq stabilize_wellformed; assumption?)
   assume "guar\<^sub>c (While e\<^sub>1 f e\<^sub>2 I c) G \<and> wellformed R G Q"
-  thus "step\<^sub>R R,step\<^sub>G G \<turnstile> (state ?I) {Basic (\<lfloor>ntest e\<^sub>1 f e\<^sub>2\<rfloor>)} state Q"
-    using assms(1) by (intro test_sound; simp; intro stabilize_entail'; simp add: pred_defs)
+  thus "step\<^sub>R R,step G \<turnstile> (Collect ?I) {Basic (\<lfloor>ncmp e\<^sub>1 f e\<^sub>2\<rfloor>)} Collect Q"
+    using assms(1) by (intro cmp_sound; simp; intro stabilize_entail'; simp add: pred_defs)
 next
   assume "guar\<^sub>c (While e\<^sub>1 f e\<^sub>2 I c) G \<and> wellformed R G Q"
   hence "guar\<^sub>c c G" "wellformed R G ?I" by auto
-  thus "step\<^sub>R R,step\<^sub>G G \<turnstile> state ?I {(Basic (\<lfloor>test e\<^sub>1 f e\<^sub>2\<rfloor>) ; lift\<^sub>c c)*} state ?I"
+  thus "step\<^sub>R R,step G \<turnstile> Collect ?I {(Basic (\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>) ;; lift\<^sub>c c)*} Collect ?I"
     using assms
     apply (intro rules.loop rules.seq stabilize_stable; unfold valid_def)
     apply blast
     defer 1
     apply blast
-    apply (intro test_sound; simp; intro stabilize_entail'; simp add: pred_defs)
+    apply (intro cmp_sound; simp; intro stabilize_entail'; simp add: pred_defs)
     done
+qed auto
+
+lemma doWhileWP:
+  assumes "R,G \<turnstile>\<^sub>w stabilize R I {c} (wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) (stabilize R I) \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) Q)" (is "R,G \<turnstile>\<^sub>w ?I {c} ?Q")
+  shows "R,G \<turnstile>\<^sub>w stabilize R I {DoWhile I c e\<^sub>1 f e\<^sub>2} Q"
+  unfolding valid_def lift\<^sub>c.simps
+proof (intro impI conjI rules.choice rules.seq stabilize_wellformed; assumption?)
+  assume "guar\<^sub>c (DoWhile I c e\<^sub>1 f e\<^sub>2) G \<and> wellformed R G Q"
+  thus "step\<^sub>R R,step G \<turnstile> Collect ?Q {Basic (\<lfloor>ncmp e\<^sub>1 f e\<^sub>2\<rfloor>)} Collect Q"
+    by (intro cmp_sound; simp add: pred_defs)
+next
+  assume "guar\<^sub>c (DoWhile I c e\<^sub>1 f e\<^sub>2) G \<and> wellformed R G Q"
+  hence "guar\<^sub>c c G \<and> wellformed R G ?Q" sorry
+  thus "step\<^sub>R R,step G \<turnstile> Collect ?I {lift\<^sub>c c} Collect ?Q"
+    using assms(1) unfolding valid_def by simp 
+next
+  assume wf: "guar\<^sub>c (DoWhile I c e\<^sub>1 f e\<^sub>2) G \<and> wellformed R G Q"
+  hence "wellformed R G ?I \<and> wellformed R G ?Q \<and> guar\<^sub>c c G" sorry
+  thus "step\<^sub>R R,step G \<turnstile> Collect ?I {(lift\<^sub>c c ;; Basic (\<lfloor>cmp e\<^sub>1 f e\<^sub>2\<rfloor>))*} Collect ?I"
+    using assms
+    apply (intro rules.loop rules.seq stabilize_stable; unfold valid_def)
+    apply blast
+    apply blast
+    by (intro cmp_sound; simp add: pred_defs)
 qed auto
 
 lemma local_lift [intro]:
@@ -410,21 +520,25 @@ lemma local_lift [intro]:
   by (induct c) auto
 
 lemma guar_all:
-  "wellformed R G Q \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow> \<forall>\<beta>\<in>basics (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step\<^sub>G G)"
-  apply (induct c) 
-  apply (auto simp: guar_def step\<^sub>G_def pair_upd1_def pair_upd2_def pred_defs wellformed_def reflexive_def)
-  apply (subgoal_tac "G ab (ab(ba x2 := ba x3))")
+  "wellformed R G Q \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow> \<forall>\<beta>\<in>basics (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
+  sorry (*apply (induct c) 
+  apply (auto simp: guar_def step_def pred_defs wellformed_def reflexive_def)
+  apply (subgoal_tac "G (ab, ab(ba x2 := ba x3))")
   apply (subgoal_tac "(ab(ba x2 := ba x3)) = (\<lambda>x. if x = ba x2 then rg (ab, ba) x3 else ld (ab,ba) x)")
   apply simp
   apply auto
-  done
+  apply (subgoal_tac " G (ab, ab(ba x2 := ba x4))")
+  apply (subgoal_tac "(ab(ba x2 := ba x4)) = (\<lambda>x. if x = ba x2 then rg (ab, ba) x4 else ld (ab,ba) x)")
+  apply simp
+  apply auto
+  done *)
 
 text \<open>False Rule\<close>
 lemma falseWP:
   assumes "P \<turnstile>\<^sub>p (\<lambda>m. False)"
   shows "R,G \<turnstile>\<^sub>w P {c} Q"
   using assms unfolding valid_def
-  apply (intro conjI impI guar_all rules.conseq[OF falseI, where ?G="step\<^sub>G G"])
+  apply (intro conjI impI guar_all rules.conseq[OF falseI, where ?G="step G"])
   by (auto simp: entail_def intro: wf_false)
 
 text \<open>Precondition Rewrite Rule\<close>
@@ -443,7 +557,7 @@ lemma assertWP:
   shows "R,G \<turnstile>\<^sub>w (P \<and>\<^sub>p assert A) {c} Q"
 proof (cases A)
   case True
-  then show ?thesis using assms by (intro rewriteWP[OF _ assertOrd], simp)
+  then show ?thesis using assms by (intro rewriteWP[OF _ ord_assert], simp)
 next
   case False
   then show ?thesis by (intro falseWP, auto simp: pred_defs)
@@ -455,19 +569,11 @@ text \<open>Skip Rewrite Rule\<close>
 lemma skipRW:
   assumes "R,G \<turnstile>\<^sub>w P \<ge> Q" 
   shows "R,G \<turnstile>\<^sub>w P {Skip} Q"
-  using rewriteWP[OF skipWP assms] .
-
-(*
-text \<open>Act Rewrite Rule\<close>
-lemma actRW:
-  assumes "R,G \<turnstile>\<^sub>w P \<ge> wp R G (Inst \<alpha>) Q"
-  shows "R,G \<turnstile>\<^sub>w P {Inst \<alpha>} Q"
-  using rewriteWP[OF instWP assms] .
-*)
+  using rewriteWP[OF skip_wp assms] .
 
 text \<open>If Rewrite Rule\<close>
 lemma ifRW:
-  assumes "R,G \<turnstile>\<^sub>w P \<ge> (wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) P\<^sub>1 \<and>\<^sub>p wp\<^sub>i (ntest e\<^sub>1 f e\<^sub>2) P\<^sub>2)"
+  assumes "R,G \<turnstile>\<^sub>w P \<ge> (wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) P\<^sub>1 \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) P\<^sub>2)"
   assumes "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q"
   assumes "R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q"
   shows "R,G \<turnstile>\<^sub>w P {If e\<^sub>1 f e\<^sub>2 c\<^sub>1 c\<^sub>2} Q"
@@ -477,24 +583,39 @@ text \<open>While Rewrite Rule\<close>
 lemma whileRW:
   assumes order: "R,G \<turnstile>\<^sub>w N \<ge> stabilize R I"
   assumes recur: "R,G \<turnstile>\<^sub>w P {c} stabilize R I"
-  assumes side: "I \<turnstile>\<^sub>p wp\<^sub>i (test e\<^sub>1 f e\<^sub>2) P \<and>\<^sub>p wp\<^sub>i (ntest e\<^sub>1 f e\<^sub>2) Q"
+  assumes side: "I \<turnstile>\<^sub>p wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) P \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) Q"
   shows "R,G \<turnstile>\<^sub>w N {While e\<^sub>1 f e\<^sub>2 I c} Q"
   using rewriteWP[OF whileWP[OF side recur] order] .
 
+text \<open>Do While Rewrite Rule\<close>
+lemma doWhileRW:
+  assumes order: "R,G \<turnstile>\<^sub>w P \<ge> stabilize R I"
+  assumes recur: "R,G \<turnstile>\<^sub>w stabilize R I {c} (wp\<^sub>i (cmp e\<^sub>1 f e\<^sub>2) (stabilize R I) \<and>\<^sub>p wp\<^sub>i (ncmp e\<^sub>1 f e\<^sub>2) Q)"
+  shows "R,G \<turnstile>\<^sub>w P {DoWhile I c e\<^sub>1 f e\<^sub>2} Q"
+  using rewriteWP[OF doWhileWP[OF recur] order] .
+
 subsection \<open>Soundness\<close>
 
-lemma wellformed_op:
+lemma wellformed_assert [intro]:
   assumes "wellformed R G Q"
-  shows "wellformed R G (ARMv8_Rules.wp R G (Op r e) Q)"
-  using assms unfolding wellformed_def
-  apply (auto simp: stable_def step\<^sub>R_def pair_upd2_def)
-  by (metis snd_conv) 
+  shows "wellformed R G (assert p)"
+  using assms by (auto simp: wellformed_def assert_def stable_def)
+
+lemma wellformed_wp [intro]:
+  assumes "wellformed R G Q"
+  shows "wellformed R G (ARMv8_Rules.wp R G c Q)"
+  sorry (*
+  using assms by (induct c arbitrary: Q) fastforce+
+*)
 
 lemma wp_valid:
   shows "R,G \<turnstile>\<^sub>w wp R G c Q {c} Q" 
 proof (induct c arbitrary: Q)
   case Skip
-  thus ?case using skipWP by auto
+  thus ?case using skip_wp by auto
+next
+  case Fence
+  thus ?case using fence_sound by (auto simp: valid_def)
 next
   case (Load)
   thus ?case using load_sound by (auto simp: valid_def) 
@@ -503,10 +624,10 @@ next
   thus ?case using store_sound by (auto simp: valid_def) 
 next
   case (Op)
-  thus ?case using op_sound wellformed_op unfolding valid_def by metis
+  thus ?case using op_sound by (auto simp: valid_def)
 next
   case (Seq c\<^sub>1 c\<^sub>2)
-  thus ?case using seqWP unfolding wp.simps by blast
+  thus ?case using seq_wp unfolding wp.simps by blast
 next
   case (If f r c\<^sub>1 c\<^sub>2)
   thus ?case using ifWP unfolding wp.simps by blast
@@ -514,15 +635,28 @@ next
   case (While f r I c)
   thus ?case unfolding wp.simps
     by (intro assertWP impI whileRW) (auto simp add: pred_defs)
+next
+  case (DoWhile I c e\<^sub>1 f e\<^sub>2)
+  thus ?case unfolding wp.simps
+    by (intro assertWP impI doWhileRW ord_refl; rule rewriteWP) (blast intro: ord_stabilize)+
+next
+  case (Test p)
+  thus ?case using test_sound by (auto simp: valid_def)
+next
+  case (Assert p)
+  thus ?case using assert_sound by (auto simp: valid_def)
+next
+  case (CAS)
+  thus ?case using cas_sound by (auto simp: valid_def)
 qed
 
 text \<open>Soundness lemma for WP reasoning over ARMv8\<close>
 theorem armv8_wp_sound:
   assumes wf: "transitive R" "reflexive R" "reflexive G" 
-  assumes st: "stable (step\<^sub>R R) (state Q)" 
+  assumes st: "stable (step\<^sub>R R) (Collect Q)" 
   assumes g: "guar\<^sub>c c G"
   assumes P: "P \<turnstile>\<^sub>p wp R G c Q"
-  assumes i: "inter (step\<^sub>R R) (step\<^sub>G G) (lift\<^sub>c c)" (* Rephrase this in terms of the ARMv8 analysis *)
+  assumes i: "inter (step\<^sub>R R) (step G) (lift\<^sub>c c)" (* Rephrase this in terms of the ARMv8 analysis *)
   shows "\<Turnstile> c SAT [P, R, G, Q]"
 proof -
   have "wellformed R G Q" using wf st by (auto simp: wellformed_def)
