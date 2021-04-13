@@ -24,7 +24,7 @@ refinement properties. These have no evaluation semantics or rules however.
 datatype ('a,'b) com =
   Nil
   | Basic "('a,'b) basic"
-  | Seq "('a,'b) com" "('a,'b) com" (infixr ";" 80)
+  | Seq "('a,'b) com" "('a,'b) com" (infixr ";;" 80)
   | Ord "('a,'b) com" "('a,'b) com" (infixr "\<cdot>" 80)
   | SeqChoice "('a,'b) seq set" ("\<Sqinter> _" 150)
   | Choice "('a,'b) com" "('a,'b) com" (infixr "\<sqinter>" 150)
@@ -39,7 +39,7 @@ fun local :: "('a,'b) com \<Rightarrow> bool"
     "local (c\<^sub>1 || c\<^sub>2) = False" |
     "local (Thread _ _) = False" |
     "local (State _ _ _) = False" |
-    "local (c\<^sub>1 ; c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
+    "local (c\<^sub>1 ;; c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
     "local (c\<^sub>1 \<cdot> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |        
     "local (c\<^sub>1 \<sqinter> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |  
     "local (c*) = (local c)" |    

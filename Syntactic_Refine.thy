@@ -34,8 +34,8 @@ inductive_cases syntax_relE[elim]: "syntax_rel I T c c'"
 declare syntax_rel.intros [intro]
 
 lemma [elim!]:
-  assumes "syntax_rel I T  c (c\<^sub>1 ; c\<^sub>2)"
-  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ; c\<^sub>2'" "syntax_rel I T  c\<^sub>1' c\<^sub>1" "syntax_rel I T  c\<^sub>2' c\<^sub>2"
+  assumes "syntax_rel I T  c (c\<^sub>1 ;; c\<^sub>2)"
+  obtains c\<^sub>1' c\<^sub>2' where "c = c\<^sub>1' ;; c\<^sub>2'" "syntax_rel I T  c\<^sub>1' c\<^sub>1" "syntax_rel I T  c\<^sub>2' c\<^sub>2"
   using assms by (cases rule: syntax_relE, blast, auto)
 
 lemma [elim!]:
@@ -156,16 +156,16 @@ lemma syntax_rel_local:
   using assms(2,1)
 proof (induct arbitrary: c\<^sub>1)
   case (ooo c\<^sub>1'' r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>2)
-  then obtain c\<^sub>3 c\<^sub>4 where c: "c\<^sub>1 = c\<^sub>3 ; c\<^sub>4" "syntax_rel I T c\<^sub>3 c\<^sub>2" "syntax_rel I T c\<^sub>4 c\<^sub>1''"
+  then obtain c\<^sub>3 c\<^sub>4 where c: "c\<^sub>1 = c\<^sub>3 ;; c\<^sub>4" "syntax_rel I T c\<^sub>3 c\<^sub>2" "syntax_rel I T c\<^sub>4 c\<^sub>1''"
     by auto
   then obtain c\<^sub>5 r' \<beta> where b: "c\<^sub>4 \<mapsto>[r',\<beta>] c\<^sub>5" "syntax_rel I T c\<^sub>5 c\<^sub>1'" "T \<beta> \<alpha>" "syntax_rel I T r' r"
     using ooo(2) by blast
-  hence "syntax_rel I T (c\<^sub>3 ; c\<^sub>5) (c\<^sub>2 ; c\<^sub>1')" using c(2) by auto
-  moreover have r: "syntax_rel I T (c\<^sub>3; r') (c\<^sub>2 ; r)" using b c by auto 
-  moreover have "c\<^sub>1 \<mapsto>[c\<^sub>3 ; r',\<beta>] c\<^sub>3 ; c\<^sub>5"
+  hence "syntax_rel I T (c\<^sub>3 ;; c\<^sub>5) (c\<^sub>2 ;; c\<^sub>1')" using c(2) by auto
+  moreover have r: "syntax_rel I T (c\<^sub>3 ;; r') (c\<^sub>2 ;; r)" using b c by auto 
+  moreover have "c\<^sub>1 \<mapsto>[c\<^sub>3 ;; r',\<beta>] c\<^sub>3 ;; c\<^sub>5"
   proof -
     have d: "tag \<alpha> = tag \<beta>" using b(3) assms(3) by metis
-    obtain \<beta>' where d: "\<beta>' < c\<^sub>3 ; r' <\<^sub>c \<beta>"
+    obtain \<beta>' where d: "\<beta>' < c\<^sub>3 ;; r' <\<^sub>c \<beta>"
       using syntax_rel_re[OF ooo(3) calculation(2) d assms(3)]
       by force
     show ?thesis unfolding c(1) using b(1) d by (rule lexecute.ooo)

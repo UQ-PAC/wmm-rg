@@ -23,7 +23,7 @@ such that the early execution of \<alpha> is assumed to be possible and
 cannot invalidate sequential reasoning.\<close>
 definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
-          Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>tag \<beta>\<rangle> ; Env R ; Basic \<beta> \<and>
+          Env R ;; Basic \<beta> ;; Env R ;; Basic \<alpha> \<sqsubseteq> Env R ;; Basic \<alpha>\<langle>tag \<beta>\<rangle> ;; Env R ;; Basic \<beta> \<and>
           guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G"
 
 text \<open>
@@ -34,7 +34,7 @@ Define by recursively iterating over the program and capturing the forwarding th
 fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where
     "inter\<^sub>c R G (Basic \<beta>) \<alpha> = inter\<^sub>\<alpha> R G \<beta> \<alpha>" |
-    "inter\<^sub>c R G (c\<^sub>1 ; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
+    "inter\<^sub>c R G (c\<^sub>1 ;; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (c\<^sub>1 \<cdot> c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (Nil) \<alpha> = True" |
     "inter\<^sub>c R G _ \<alpha> = False"

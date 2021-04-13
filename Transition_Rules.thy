@@ -29,7 +29,7 @@ proof -
   have stableM: "stable R ?M" unfolding stable_def by force
 
   \<comment> \<open>Extract order independence properties\<close> 
-  have ref: "Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>tag \<beta>\<rangle> ; Env R ; Basic \<beta>"
+  have ref: "Env R ;; Basic \<beta> ;; Env R ;; Basic \<alpha> \<sqsubseteq> Env R ;; Basic \<alpha>\<langle>tag \<beta>\<rangle> ;; Env R ;; Basic \<beta>"
     using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
   have g: "guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G" using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
 
