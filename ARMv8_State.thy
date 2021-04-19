@@ -70,8 +70,10 @@ abbreviation disj  (infixr "\<or>\<^sub>p" 35)
 abbreviation imp  (infixr "\<longrightarrow>\<^sub>p" 35)
   where "imp l r \<equiv> \<lambda>m. (l m) \<longrightarrow> (r m)"
 
-abbreviation entail (infix "\<turnstile>\<^sub>p" 25)
+definition entail (infix "\<turnstile>\<^sub>p" 25)
   where "entail P Q \<equiv> \<forall>m. P m \<longrightarrow> Q m"
+
+declare entail_def [pred_defs]
 
 definition assert
   where "assert b \<equiv> \<lambda>m. b"

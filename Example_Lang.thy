@@ -52,6 +52,7 @@ parse_translation \<open>
 syntax
   "_Load"  :: "'r \<Rightarrow> 'r \<Rightarrow> ('v,'r,'a) com_armv8" ("(_ := [_])" [70, 65] 61)
   "_LoadC"  :: "'r \<Rightarrow> 'r \<Rightarrow> 'c \<Rightarrow> ('v,'r,'a) com_armv8" ("(_ := [_ + #_])" [70, 65] 61)
+  "_LoadIC"  :: "('v,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'c \<Rightarrow> ('v,'r,'a) com_armv8" ("(\<lbrace>_\<rbrace> _ := [_ + #_])" [20, 70, 65] 61)
 
   "_Store" :: "'r \<Rightarrow> 'r \<Rightarrow> ('v,'r,'a) com_armv8" ("([_] := _)" [70, 65] 61)
   "_StoreI" :: "('v,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'r \<Rightarrow> ('v,'r,'a) com_armv8" ("(\<lbrace>_\<rbrace> [_ + #_] := _)" [20, 70, 65] 61)
@@ -94,6 +95,7 @@ translations
 
   "x := [a]" \<rightharpoonup> "CONST Load (CONST True\<^sub>p) (CONST Reg a) x (CONST tstate_rec.more)"
   "x := [a + #I]" \<rightharpoonup> "CONST Load (CONST True\<^sub>p) (CONST Exp (CONST addI I) [CONST Reg a]) x (CONST tstate_rec.more)"
+  "\<lbrace>P\<rbrace> x := [a + #I]" \<rightharpoonup> "CONST Load \<guillemotleft>P\<guillemotright> (CONST Exp (CONST addI I) [CONST Reg a]) x (CONST tstate_rec.more)"
 
   "[a] := r" \<rightharpoonup> "CONST Store (CONST True\<^sub>p) (CONST Reg a) r (CONST tstate_rec.more)"
   "\<lbrace>P\<rbrace> [a + #I] := x" \<rightharpoonup> "CONST Store \<guillemotleft>P\<guillemotright> (CONST Exp (CONST addI I) [CONST Reg a]) x (CONST tstate_rec.more)"
@@ -182,5 +184,39 @@ lemma stabilize_true [simp]:
   "stabilize R (\<lambda>m. True) = (\<lambda>m. True)"
   unfolding stabilize_def by auto
 
+lemma stabilize_nop:
+  assumes "stable\<^sub>t R Q" 
+  shows "Q \<turnstile>\<^sub>p stabilize R Q"
+proof -
+  have a: "\<And>m m'. Q m \<Longrightarrow> R (glb m, glb m') \<Longrightarrow> rg m = rg m' \<Longrightarrow> Q m'"
+    using assms by (auto simp: step\<^sub>t_def stable_def)
+
+  have "\<forall>m. Q m \<longrightarrow> stabilize R Q m"
+  proof (intro allI, clarsimp simp add: stabilize_def)
+    fix m g assume q: "Q m" " R (glb m, g)"
+    hence r: "R (glb m, glb (set_glb m g))" by auto
+
+    thus "Q (set_glb m g)"
+      using a[OF q(1) r]
+      apply (auto simp: set_glb_def)
+      done
+  qed
+  thus ?thesis by (auto simp: pred_defs)
+qed
+
+lemma stabilize_nop':
+  assumes "P \<turnstile>\<^sub>p Q" "stable\<^sub>t R Q" 
+  shows "P \<turnstile>\<^sub>p stabilize R Q"
+  sorry
+
+lemma stabilize_nop'':
+  assumes "P \<turnstile>\<^sub>p (\<lambda>m. Q (f m))" "stable\<^sub>t R Q" 
+  shows "P \<turnstile>\<^sub>p (\<lambda>m. (stabilize R Q) (f m))"
+  sorry
+
+lemma stabilize_nop''':
+  assumes "P \<turnstile>\<^sub>p (\<lambda>m. q m \<longrightarrow> Q (f m))" "stable\<^sub>t R Q" 
+  shows "P \<turnstile>\<^sub>p (\<lambda>m. q m \<longrightarrow> (stabilize R Q) (f m))"
+  sorry
 
 end

@@ -1,4 +1,4 @@
-theory ARMv8_Rules
+theory ARMv8_Rules    
   imports Soundness ARMv8 "HOL-Eisbach.Eisbach"
 begin
 
@@ -91,15 +91,22 @@ text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
   where "wp\<^sub>a a Q = (\<lambda>m. Q (m(aux: a)))"
 
-text \<open>Transform a predicate based on a Load instruction\<close>
-definition wp_Load :: "('v,'r) exp \<Rightarrow> 'r \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
-  where "wp_Load r\<^sub>a r a Q \<equiv> \<lambda>m. Q (m (r :=\<^sub>r st m (ev (rg m) r\<^sub>a), aux: a))"
-declare wp_Load_def [wp_defs]
+datatype ('v,'r,'a) insts =
+  ld "('v,'r,'a) pred" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
+  | sr "('v,'r,'a) pred" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
+  | ir 'r "('v,'r) exp" 
+  | cm "('v,'r) bexp"
+  | ncm "('v,'r) bexp"
+  | env "('v,'a) grel"
 
-text \<open>Transform a predicate based on a Store instruction\<close>
-definition wp_Store :: "('v,'r) exp \<Rightarrow> 'r \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
-  where "wp_Store r\<^sub>a r a Q \<equiv> \<lambda>m. Q (m (ev (rg m) r\<^sub>a :=\<^sub>s rg m r, aux: a))"
-declare wp_Store_def [wp_defs]
+fun wpre :: "('v,'r,'a) insts \<Rightarrow> ('v,'r,'a) trans"
+  where
+    "wpre (ld v r\<^sub>a r a) Q = (\<lambda>m. v m \<and> Q (m (r :=\<^sub>r st m (ev (rg m) r\<^sub>a), aux: a)))" |
+    "wpre (sr v r\<^sub>a r a) Q = (\<lambda>m. v m \<and> Q (m (ev (rg m) r\<^sub>a :=\<^sub>s rg m r, aux: a)))" |
+    "wpre (ir r e) Q = wp\<^sub>i (op r e) Q" |
+    "wpre (cm b) Q = wp\<^sub>i (cmp b) Q" |
+    "wpre (ncm b) Q = wp\<^sub>i (ncmp b) Q" |
+    "wpre (env R) Q = stabilize R Q"
 
 text \<open>Transform a predicate based on a successful CAS instruction\<close>
 definition wp_CAS\<^sub>T :: "'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
@@ -123,14 +130,14 @@ fun wp :: "('v,'a) grel \<Rightarrow> ('v,'r,'a) com_armv8 \<Rightarrow> ('v,'r,
   where
     "wp R Skip Q = Q" |
     "wp R Fence Q = Q" |
-    "wp R (Load v r\<^sub>a r a) Q = stabilize R (v \<and>\<^sub>p wp_Load r\<^sub>a r a Q)" |
-    "wp R (Store v r\<^sub>a r a) Q = stabilize R (v \<and>\<^sub>p wp_Store r\<^sub>a r a Q)" |
-    "wp R (Op r e) Q = wp\<^sub>i (op r e) Q" |
+    "wp R (Load v r\<^sub>a r a) Q = stabilize R (wpre (ld v r\<^sub>a r a) Q)" |
+    "wp R (Store v r\<^sub>a r a) Q = stabilize R (wpre (sr v r\<^sub>a r a) Q)" |
+    "wp R (Op r e) Q = wpre (ir r e) Q" |
     "wp R (Test p) Q = stabilize R (p \<longrightarrow>\<^sub>p Q)" |
     "wp R (Assert p) Q = (stabilize R p \<and>\<^sub>p Q)" |
     "wp R (CAS v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q = stabilize R (v \<and>\<^sub>p wp_CAS r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q)" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<and>\<^sub>p wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = (wpre (cm b) (wp R c\<^sub>1 Q) \<and>\<^sub>p wpre (ncm b) (wp R c\<^sub>2 Q))" |
     "wp R (While b I c) Q = 
       (stabilize R I \<and>\<^sub>p assert (I \<turnstile>\<^sub>p wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<and>\<^sub>p wp\<^sub>i (ncmp b) Q))" |
     "wp R (DoWhile I c b) Q = 
@@ -155,8 +162,8 @@ abbreviation guar
 text \<open>Ensure all global operations in a thread conform to its guarantee\<close>
 fun guar\<^sub>c
   where 
-    "guar\<^sub>c (Load v r\<^sub>a r a) G = (v \<turnstile>\<^sub>p guar (wp_Load r\<^sub>a r a) (step G))" |
-    "guar\<^sub>c (Store v r\<^sub>a r a) G = (v \<turnstile>\<^sub>p guar (wp_Store r\<^sub>a r a) (step G))" |
+    "guar\<^sub>c (Load v r\<^sub>a r a) G = (v \<turnstile>\<^sub>p guar (wpre (ld True\<^sub>p r\<^sub>a r a)) (step G))" |
+    "guar\<^sub>c (Store v r\<^sub>a r a) G = (v \<turnstile>\<^sub>p guar (wpre (sr True\<^sub>p r\<^sub>a r a)) (step G))" |
     "guar\<^sub>c (CAS v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) G = (v \<turnstile>\<^sub>p guar (wp_CAS r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If b c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
@@ -309,7 +316,7 @@ method expand_seq =
 
 method basic_wp\<^sub>i = 
   ((rule basic_wp\<^sub>i_local | rule basic_wp\<^sub>i_global), 
-   (rule stabilize_cmp | fast); 
+   (rule stabilize_cmp | blast); 
    auto simp: wp_defs pred_defs step_def aux_upd_def)
 
 text \<open>A rule for cmp operations, used for If/While/DoWhile\<close>
@@ -331,7 +338,7 @@ lemma refl_ord:
 text \<open>It is possible to strengthen the RHS\<close>
 lemma assert_ord:
   "R,G \<turnstile>\<^sub>w P \<and>\<^sub>p assert A \<ge> P"
-  by (cases A) (auto simp: context_order_def assert_def) 
+  by (cases A) (auto simp: pred_defs context_order_def assert_def) 
 
 text \<open>Stabilize Ordering\<close>
 lemma stabilize_ord [intro]:
@@ -360,7 +367,7 @@ proof (intro impI conjI rules.choice rules.seq)
     apply (intro rules.loop rules.seq, unfold valid_def)
     apply force
     apply force
-    by (auto elim!: stabilizeE)
+    by (auto simp: pred_defs elim!: stabilizeE)
 qed (insert assms, auto simp add: pred_defs elim!: stabilizeE)
 
 text \<open>Do While Rule\<close>
@@ -378,7 +385,7 @@ next
     using assms 
     apply (intro rules.loop seq_rot)
     apply (auto simp: valid_def)[2]
-    by auto
+    by (auto simp: pred_defs)
 qed (insert assms, auto simp add: pred_defs)
 
 text \<open>False Rule\<close>
@@ -386,12 +393,12 @@ lemma false_wp:
   assumes "P \<turnstile>\<^sub>p (\<lambda>m. False)"
   shows "R,G,I \<turnstile>\<^sub>w P {c} Q"
   using assms unfolding valid_def
-  by (intro conjI impI com_guar rules.conseq[OF falseI, where ?G="\<langle>step (inv I \<and>\<^sub>p G)\<rangle>"]) (auto simp: )
+  by (intro conjI impI com_guar rules.conseq[OF falseI, where ?G="\<langle>step (inv I \<and>\<^sub>p G)\<rangle>"]) (auto simp: pred_defs)
 
 text \<open>Rewrite Rule\<close>
 lemma rewrite_wp:
   "R,G,I \<turnstile>\<^sub>w P {c} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w M \<ge> P \<Longrightarrow> R,G,I \<turnstile>\<^sub>w M {c} Q"
-  by (auto simp: valid_def context_order_def)
+  by (auto simp: pred_defs valid_def context_order_def)
 
 text \<open>Assert Rule\<close>
 lemma assert_wp:
@@ -436,7 +443,7 @@ next
   thus ?case unfolding valid_def by (intro conjI impI, force) (expand_seq, basic_wp\<^sub>i+)
 next
   case (If b c\<^sub>1 c\<^sub>2)
-  thus ?case unfolding wp.simps by (blast intro: if_wp)
+  thus ?case unfolding wp.simps wpre.simps by (blast intro: if_wp)
 next
   case (While b I c)
   thus ?case unfolding wp.simps by (intro assert_wp impI while_wp) (auto simp: pred_defs)
@@ -456,7 +463,7 @@ theorem armv8_wp_sound:
   shows "\<Turnstile> c SAT [P, R, G, Q, I]"
 proof -
   have "R,G,I \<turnstile>\<^sub>s wp R c Q {c} Q" using wf st g com_wp unfolding valid_def by blast
-  hence "R,G,I \<turnstile>\<^sub>s P {c} Q" by (rule rules.conseq) (insert P, auto)
+  hence "R,G,I \<turnstile>\<^sub>s P {c} Q" by (rule rules.conseq) (insert P, auto simp: pred_defs)
   thus ?thesis by (intro sound thread) auto
 qed
 
