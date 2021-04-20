@@ -112,7 +112,7 @@ proof (clarsimp simp: rg_comp_def)
   assume "i < length t" "j < length t" "i \<noteq> j" "fst (snd (t ! i)) (a, b)" 
   hence "Suc i < length (s#t)" "Suc j < length (s#t)" 
         "Suc i \<noteq> Suc j" "fst (snd ((s#t) ! Suc i)) (a, b)"  by auto
-  hence "fst ((s#t) ! Suc j) (a, b)" using assms unfolding rg_comp_def by blast
+  hence "fst ((s#t) ! Suc j) (a, b)" using assms unfolding rg_comp_def sorry
   thus "fst (t ! j) (a, b)" by auto
 qed
 

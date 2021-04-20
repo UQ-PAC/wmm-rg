@@ -101,8 +101,8 @@ datatype ('v,'r,'a) insts =
 
 fun wpre :: "('v,'r,'a) insts \<Rightarrow> ('v,'r,'a) trans"
   where
-    "wpre (ld v r\<^sub>a r a) Q = (\<lambda>m. v m \<and> Q (m (r :=\<^sub>r st m (ev (rg m) r\<^sub>a), aux: a)))" |
-    "wpre (sr v r\<^sub>a r a) Q = (\<lambda>m. v m \<and> Q (m (ev (rg m) r\<^sub>a :=\<^sub>s rg m r, aux: a)))" |
+    "wpre (ld v r\<^sub>a r a) Q = ((\<lambda>m. v m \<and> Q (m (r :=\<^sub>r st m (ev (rg m) r\<^sub>a), aux: a))))" |
+    "wpre (sr v r\<^sub>a r a) Q = ( (\<lambda>m. v m \<and> Q (m (ev (rg m) r\<^sub>a :=\<^sub>s rg m r, aux: a))))" |
     "wpre (ir r e) Q = wp\<^sub>i (op r e) Q" |
     "wpre (cm b) Q = wp\<^sub>i (cmp b) Q" |
     "wpre (ncm b) Q = wp\<^sub>i (ncmp b) Q" |
