@@ -29,7 +29,7 @@ proof -
   have stableM: "stable R ?M" unfolding stable_def by force
 
   \<comment> \<open>Extract order independence properties\<close> 
-  have ref: "Env R ;; Basic \<beta> ;; Env R ;; Basic \<alpha> \<sqsubseteq> Env R ;; Basic \<alpha>\<langle>tag \<beta>\<rangle> ;; Env R ;; Basic \<beta>"
+  have ref: "Env R ; Basic \<beta> ; Env R ; Basic \<alpha> \<sqsubseteq> Env R ; Basic \<alpha>\<langle>tag \<beta>\<rangle> ; Env R ; Basic \<beta>"
     using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
   have g: "guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G" using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
 
@@ -90,20 +90,6 @@ next
       then show ?case using Seq(3) outer by auto
     qed
   qed
-next
-  case (Ord c\<^sub>1 c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Ord(4) by fast
-  have i: "inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle>" "inter\<^sub>c R G c\<^sub>2 \<alpha>" using Ord by auto
-  show ?case
-  proof (rule Ord(2)[OF _ m(2) Ord(5) i(2)], goal_cases outer)
-    case (outer P' N')
-    hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
-    show ?case 
-    proof (rule Ord(1)[OF _ c1 outer(2) i(1)], goal_cases inner)
-      case (inner P'' M'')
-      then show ?case using Ord(3) outer by auto
-    qed
-  qed
 qed auto
 
 section \<open>Transition Rules\<close>
@@ -117,39 +103,6 @@ lemma rewrite_ruleI [intro]:
 proof (induct arbitrary: c' rule: rules.induct)
   case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) blast+
-next
-  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
-  thus ?case by (cases rule: silentE, auto) blast+
-next
-  case (refine R G P c\<^sub>1 Q c\<^sub>2)
-  thus ?case using syntax_rel_silent by force
-next
-  case (aux R G P c Q r c'')
-  thus ?case using syntax_rel_silent rules.aux by metis
-next
-  case (state R G P c Q l op)
-  thus ?case 
-  proof (cases rule: silentE, auto, goal_cases)
-    case (1 M)
-    have "thr\<^sub>R l R,thr\<^sub>G l G \<turnstile> thr\<^sub>P l op M {Nil} thr\<^sub>P l op M"
-      apply (rule rules.nil)
-      using thr_stable 1 by metis
-    then show ?case
-      apply (rule conseq)
-      using 1 thr_mono apply metis
-      apply simp
-      apply simp
-      using 1 unfolding thr\<^sub>P_def thr\<^sub>Q_def by auto
-  qed
-next
-  case (thread R G P c Q op c')
-  thus ?case 
-  proof (cases rule: silentE, auto, goal_cases)
-    case (1 l)
-    show ?case
-      apply (rule conseq[OF state[OF 1(1,3)]])
-      by (auto simp: thr\<^sub>A_def thr\<^sub>P_def)
-  qed
 qed (cases rule: silentE, auto)+
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
@@ -172,10 +125,6 @@ next
     using ooo(2)[OF m(2) i(2)] by blast
   hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
-next
-  case (ord c\<^sub>1 c \<alpha> c\<^sub>1' c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" using ord by fast
-  then show ?case using ord(2)[OF m(1) ord(4)] m(2) by blast
 qed
 
 text \<open>Judgements are preserved across global execution steps\<close>
@@ -219,39 +168,8 @@ next
   hence "P \<inter> M' \<subseteq> wp v g (M \<inter> M')" using inv(3,4) by (auto simp: stable_def guar_def wp_def) blast
   thus ?case using rules.inv p(2,3) inv(3,4) by blast
 next
-  case (state R G P c Q op l)
-  \<comment> \<open>Convert the global execution step into a local execution step\<close>
-  obtain r \<alpha> c\<^sub>t l' where thr: "g = thr2glb op l l' (beh \<alpha>\<llangle>r\<rrangle>)" "c' = State l' op c\<^sub>t" "c \<mapsto>[r,\<alpha>] c\<^sub>t"
-    using state by auto
-  \<comment> \<open>As this is the thread rule case, we have the interference-freedom property\<close>
-  \<comment> \<open>Split this interference-freedom property based on the local execution step\<close>
-  hence i: "inter R G c\<^sub>t" "inter\<^sub>c R G r \<alpha>" using state indep_stepI by auto
-  \<comment> \<open>Use the lexecute rule to extract the desired logic judgement and properties\<close>
-  then obtain M where p: "P \<subseteq> wp\<^sub>\<alpha> \<alpha>\<llangle>r\<rrangle> M" "guar\<^sub>\<alpha> \<alpha>\<llangle>r\<rrangle> G" "R,G \<turnstile> M {c\<^sub>t} Q" 
-    using lexecute_ruleI[OF state(1) thr(3)] by (auto simp: atomic_rule_def)
-  \<comment> \<open>Demonstrate these properties are preserved when the local state is obfuscated\<close>
-  hence "thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l (vc \<alpha>\<llangle>r\<rrangle>)) g (thr\<^sub>P op l' M)"
-    using thr_wp thr(1) by fast
-  moreover have "guar (thr\<^sub>P op l (vc \<alpha>\<llangle>r\<rrangle>)) g (thr\<^sub>G op G)"
-    using p(2) thr_guar thr(1) by fast
-  ultimately show ?case using p i unfolding thr(2) by blast
-next
-  case (refine R G P c\<^sub>1 Q c\<^sub>2)
-  then obtain c\<^sub>1' g' where g: "g' \<supseteq> g" "c\<^sub>1 \<mapsto>[g'] c\<^sub>1'" "refine c\<^sub>1' c'"
-    using refine_global[OF refine(3,4)] by auto
-  thus ?case using refine(2)[OF g(2)] rules.refine wp_conseqI guar_conseqI 
-    by (metis order_refl) 
-next
-  case (aux R G P c\<^sub>1 Q r c\<^sub>2)
-  then obtain c\<^sub>1' g' where g: "g \<subseteq> aux\<^sub>R r g'" "c\<^sub>1 \<mapsto>[g'] c\<^sub>1'" "aux\<^sub>C r c\<^sub>1' c'"
-    using aux_global[OF aux(3,4)] by auto
-  then obtain M v where m: "P \<subseteq> wp v g' M" "guar v g' G" "R,G \<turnstile> M {c\<^sub>1'} Q"
-    using aux(2) by metis
-  show ?case 
-    using rules.aux[OF m(3) g(3)] 
-    using wp_conseqI[OF aux_wp[OF m(1), of r] g(1)]
-    using guar_conseqI[OF aux_guar[OF m(2), of r] g(1)]
-    by auto
+  case (thread R G P c Q)
+  thus ?case sorry
 qed auto
 
 end

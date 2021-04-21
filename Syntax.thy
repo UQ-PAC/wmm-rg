@@ -24,23 +24,18 @@ refinement properties. These have no evaluation semantics or rules however.
 datatype ('a,'b) com =
   Nil
   | Basic "('a,'b) basic"
-  | Seq "('a,'b) com" "('a,'b) com" (infixr ";;" 80)
-  | Ord "('a,'b) com" "('a,'b) com" (infixr "\<cdot>" 80)
-  | SeqChoice "('a,'b) seq set" ("\<Sqinter> _" 150)
+  | Seq "('a,'b) com" "('a,'b) com" (infixr ";" 80)
   | Choice "('a,'b) com" "('a,'b) com" (infixr "\<sqinter>" 150)
   | Loop "('a,'b) com" ("_*" [100] 150)
   | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
-  | State 'b "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a,'b) com"
-  | Thread "'b \<Rightarrow> 'b \<Rightarrow> 'b" "('a,'b) com"
+  | Thread "('a,'b) com"
 
 text \<open>Ensure there is no parallelism within a program\<close>
 fun local :: "('a,'b) com \<Rightarrow> bool"
   where 
     "local (c\<^sub>1 || c\<^sub>2) = False" |
-    "local (Thread _ _) = False" |
-    "local (State _ _ _) = False" |
-    "local (c\<^sub>1 ;; c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
-    "local (c\<^sub>1 \<cdot> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |        
+    "local (Thread _) = False" |
+    "local (c\<^sub>1 ; c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
     "local (c\<^sub>1 \<sqinter> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |  
     "local (c*) = (local c)" |    
     "local _ = True"
@@ -50,21 +45,14 @@ fun basics :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
   where
     "basics (Basic \<beta>) = {\<beta>}" |
     "basics (Seq c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
-    "basics (Ord c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Choice c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
-    "basics (SeqChoice S) = (\<Union>s \<in> S. set s)" |
     "basics (Parallel c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Loop c) = basics c" |
-    "basics (Thread _ c) = basics c" |
-    "basics (State _ _ c) = basics c" |
+    "basics (Thread c) = basics c" |
     "basics _ = {}"
 
 text \<open>Shorthand for an environment step\<close>
 abbreviation Env :: "'b rel \<Rightarrow> ('a,'b) com"
   where "Env R \<equiv> Basic (undefined,UNIV,R\<^sup>*)"
-
-text \<open>Convert a sequence to a command\<close>
-fun seq2com :: "('a,'b) seq \<Rightarrow> ('a,'b) com"
-  where "seq2com [] = Nil" | "seq2com (\<alpha>#t) = Basic \<alpha> \<cdot> seq2com t"
 
 end

@@ -7,7 +7,7 @@ Needed some concepts to modify the basic actions in a program.
 Series of definitions to compare two programs, mostly to eliminate references to auxiliary state
 or 'refine' by relating the behaviours of the basic actions.
 \<close>
-
+(*
 fun seq_rel
   where 
     "seq_rel T [] [] = True" |
@@ -259,8 +259,8 @@ next
 next
   case (par2 c\<^sub>2 g c\<^sub>2' c\<^sub>1)
   then show ?case by (cases rule: syntax_relE, blast; simp) (meson gexecute.par2 syntax_rel.intros(6))
-qed
+qed 
 
-end
+end *)
 
 end
