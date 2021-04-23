@@ -31,7 +31,9 @@ syntax
 
   "_AssignG"  :: "'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrakk>_\<rbrakk> := _)" [70, 65] 61)
   "_AssignGC"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<lbrakk>_\<rbrakk> := _)" [20, 70, 65] 61)
-  "_AssignGCA"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<lbrakk>_\<rbrakk> := _, _)" [20, 70, 65] 61)
+  "_AssignGCA"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<lbrakk>_\<rbrakk> := _ :\<^sub>a _)" [20, 70, 65] 61)
+
+  "_Nop" :: "('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> skip)" [20] 61)
 
   "_Fence" :: "('v,'g,'r,'a) lang" ("(fence)" 61)
   "_CFence" :: "('v,'g,'r,'a) lang" ("(cfence)" 61)
@@ -58,11 +60,13 @@ translations
 
   "\<^bold>rx := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) (CONST more)"
   "\<^bold>rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) f"
-  "\<^bold>\<lbrace>P\<rbrace> rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Reg x) a) f"
+  "\<lbrace>P\<rbrace> \<^bold>rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Reg x) a) f"
 
   "\<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) (CONST more)"
   "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) (CONST more)"
-  "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a, f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) f"
+  "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) f"
+
+  "\<lbrace>P\<rbrace> skip" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST nop) (CONST more)"
 
   "fence" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST full_fence) (CONST more)"
   "cfence" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST ctrl_fence) (CONST more)"
