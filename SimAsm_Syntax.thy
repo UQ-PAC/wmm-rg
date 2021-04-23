@@ -58,6 +58,7 @@ translations
 
   "\<^bold>rx := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) (CONST more)"
   "\<^bold>rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) f"
+  "\<^bold>\<lbrace>P\<rbrace> rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Reg x) a) f"
 
   "\<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) (CONST more)"
   "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) (CONST more)"
