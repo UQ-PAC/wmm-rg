@@ -28,8 +28,8 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
   ("_ \<mapsto>[_,_] _" [71,0,0,71] 70)
   where
   act[intro]: "Basic \<alpha> \<mapsto>[Nil,\<alpha>] Nil" |
-  ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ; c\<^sub>2" |
-  ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ; c\<^sub>1 \<mapsto>[c\<^sub>2 ; r ,\<alpha>] c\<^sub>2 ; c\<^sub>1'"
+  ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
+  ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
 inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -44,14 +44,14 @@ text \<open>Small step semantics for a silent step\<close>
 inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<leadsto> _" [71,71] 70)
   where
-  seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<leadsto> c\<^sub>1' ; c\<^sub>2" |
-  seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ; c\<^sub>2 \<leadsto> c\<^sub>1 ; c\<^sub>2'" |
-  seqE1[intro]: "Nil ; c\<^sub>1 \<leadsto> c\<^sub>1" |
-  seqE2[intro]: "c\<^sub>1 ; Nil \<leadsto> c\<^sub>1" |
+  seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1' ;; c\<^sub>2" |
+  seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1 ;; c\<^sub>2'" |
+  seqE1[intro]: "Nil ;; c\<^sub>1 \<leadsto> c\<^sub>1" |
+  seqE2[intro]: "c\<^sub>1 ;; Nil \<leadsto> c\<^sub>1" |
   left[intro]:  "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>1" |
   right[intro]: "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>2" |
   loop1[intro]: "c* \<leadsto> Nil" |
-  loop2[intro]: "c* \<leadsto> c ; c*" |
+  loop2[intro]: "c* \<leadsto> c ;; c*" |
   par1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1' || c\<^sub>2" |
   par2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<leadsto> c\<^sub>1 || c\<^sub>2'" |
   parE1[intro]: "Nil || c \<leadsto> c" |

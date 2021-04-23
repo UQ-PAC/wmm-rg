@@ -19,7 +19,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   where
   basic[intro]:  "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
-  seq[intro]:    "R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ; c\<^sub>2 } M" |
+  seq[intro]:    "R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;; c\<^sub>2 } M" |
   choice[intro]: "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 \<sqinter> c\<^sub>2 } Q" |
   loop[intro]:   "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c* } P" |
   thread[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> inter R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
@@ -57,10 +57,9 @@ next
 qed
 
 lemma seqE [elim]:
-  assumes "R,G \<turnstile> P {c\<^sub>1 ; c\<^sub>2} Q"
+  assumes "R,G \<turnstile> P {c\<^sub>1 ;; c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms by (induct R G P "c\<^sub>1 ; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
-
+  using assms by (induct R G P "c\<^sub>1 ;; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:
@@ -93,6 +92,13 @@ next
   then obtain P' where "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by auto
   then show ?case using inv rules.inv by blast
 qed blast+
+
+lemma falseI:
+  "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
+proof (induct c)
+  case (Basic x)
+  thus ?case by (intro basic atomic_falseI) auto
+qed auto
 
 end
 
