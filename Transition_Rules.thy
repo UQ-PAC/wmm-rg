@@ -169,7 +169,10 @@ next
   thus ?case using rules.inv p(2,3) inv(3,4) by blast
 next
   case (thread R G P c Q)
-  thus ?case sorry
+  then obtain r \<alpha> c'' where e: "g = beh \<alpha>\<llangle>r\<rrangle>" "c \<mapsto>[r,\<alpha>] c''" "c' = Thread c''" by auto
+  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c''} Q" "inter R G c''"
+    using thread lexecute_ruleI indep_stepI[OF thread(3) e(2)] by metis
+  thus ?case using e unfolding atomic_rule_def by blast
 qed auto
 
 end

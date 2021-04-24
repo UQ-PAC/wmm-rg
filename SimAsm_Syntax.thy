@@ -27,9 +27,10 @@ syntax
   "_AssignR"  :: "'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<^bold>r_ := _)" [70, 65] 61)
   "_AssignRA"  :: "'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<^bold>r_ := _ :\<^sub>a _)" [70, 65] 61)
   "_AssignRC"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<^bold>r_ := _)" [20, 70, 65] 61)
-  "_AssignRCA"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<^bold>r_ := _ :\<^sub>a _)" [20, 70, 65] 61)
+  "_AssignRCA"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<^bold>r_ := _ :\<^sub>a _)" [20, 70, 65, 10] 61)
 
   "_AssignG"  :: "'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrakk>_\<rbrakk> := _)" [70, 65] 61)
+  "_AssignGA"  :: "'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrakk>_\<rbrakk> := _ :\<^sub>a _)" [70, 65] 61)
   "_AssignGC"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<lbrakk>_\<rbrakk> := _)" [20, 70, 65] 61)
   "_AssignGCA"  :: "('v,'g,'r,'a) pred \<Rightarrow> 'g \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<lbrace>_\<rbrace> \<lbrakk>_\<rbrakk> := _ :\<^sub>a _)" [20, 70, 65] 61)
 
@@ -53,7 +54,7 @@ syntax
                 ("(1do _ //while _)"  [0,100] 61)
   "_DoWhile" :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow>  'c \<Rightarrow> ('v,'g,'r,'a) lang" 
                 ("(1do _/ inv \<lbrace>_\<rbrace> //while _)"  [0,0,100] 61)
-  "_AuxAssign"    :: "idt \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn" ("(\<^sup>a_ :=/ _)" [70, 65] 61)
+  "_AuxAssign"    :: "idt \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn" ("(\<^sup>a_ :=/ _)" [70, 65] 31)
 
 translations
   "\<^sup>ax := a" \<rightharpoonup> "CONST more o \<guillemotleft>\<acute>(state_rec.more_update (_update_name x (\<lambda>_. a)))\<guillemotright>"
@@ -64,6 +65,7 @@ translations
 
   "\<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) (CONST more)"
   "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) (CONST more)"
+  "\<lbrakk>x\<rbrakk> := a :\<^sub>a f" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) f"
   "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) f"
 
   "\<lbrace>P\<rbrace> skip" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST nop) (CONST more)"
@@ -81,7 +83,7 @@ translations
 
 fun fn_valid :: "('v,'r,'g,'a) threads \<Rightarrow> bool"
   where 
-    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (P \<subseteq> wp R c Q))" | 
+    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q))" | 
     "fn_valid _ = undefined"
 
 nonterminal prgs
@@ -132,7 +134,43 @@ translations
 definition c_and (infixr "&&" 35)
   where "c_and e\<^sub>1 e\<^sub>2 = Exp (\<lambda>x. x ! 0 \<and> x ! 1) [e\<^sub>1,e\<^sub>2]"
 
-definition c_eq (infixl "==" 50)
-  where "c_eq e\<^sub>1 e\<^sub>2 = Exp (\<lambda>x. if x ! 0 = x ! 1 then 1 else 0) [e\<^sub>1,e\<^sub>2]"
+definition c_neg ("!_" 50)
+  where "c_neg e\<^sub>1 = Exp (\<lambda>x. if x ! 0 then False else True) [e\<^sub>1]"
+
+lemma [simp]:
+  "stabilize R UNIV = UNIV"
+  by (auto simp: stabilize_def assert_def glb_def rg_def)
+
+lemma [simp]:
+  "reflexive R \<Longrightarrow> stabilize R {} = {}"
+  by (auto simp: reflexive_def stabilize_def assert_def glb_def rg_def)
+
+lemma [simp]:
+  "reflexive R \<Longrightarrow> stabilize R (assert P) = assert P"
+  by (auto simp: assert_def)
+
+lemma [simp]:
+  "{m. m(a :=\<^sub>s e) \<in> (assert P)} = assert P"
+  by (auto simp: assert_def)
+
+lemma [simp]:
+  "reflexive R \<Longrightarrow> UNIV \<subseteq> stabilize R P = (\<forall>m. m \<in> P)"
+  by (auto simp: reflexive_def stabilize_def assert_def glb_def rg_def)
+
+lemma [simp]:
+  "stabilize R (P \<inter> Q) = stabilize R P \<inter> stabilize R Q"
+  by (auto simp: stabilize_def)
+
+lemma [simp]:
+  "{m. P m \<and> Q m} = Collect P \<inter> Collect Q"
+  by auto
+
+lemma [simp]:
+  "{m. (f m) \<in> assert P} = assert P"
+  by (auto simp: assert_def)
+
+lemma [simp]:
+  "UNIV \<subseteq> assert P = P"
+  by (auto simp: assert_def)
 
 end

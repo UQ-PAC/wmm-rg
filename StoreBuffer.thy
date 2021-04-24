@@ -16,7 +16,7 @@ lemma sb0:
     {
       \<lbrakk>X\<rbrakk> := #1;
       fence;
-      \<lbrace>\<^sup>0\<lbrakk>X\<rbrakk> = 1\<rbrace> \<^bold>r0 := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>Y\<rbrakk> = 1)
+      \<lbrace>True\<rbrace> \<^bold>r0 := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>Y\<rbrakk> = 1)
     }
     Q: (\<^sup>0\<lbrakk>X\<rbrakk> = 1 \<and> (\<^sup>aS \<longrightarrow> \<^sup>0\<^bold>r0 = 1))
   FNEND" 
@@ -43,7 +43,7 @@ lemma sb1:
     {
       \<lbrakk>Y\<rbrakk> := #1;
       fence;
-      \<lbrace>\<^sup>0\<lbrakk>Y\<rbrakk> = 1\<rbrace> \<^bold>r1 := \<lbrakk>X\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>X\<rbrakk> \<noteq> 1)
+      \<^bold>r1 := \<lbrakk>X\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>X\<rbrakk> \<noteq> 1)
     }
     Q: (\<^sup>0\<lbrakk>Y\<rbrakk> = 1 \<and> (\<not>\<^sup>aS \<longrightarrow> \<^sup>0\<^bold>r1 = 1))
   FNEND" 
