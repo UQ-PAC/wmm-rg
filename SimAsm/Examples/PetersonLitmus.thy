@@ -1,5 +1,5 @@
 theory PetersonLitmus
-  imports SimAsm_Syntax
+  imports "../SimAsm_Syntax"
 begin
 
 datatype globals = X | Y | T

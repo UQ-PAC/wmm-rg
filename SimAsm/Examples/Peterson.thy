@@ -1,5 +1,5 @@
 theory Peterson
-  imports SimAsm_Syntax
+  imports "../SimAsm_Syntax"
 begin
 
 datatype globals = flag0 | flag1 | turn

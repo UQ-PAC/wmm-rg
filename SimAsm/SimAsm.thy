@@ -1,5 +1,5 @@
 theory SimAsm
-  imports Soundness
+  imports "../Soundness"
 begin
 
 section \<open>State\<close>
