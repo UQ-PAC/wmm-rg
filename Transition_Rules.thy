@@ -12,6 +12,7 @@ ensure any executed behaviours conform to the desired specification.
 
 section \<open>Reordering Rules\<close> 
 
+(*
 text \<open>
   Reorder the judgements of two reorderable instructions given a suitable interference property.
   The precondition P and postcondition Q are preserved.
@@ -54,6 +55,7 @@ proof -
 
   ultimately show ?thesis using that by blast
 qed
+*)
 
 text \<open>
   Reorder the judgements of a reorderable instruction \<alpha> and program c, given a suitable 
@@ -73,7 +75,7 @@ next
   have m': "R,G \<turnstile>\<^sub>A N' {\<alpha>} Q"
     using atomic_pre[OF Basic(3)] \<beta>(2,3) Basic(3) by (auto simp: atomic_rule_def)
   obtain M' where m'': "R,G \<turnstile>\<^sub>A P' {\<alpha>\<langle>tag \<beta>\<rangle>} M'" "R,G \<turnstile>\<^sub>A M' {\<beta>} Q"
-    using reorder_action[OF \<beta>(2) m'(1)] Basic by auto
+    using \<beta>(2) m'(1) Basic by (auto simp: inter\<^sub>\<alpha>_def) metis
   have "R,G \<turnstile> M' {Basic \<beta>} Q" by (rule rules.basic[OF m''(2)])
   then show ?case using Basic(1) \<beta>(1) m''(1) by auto
 next
@@ -170,7 +172,7 @@ next
 next
   case (thread R G P c Q)
   then obtain r \<alpha> c'' where e: "g = beh \<alpha>\<llangle>r\<rrangle>" "c \<mapsto>[r,\<alpha>] c''" "c' = Thread c''" by auto
-  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c''} Q" "inter R G c''"
+  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
     using thread lexecute_ruleI indep_stepI[OF thread(3) e(2)] by metis
   thus ?case using e unfolding atomic_rule_def by blast
 qed auto

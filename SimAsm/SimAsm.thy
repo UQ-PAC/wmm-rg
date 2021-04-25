@@ -146,7 +146,6 @@ datatype ('v,'g,'r) op =
     assign "('g,'r) var" "('v,'g,'r) exp"
   | cmp "('v,'g,'r) bexp"
   | full_fence
-  | ctrl_fence
   | nop
 
 abbreviation ncmp
@@ -184,8 +183,7 @@ text \<open>Only pattern match on first argument due to performance issues\<clos
 fun re\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> bool" 
   where
     "re\<^sub>i full_fence \<alpha> = False" |
-    "re\<^sub>i (cmp b) \<alpha> = (\<alpha> \<noteq> full_fence \<and> \<alpha> \<noteq> ctrl_fence \<and> wr \<alpha> \<subseteq> locals \<and> rd (cmp b) \<inter> wr \<alpha> = {} \<and> rd (cmp b) \<inter> rd \<alpha> \<subseteq> locals)" |
-    "re\<^sub>i ctrl_fence \<alpha> = (\<alpha> \<noteq> full_fence \<and> rd \<alpha> \<subseteq> locals)" |
+    "re\<^sub>i (cmp b) \<alpha> = (\<alpha> \<noteq> full_fence \<and> wr \<alpha> \<subseteq> locals \<and> rd (cmp b) \<inter> wr \<alpha> = {} \<and> rd (cmp b) \<inter> rd \<alpha> \<subseteq> locals)" |
     "re\<^sub>i \<alpha> \<beta> = (\<beta> \<noteq> full_fence \<and> wr \<alpha> \<inter> wr \<beta> = {} \<and> rd \<alpha> \<inter> wr \<beta> = {} \<and> refs \<alpha> \<inter> refs \<beta> \<subseteq> locals)"
 
 text \<open>Sub-Instruction Forwarding\<close>

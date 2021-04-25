@@ -71,7 +71,6 @@ translations
   "\<lbrace>P\<rbrace> skip" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST nop) (CONST more)"
 
   "fence" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST full_fence) (CONST more)"
-  "cfence" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST ctrl_fence) (CONST more)"
   "c\<^sub>1 ; c\<^sub>2" \<rightharpoonup> "CONST lang.Seq c\<^sub>1 c\<^sub>2"
   "if b then c\<^sub>1 else c\<^sub>2 fi" \<rightharpoonup> "CONST If (CONST test b) c\<^sub>1 c\<^sub>2"
   "if b then c\<^sub>1 fi" \<rightharpoonup> "CONST If (CONST test b) c\<^sub>1 (CONST Skip)"
@@ -83,7 +82,7 @@ translations
 
 fun fn_valid :: "('v,'r,'g,'a) threads \<Rightarrow> bool"
   where 
-    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q))" | 
+    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q) \<and> rif (step\<^sub>t R) (step G) (lift\<^sub>c c))" | 
     "fn_valid _ = undefined"
 
 nonterminal prgs

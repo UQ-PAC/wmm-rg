@@ -22,9 +22,8 @@ Independence of two instructions \<beta> and \<alpha> under environment R,
 such that the early execution of \<alpha> is assumed to be possible and 
 cannot invalidate sequential reasoning.\<close>
 definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
-  where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> 
-          Env R ;; Basic \<beta> ;; Env R ;; Basic \<alpha> \<sqsubseteq> Env R ;; Basic \<alpha>\<langle>tag \<beta>\<rangle> ;; Env R ;; Basic \<beta> \<and>
-          guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G"
+  where "inter\<^sub>\<alpha> R G \<beta> \<alpha> \<equiv> \<forall>P M Q. R,G \<turnstile>\<^sub>A P {\<beta>} M \<longrightarrow> R,G \<turnstile>\<^sub>A M {\<alpha>} Q \<longrightarrow> 
+                                  (\<exists>M'. R,G \<turnstile>\<^sub>A P {\<alpha>\<langle>tag \<beta>\<rangle>} M' \<and> R,G \<turnstile>\<^sub>A M' {\<beta>} Q)"
 
 text \<open>
 Independence of program c and instruction \<alpha> under environment R,
@@ -46,25 +45,25 @@ inductive reorder_trace
     "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace ((r,\<alpha>)#t) c"
 
 text \<open>Ensure all reorderings enforce the necessary interference property\<close>
-definition inter
-  where "inter R G c \<equiv> \<forall>t. reorder_trace t c \<longrightarrow> (\<forall>(r,\<alpha>) \<in> set t. inter\<^sub>c R G r \<alpha>)"
+definition rif
+  where "rif R G c \<equiv> \<forall>t. reorder_trace t c \<longrightarrow> (\<forall>(r,\<alpha>) \<in> set t. inter\<^sub>c R G r \<alpha>)"
 
 section \<open>Interference Properties\<close>
 
 text \<open>Interference check is preserved across a silent step\<close>
 lemma inter_silentI [intro]:
-  assumes "inter R G c" "c \<leadsto> c'"
-  shows "inter R G c'"
-  using assms by (auto simp: inter_def intro: reorder_trace.intros)
+  assumes "rif R G c" "c \<leadsto> c'"
+  shows "rif R G c'"
+  using assms by (auto simp: rif_def intro: reorder_trace.intros)
 
 text \<open>Interference check is preserved across an execution step and prevents interference\<close>
 lemma indep_stepI [intro]:
-  assumes "inter R G c" "c \<mapsto>[r,\<alpha>] c'"
-  shows "inter R G c' \<and> inter\<^sub>c R G r \<alpha>"
+  assumes "rif R G c" "c \<mapsto>[r,\<alpha>] c'"
+  shows "rif R G c' \<and> inter\<^sub>c R G r \<alpha>"
 proof -
   have "reorder_trace [(r, \<alpha>)] c" using assms reorder_trace.intros by simp
-  hence "inter\<^sub>c R G r \<alpha>" using assms by (auto simp: inter_def)
-  thus ?thesis using assms reorder_trace.intros(3)[OF assms(2)] inter_def by force
+  hence "inter\<^sub>c R G r \<alpha>" using assms by (auto simp: rif_def)
+  thus ?thesis using assms reorder_trace.intros(3)[OF assms(2)] rif_def by force
 qed
 
 end

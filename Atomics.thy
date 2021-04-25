@@ -15,6 +15,7 @@ text \<open>Weakest precondition of a basic instruction, based on the locale's
 abbreviation wp\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
   where "wp\<^sub>\<alpha> \<alpha> Q \<equiv> wp (vc \<alpha>) (beh \<alpha>) Q"
 
+(*
 text \<open>Weakest precondition of a program, only covering basic instructions, environment steps and 
       sequential composition as these are sufficient for the logic's checks.\<close>
 fun wp\<^sub>c :: "('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
@@ -26,6 +27,7 @@ fun wp\<^sub>c :: "('a,'b) com \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
 text \<open>Refinement relation between two programs, in terms of their weakest precondition calculation.\<close>
 definition refine :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool" (infix "\<sqsubseteq>" 60)
   where "c \<sqsubseteq> c' \<equiv> \<forall>Q. wp\<^sub>c c Q \<subseteq> wp\<^sub>c c' Q"
+*)
 
 text \<open>Specification check, ensuring an instruction conforms to a relation\<close>
 abbreviation guar\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'b rpred \<Rightarrow> bool"

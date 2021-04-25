@@ -1,9 +1,17 @@
 theory PetersonLitmus
-  imports "../SimAsm_Syntax"
+  imports "../SimAsm_Syntax" "../SimAsm_Inter"
 begin
 
 datatype globals = X | Y | T
 record aux = S :: bool
+
+theorem upd_correct:
+  assumes "upd2 R (lift\<^sub>c c) P \<subseteq> {p. point.inv p}"
+  shows "rif (step\<^sub>t R) (step G) (lift\<^sub>c c)"
+  sorry
+
+instance aux_ext :: (equal) equal
+  by standard
 
 lemma thread0:
   "FNBEGIN
@@ -12,7 +20,9 @@ lemma thread0:
     P: True
     {
       \<lbrakk>X\<rbrakk> := #True;
+      fence;
       \<lbrakk>T\<rbrakk> := #True :\<^sub>a \<^sup>aS := True;
+fence;
       \<^bold>r0 := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<and> \<^sup>0\<lbrakk>Y\<rbrakk>);
       \<^bold>r1 := \<lbrakk>T\<rbrakk>
     }
@@ -31,7 +41,14 @@ lemma thread0:
 
   apply simp
   apply (clarsimp simp: stabilize_def st_upd_def glb_def aux_upd_def rg_def)
-  by (meson less_numeral_extra(3))
+  apply (meson less_numeral_extra(3))
+
+  apply (rule upd_correct[where ?P="{}"])
+
+  apply (simp add: upd\<^sub>a_def gen_def liftg_def liftl_def)
+
+  apply (clarsimp simp: aux_upd_def st_upd_def stabilize_def glb_def rg_def)[1]
+  sorry
 
 lemma thread1:
   "FNBEGIN
