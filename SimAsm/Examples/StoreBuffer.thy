@@ -16,7 +16,7 @@ lemma sb0:
     {
       \<lbrakk>X\<rbrakk> := #1;
       fence;
-      \<lbrace>True\<rbrace> \<^bold>r0 := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>Y\<rbrakk> = 1)
+      \<^bold>r0 := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>Y\<rbrakk> = 1)
     }
     Q: (\<^sup>0\<lbrakk>X\<rbrakk> = 1 \<and> (\<^sup>aS \<longrightarrow> \<^sup>0\<^bold>r0 = 1))
   FNEND" 

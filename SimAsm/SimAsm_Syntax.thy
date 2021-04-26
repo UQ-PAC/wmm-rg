@@ -82,7 +82,7 @@ translations
 
 fun fn_valid :: "('v,'r,'g,'a) threads \<Rightarrow> bool"
   where 
-    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q) \<and> rif (step\<^sub>t R) (step G) (lift\<^sub>c c))" | 
+    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q))" | 
     "fn_valid _ = undefined"
 
 nonterminal prgs

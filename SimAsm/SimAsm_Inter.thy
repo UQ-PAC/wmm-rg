@@ -54,7 +54,7 @@ fun stren :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> ('v,
 
 fun weaken :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> ('v,'g,'r,'a) point"
   where
-    "weaken a p = p\<lparr> rds := rds p - shr (wr a) \<rparr>"
+    "weaken a p = p\<lparr> rds := rds p - shr (wr a), op := fwd\<^sub>s (op p) (a,state_rec.more) \<rparr>"
 
 fun upd\<^sub>i
   where
