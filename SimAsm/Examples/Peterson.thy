@@ -13,18 +13,18 @@ whilst Thread 1 requires a true S.
 
 lemma peterson0:
   "FNBEGIN
-    R: (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS \<longrightarrow> \<^sup>1\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag0\<rbrakk> = \<^sup>2\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<not>\<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<not>\<^sup>2\<^sup>aS)))
-    G: (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<^sup>1\<^sup>aS \<longrightarrow> \<^sup>2\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag1\<rbrakk> = \<^sup>2\<lbrakk>flag1\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<not>\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS)))
+    R: (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<^sup>1\<^sup>aS \<longrightarrow> \<^sup>2\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag0\<rbrakk> = \<^sup>2\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<not>\<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS)))
+    G: (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS \<longrightarrow> \<^sup>1\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag1\<rbrakk> = \<^sup>2\<lbrakk>flag1\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<not>\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<not>\<^sup>2\<^sup>aS)))
     P: True
     {
       \<lbrakk>flag0\<rbrakk> := #True;
-      \<lbrakk>turn\<rbrakk> := #True :\<^sub>a \<^sup>aS := True;
+      \<lbrakk>turn\<rbrakk> := #True :\<^sub>a \<^sup>aS := False;
       do
-        \<^bold>r0 := \<lbrakk>flag1\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<and> \<^sup>0\<lbrakk>flag1\<rbrakk>);
+        \<^bold>r0 := \<lbrakk>flag1\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<or> \<not>\<^sup>0\<lbrakk>flag1\<rbrakk>);
         \<^bold>r1 := \<lbrakk>turn\<rbrakk>
-      inv \<lbrace>\<^sup>0\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>aS \<longrightarrow> \<^sup>0\<lbrakk>turn\<rbrakk>)\<rbrace>
+      inv \<lbrace>\<^sup>0\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>aS \<or> \<^sup>0\<lbrakk>turn\<rbrakk>)\<rbrace>
       while (\<^bold>r0 && \<^bold>r1);
-      \<lbrace>\<not>\<^sup>aS\<rbrace> skip;
+      \<lbrace>\<^sup>aS\<rbrace> skip;
       \<lbrakk>flag0\<rbrakk> := #False
     }
     Q: True
@@ -43,18 +43,18 @@ lemma peterson0:
 
 lemma peterson1:
   "FNBEGIN
-    R: (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<^sup>1\<^sup>aS \<longrightarrow> \<^sup>2\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag1\<rbrakk> = \<^sup>2\<lbrakk>flag1\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<not>\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS)))
-    G: (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS \<longrightarrow> \<^sup>1\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag0\<rbrakk> = \<^sup>2\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<not>\<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<not>\<^sup>2\<^sup>aS)))
+    R: (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS \<longrightarrow> \<^sup>1\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag1\<rbrakk> = \<^sup>2\<lbrakk>flag1\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<not>\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag1\<rbrakk> \<longrightarrow> \<not>\<^sup>2\<^sup>aS)))
+    G: (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<^sup>1\<^sup>aS \<longrightarrow> \<^sup>2\<^sup>aS) \<and> \<^sup>1\<lbrakk>flag0\<rbrakk> = \<^sup>2\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>2\<lbrakk>turn\<rbrakk> = \<^sup>1\<lbrakk>turn\<rbrakk> \<or> (\<^sup>1\<lbrakk>turn\<rbrakk> \<and> \<not>\<^sup>2\<lbrakk>turn\<rbrakk> \<and> (\<^sup>1\<lbrakk>flag0\<rbrakk> \<longrightarrow> \<^sup>2\<^sup>aS)))
     P: True
     {
       \<lbrakk>flag1\<rbrakk> := #True;
-      \<lbrakk>turn\<rbrakk> := #False :\<^sub>a \<^sup>aS := False;
+      \<lbrakk>turn\<rbrakk> := #False :\<^sub>a \<^sup>aS := True;
       do
-        \<^bold>r0 := \<lbrakk>flag0\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<or> \<not>\<^sup>0\<lbrakk>flag0\<rbrakk>);
+        \<^bold>r0 := \<lbrakk>flag0\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<and> \<^sup>0\<lbrakk>flag0\<rbrakk>);
         \<^bold>r1 := (!\<lbrakk>turn\<rbrakk>)
-      inv \<lbrace>\<^sup>0\<lbrakk>flag1\<rbrakk> \<and> (\<^sup>0\<lbrakk>turn\<rbrakk> \<longrightarrow> \<^sup>aS)\<rbrace>
+      inv \<lbrace>\<^sup>0\<lbrakk>flag1\<rbrakk> \<and> (\<not>\<^sup>0\<lbrakk>turn\<rbrakk> \<or> \<not>\<^sup>aS)\<rbrace>
       while (\<^bold>r0 && \<^bold>r1);
-      \<lbrace>\<^sup>aS\<rbrace> skip;
+      \<lbrace>\<not>\<^sup>aS\<rbrace> skip;
       \<lbrakk>flag1\<rbrakk> := #False
     }
     Q: True
