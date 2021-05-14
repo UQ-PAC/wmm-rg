@@ -1,5 +1,5 @@
 theory SimAsm
-  imports "../Soundness"
+  imports "../Soundness" 
 begin
 
 section \<open>State\<close>
@@ -170,13 +170,13 @@ fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
     "rd (cmp b) = deps\<^sub>B b" |
     "rd _ = {}"
 
-text \<open>Variables referenced by an operation\<close>
-abbreviation refs
-  where "refs a \<equiv> wr a \<union> rd a"
-
 text \<open>Domain of register variables\<close>
 abbreviation locals
   where "locals \<equiv> Reg ` UNIV"
+
+text \<open>Domain of register variables\<close>
+abbreviation globals
+  where "globals \<equiv> Glb ` UNIV"
 
 text \<open>Instruction Reordering\<close>
 text \<open>Only pattern match on first argument due to performance issues\<close>
@@ -184,7 +184,7 @@ fun re\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> bool"
   where
     "re\<^sub>i full_fence \<alpha> = False" |
     "re\<^sub>i (cmp b) \<alpha> = (\<alpha> \<noteq> full_fence \<and> wr \<alpha> \<subseteq> locals \<and> rd (cmp b) \<inter> wr \<alpha> = {} \<and> rd (cmp b) \<inter> rd \<alpha> \<subseteq> locals)" |
-    "re\<^sub>i \<alpha> \<beta> = (\<beta> \<noteq> full_fence \<and> wr \<alpha> \<inter> wr \<beta> = {} \<and> rd \<alpha> \<inter> wr \<beta> = {} \<and> refs \<alpha> \<inter> refs \<beta> \<subseteq> locals)"
+    "re\<^sub>i \<alpha> \<beta> = (\<beta> \<noteq> full_fence \<and> wr \<alpha> \<inter> wr \<beta> = {} \<and> rd \<alpha> \<inter> wr \<beta> = {} \<and> rd \<alpha> \<inter> rd \<beta> \<subseteq> locals)"
 
 text \<open>Sub-Instruction Forwarding\<close>
 fun fwd\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op" 
@@ -193,7 +193,7 @@ fun fwd\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,
     "fwd\<^sub>i (cmp b) (assign r e) = (cmp (subst\<^sub>B b r e))" |
     "fwd\<^sub>i \<alpha> _ = \<alpha>"
 
-definition comp (infix "\<Otimes>" 60)
+definition comp (infixr "\<Otimes>" 60)
   where "comp a b \<equiv> {(m,m'). \<exists>m''. (m,m'') \<in> a \<and> (m'',m') \<in> b}"
 
 lemma re_consistent:

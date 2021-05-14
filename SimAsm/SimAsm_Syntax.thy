@@ -1,5 +1,5 @@
 theory SimAsm_Syntax
-  imports SimAsm_Rules
+  imports SimAsm_Rules SimAsm_Inter
 begin
 
 syntax
@@ -57,20 +57,20 @@ syntax
   "_AuxAssign"    :: "idt \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn" ("(\<^sup>a_ :=/ _)" [70, 65] 31)
 
 translations
-  "\<^sup>ax := a" \<rightharpoonup> "CONST more o \<guillemotleft>\<acute>(state_rec.more_update (_update_name x (\<lambda>_. a)))\<guillemotright>"
+  "\<^sup>ax := a" \<rightharpoonup> "CONST state_rec.more o \<guillemotleft>\<acute>(state_rec.more_update (_update_name x (\<lambda>_. a)))\<guillemotright>"
 
-  "\<^bold>rx := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) (CONST more)"
+  "\<^bold>rx := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) (CONST state_rec.more)"
   "\<^bold>rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Reg x) a) f"
   "\<lbrace>P\<rbrace> \<^bold>rx := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Reg x) a) f"
 
-  "\<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) (CONST more)"
-  "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) (CONST more)"
+  "\<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) (CONST state_rec.more)"
+  "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) (CONST state_rec.more)"
   "\<lbrakk>x\<rbrakk> := a :\<^sub>a f" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST assign (CONST Glb x) a) f"
   "\<lbrace>P\<rbrace> \<lbrakk>x\<rbrakk> := a :\<^sub>a f" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST assign (CONST Glb x) a) f"
 
-  "\<lbrace>P\<rbrace> skip" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST nop) (CONST more)"
+  "\<lbrace>P\<rbrace> skip" \<rightharpoonup> "CONST Op \<llangle>P\<rrangle> (CONST nop) (CONST state_rec.more)"
 
-  "fence" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST full_fence) (CONST more)"
+  "fence" \<rightharpoonup> "CONST Op (CONST UNIV) (CONST full_fence) (CONST state_rec.more)"
   "c\<^sub>1 ; c\<^sub>2" \<rightharpoonup> "CONST lang.Seq c\<^sub>1 c\<^sub>2"
   "if b then c\<^sub>1 else c\<^sub>2 fi" \<rightharpoonup> "CONST If (CONST test b) c\<^sub>1 c\<^sub>2"
   "if b then c\<^sub>1 fi" \<rightharpoonup> "CONST If (CONST test b) c\<^sub>1 (CONST Skip)"
@@ -80,9 +80,11 @@ translations
   "do c while b" \<rightharpoonup> "CONST DoWhile (CONST UNIV) c (CONST test b)"
   "do c inv \<lbrace>P\<rbrace> while b" \<rightharpoonup> "CONST DoWhile \<llangle>P\<rrangle> c (CONST test b)"
 
-fun fn_valid :: "('v,'r,'g,'a) threads \<Rightarrow> bool"
+fun fn_valid :: "('v::equal,'r::equal,'g::equal,'a) threads \<Rightarrow> bool"
   where 
-    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q))" | 
+    "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> 
+                                (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q) \<and>
+                                (rif_checks c R))" |
     "fn_valid _ = undefined"
 
 nonterminal prgs
@@ -126,9 +128,9 @@ translations
   "\<^sup>1\<^bold>rX" \<rightleftharpoons> "(CONST rg (\<acute>CONST fst)) X"
   "\<^sup>2\<^bold>rX" \<rightleftharpoons> "(CONST rg (\<acute>CONST snd)) X"
   "#X" \<rightleftharpoons> "CONST Val X"
-  "\<^sup>aX" \<rightleftharpoons> "X (\<acute>CONST more)"
-  "\<^sup>1\<^sup>aX" \<rightleftharpoons> "X (CONST more (\<acute>CONST fst))"
-  "\<^sup>2\<^sup>aX" \<rightleftharpoons> "X (CONST more (\<acute>CONST snd))"
+  "\<^sup>aX" \<rightleftharpoons> "X (\<acute>CONST state_rec.more)"
+  "\<^sup>1\<^sup>aX" \<rightleftharpoons> "X (CONST state_rec.more (\<acute>CONST fst))"
+  "\<^sup>2\<^sup>aX" \<rightleftharpoons> "X (CONST state_rec.more (\<acute>CONST snd))"
 
 definition c_and (infixr "&&" 35)
   where "c_and e\<^sub>1 e\<^sub>2 = Exp (\<lambda>x. x ! 0 \<and> x ! 1) [e\<^sub>1,e\<^sub>2]"

@@ -18,13 +18,17 @@ lemma peterson0:
     P: True
     {
       \<lbrakk>flag0\<rbrakk> := #True;
+      fence;
       \<lbrakk>turn\<rbrakk> := #True :\<^sub>a \<^sup>aS := False;
+      fence;
       do
-        \<^bold>r0 := \<lbrakk>flag1\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<or> \<not>\<^sup>0\<lbrakk>flag1\<rbrakk>);
+        \<^bold>r(0::nat) := \<lbrakk>flag1\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>aS \<or> \<not>\<^sup>0\<lbrakk>flag1\<rbrakk>);
         \<^bold>r1 := \<lbrakk>turn\<rbrakk>
       inv \<lbrace>\<^sup>0\<lbrakk>flag0\<rbrakk> \<and> (\<^sup>aS \<or> \<^sup>0\<lbrakk>turn\<rbrakk>)\<rbrace>
       while (\<^bold>r0 && \<^bold>r1);
+      fence;
       \<lbrace>\<^sup>aS\<rbrace> skip;
+      fence;
       \<lbrakk>flag0\<rbrakk> := #False
     }
     Q: True
@@ -38,8 +42,19 @@ lemma peterson0:
   apply (clarsimp simp: aux_upd_def step_def glb_def wp\<^sub>r_def st_upd_def)
 
   (* WP reasoning *)
-  by (simp add: c_and_def test_def, intro conjI impI; 
-      clarsimp simp: stabilize_def st_upd_def glb_def rg_def aux_upd_def; metis)
+  apply (simp add: c_and_def test_def)
+  apply (intro conjI impI)
+  apply (clarsimp simp: stabilize_def st_upd_def glb_def rg_def aux_upd_def)
+  apply (clarsimp simp: stabilize_def st_upd_def glb_def rg_def aux_upd_def)
+  apply (clarsimp simp: stabilize_def st_upd_def glb_def rg_def aux_upd_def)
+  apply (clarsimp simp: stabilize_def st_upd_def glb_def rg_def aux_upd_def)
+  apply (metis less_numeral_extra(3))
+
+  (* RIF *)
+  apply rif_eval
+  apply (simp add: checks_def)
+
+  sorry
 
 lemma peterson1:
   "FNBEGIN
