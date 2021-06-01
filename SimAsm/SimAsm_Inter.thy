@@ -1,5 +1,5 @@
 theory SimAsm_Inter
-  imports "HOL-Library.FSet" SimAsm_WP "HOL-Library.While_Combinator" "HOL-Eisbach.Eisbach"
+  imports "HOL-Library.FSet" "SimAsm_Abs" "HOL-Library.While_Combinator" "HOL-Eisbach.Eisbach"
 begin
 
 text \<open>A data point, extends an instruction with reordering information\<close>
@@ -8,22 +8,14 @@ record ('g,'r) point =
   wrs :: "('g,'r) var fset"
   rds :: "('g,'r) var fset"
   bar :: bool
-  pairs :: "nat fset"
+  esc :: "('g,'r) var fset"
+  pairs :: "(nat \<times> ('g,'r) var fset) fset"
 
 type_synonym ('v,'g,'r,'a) enumi = "('v,'g,'r,'a) pred \<times> ('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
 type_synonym ('v,'g,'r,'a) enuml = "('v,'g,'r,'a) enumi list"
 
-abbreviation inst
-  where "inst a \<equiv> fst (tag a)"
-
-definition point_cmp (infix "\<prec>" 60)
-  where "point_cmp a b \<equiv> wrs a |\<subseteq>| wrs b \<and> rds a |\<subseteq>| rds b \<and> (bar a \<longrightarrow> bar b)"
-
-fun fences
-  where "fences full_fence = True" | "fences _ = False"
-
-definition hasGlobal
-  where "hasGlobal S \<equiv> \<exists>e. Glb e |\<in>| S"
+definition hasGlobal\<^sub>e
+  where "hasGlobal\<^sub>e S \<equiv> \<exists>e. Glb e |\<in>| S"
 
 fun hasGlobalL
   where "hasGlobalL (Glb x#a) = True" | 
@@ -74,16 +66,16 @@ fun frd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var fset"
     "frd _ = {||}"
 
 text \<open>Conditions under which a point is ordered after an instruction\<close>
-fun ord
+fun ord\<^sub>e
   where
-    "ord nop p = (bar p)" |
-    "ord (cmp b) p = (bar p \<or> hasGlobal (wrs p) \<or> hasGlobal (fdeps\<^sub>B b |\<inter>| rds p))" |
-    "ord (assign v e) p = 
+    "ord\<^sub>e nop p = (bar p)" |
+    "ord\<^sub>e (cmp b) p = (bar p \<or> hasGlobal\<^sub>e (wrs p) \<or> hasGlobal\<^sub>e (fdeps\<^sub>B b |\<inter>| rds p))" |
+    "ord\<^sub>e (assign v e) p = 
       (bar p \<or> 
-        hasGlobal (fdeps e |\<inter>| (rds p |\<union>| wrs p)) \<or> 
+        hasGlobal\<^sub>e (fdeps e |\<inter>| (rds p |\<union>| wrs p)) \<or> 
         (case v of Glb g \<Rightarrow> Glb g |\<in>| wrs p | _ \<Rightarrow> False) \<or> 
-        (hasGlobal (fdeps e) \<and> v |\<in>| rds p))" |
-    "ord full_fence _ = True"
+        (hasGlobal\<^sub>e (fdeps e) \<and> v |\<in>| rds p))" |
+    "ord\<^sub>e full_fence _ = True"
 
 text \<open>Strengthen a point based on a strictly earlier instruction\<close>
 fun stren :: "('v,'g,'r) op \<Rightarrow> ('g,'r) point \<Rightarrow> ('g,'r) point"
@@ -97,17 +89,18 @@ fun wken :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point \<Right
   where
     "wken n \<alpha> p = p\<lparr> rds := rds p - fwr \<alpha> |\<union>| 
                             (if fwr \<alpha> |\<inter>| rds p \<noteq> {||} then frd \<alpha> else {||}), 
-                     pairs := pairs p |\<union>| {|n|} \<rparr>"
+                     esc := esc p |\<union>| fwr \<alpha>,
+                     pairs := pairs p |\<union>| {|(n, esc p)|} \<rparr>"
 
 text \<open>Convert an instruction into a point\<close>
 definition gen :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point"
   where
-    "gen n a = \<lparr> id = n, wrs = fwr a, rds = frd a, bar = fences a, pairs = {||} \<rparr>"
+    "gen n a = \<lparr> id = n, wrs = fwr a, rds = frd a, bar = fences a, esc = {||}, pairs = {||} \<rparr>"
 
 text \<open>Process a new instruction against one point\<close>
 definition proc1 :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point \<Rightarrow> ('g,'r) point"
   where
-    "proc1 n \<alpha> p \<equiv> if ord \<alpha> p then stren \<alpha> p else wken n \<alpha> p"
+    "proc1 n \<alpha> p \<equiv> if ord\<^sub>e \<alpha> p then stren \<alpha> p else wken n \<alpha> p"
 
 text \<open>Process a new instruction against a set of points\<close>
 definition proc\<^sub>i :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
@@ -133,15 +126,6 @@ fun enum :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> 
         ((n ;; Basic (length l,{},{}))* ;; n ;; Basic (length l,{},{}), 
           l@[({},cmp b,state_rec.more)]))" 
 
-text \<open>Process a full program, but don't introduce new actions. Used only for reasoning\<close>
-fun proc :: "(nat, nat) com \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
-  where 
-    "proc (Basic a) l P = proc\<^sub>i (tag a) (fst (snd (l ! (tag a)))) P" |
-    "proc (Choice c\<^sub>1 c\<^sub>2) l P = (proc c\<^sub>1 l P \<union> proc c\<^sub>2 l P)" |
-    "proc (Loop c) l P = lfp (\<lambda>Y. (P \<union> proc c l Y))" |
-    "proc (c\<^sub>1 ;; c\<^sub>2) l P = proc c\<^sub>1 l (proc c\<^sub>2 l P)" |
-    "proc _ _ P = P"
-
 text \<open>Process a new instruction against a set of points\<close>
 definition rif\<^sub>i :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
   where 
@@ -150,13 +134,90 @@ definition rif\<^sub>i :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r)
 text \<open>Process a full program\<close>
 fun rif :: "(nat, nat) com \<Rightarrow> ('v,'g,'r) op list \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
   where 
-    "rif (Basic a) l P = (if tag a < length l then rif\<^sub>i (tag a) (l ! (tag a)) P else P)" |
+    "rif (Basic a) l P = (rif\<^sub>i (tag a) (l ! (tag a)) P)" |
     "rif (Choice c\<^sub>1 c\<^sub>2) l P = (rif c\<^sub>1 l P \<union> rif c\<^sub>2 l P)" |
     "rif (Loop c) l P = lfp (\<lambda>Y. (P \<union> rif c l Y))" |
     "rif (c\<^sub>1 ;; c\<^sub>2) l P = rif c\<^sub>1 l (rif c\<^sub>2 l P)" |
     "rif _ _ P = P"
 declare rif.simps(3)[simp del]
 
+subsection \<open>Refinement\<close>
+
+fun expand :: "(nat, nat) com \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com"
+  where
+    "expand Nil l = Nil" |
+    "expand (Basic a) l = (case l ! tag a of (v,\<alpha>,f) \<Rightarrow> Basic (\<lfloor>v,\<alpha>,f\<rfloor>))" |
+    "expand (com.Seq c\<^sub>1 c\<^sub>2) l = com.Seq (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
+    "expand (Choice c\<^sub>1 c\<^sub>2) l = Choice (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
+    "expand (Loop c\<^sub>1) l = Loop (expand c\<^sub>1 l)" |
+    "expand (Parallel c\<^sub>1 c\<^sub>2) l = Parallel (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
+    "expand (Thread c\<^sub>1) l = Thread (expand c\<^sub>1 l)"
+
+fun expand_op 
+  where "expand_op (v,\<alpha>,f) = \<lfloor>v,\<alpha>,f\<rfloor>"
+
+fun expand_pairs :: "(nat \<times> ('g,'r) var fset) fset \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> (('v,'g,'r,'a) opbasic \<times> ('g,'r) var set) set"
+  where
+    "expand_pairs p l = {(expand_op (l ! i), fset s) | i s. (i,s) \<in> fset p}"
+
+fun expand_point :: "('g,'r) point \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> ('v,'g,'r,'a) SimAsm_Abs.point"
+  where
+    "expand_point p l = \<lparr> op = expand_op (l ! id p), 
+                          wrs = fset (wrs p), 
+                          rds = fset (rds p), 
+                          bar = bar p, 
+                          esc = fset (esc p),
+                          pairs = expand_pairs (pairs p) l \<rparr>"
+
+fun expand_points
+  where "expand_points P l = (\<lambda>s. expand_point s l) ` P"
+
+lemma [simp]:
+  "inst (\<lfloor>x1,x2,x3\<rfloor>) = x2"
+  by (auto simp: liftg_def)
+  
+lemma [simp]:
+  "fset (fwr a) = wr a"
+  sorry
+
+lemma [simp]:
+  "fset (frd a) = rd a"
+  sorry
+
+lemma [simp]:
+  "((map (\<lambda>a. fst (snd a)) l' @ [x2]) ! length l') = x2"
+  sorry
+
+lemma
+  assumes "enum c l' = (r,l)"
+  shows "SimAsm_Abs.rif (lift\<^sub>c c) (expand_points P l) = expand_points (rif r (map (fst o snd) l) P) l"
+  using assms
+proof (induct c arbitrary: P l l' r)
+  case Skip
+  then show ?case by simp
+next
+  case (Op x1 x2 x3)
+  hence [simp]: "r = Basic (length l', {}, {})" "l = l' @ [(x1, x2, x3)]" by auto
+  then show ?case 
+    apply (simp add: rif\<^sub>i_def gen_def SimAsm_Abs.rif\<^sub>i_def SimAsm_Abs.gen_def SimAsm_Abs.proc\<^sub>i_def) sorry
+next
+  case (Seq c1 c2)
+  show ?case
+    unfolding lift\<^sub>c.simps SimAsm_Abs.rif.simps
+    apply simp sorry
+next
+  case (If x1 c1 c2)
+  then show ?case sorry
+next
+  case (While x1 x2 c)
+  then show ?case sorry
+next
+  case (DoWhile x1 c x3)
+  then show ?case sorry
+qed
+
+
+(*
 text \<open>Interference Check\<close>
 fun sp 
   where 
@@ -876,5 +937,6 @@ next
 
   then show ?case sorry
 qed
+*)
 
 end

@@ -211,6 +211,14 @@ This auxiliary state cannot influence real execution behaviour by definition.
 \<close>
 type_synonym ('v,'g,'r,'a) auxop = "('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
 
+(*
+lemma
+  "beh\<^sub>i (assign x (subst e y e')) = 
+    {(m,m'). \<exists>n. (m(y :=\<^sub>s ev m e'),n) \<in> beh\<^sub>i (assign x e) \<and> 
+                 m' = n(y :=\<^sub>s if x = y then st n y else st m y)}"
+  by (auto simp: st_upd_def intro!: equality)
+*)
+
 fun beh\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) state rel"
   where "beh\<^sub>a (\<alpha>,f) = beh\<^sub>i \<alpha> O {(m,m'). m' = m(aux: f)}"
 
@@ -226,7 +234,8 @@ text \<open>
 To instantiate the abstract theory, we must couple each sub-operation with its precondition
 and behaviour in a tuple\<close>
 type_synonym ('v,'g,'r,'a) opbasic = "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) basic"
- 
+
+
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
 fun fwd\<^sub>s :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) opbasic" 
   where "fwd\<^sub>s (\<alpha>,v,_) \<beta> =  (fwd\<^sub>a \<alpha> \<beta>, v, beh\<^sub>a (fwd\<^sub>a \<alpha> \<beta>))" 
