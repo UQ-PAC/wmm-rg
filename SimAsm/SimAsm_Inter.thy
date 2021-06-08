@@ -1,272 +1,128 @@
 theory SimAsm_Inter
-  imports "HOL-Library.FSet" "SimAsm_Abs" "HOL-Library.While_Combinator" "HOL-Eisbach.Eisbach"
+  imports SimAsm_WP "HOL-Library.FSet" "HOL-Library.While_Combinator" "HOL-Eisbach.Eisbach"
 begin
 
-text \<open>A data point, extends an instruction with reordering information\<close>
-record ('g,'r) point =
-  id :: nat
-  wrs :: "('g,'r) var fset"
-  rds :: "('g,'r) var fset"
-  bar :: bool
-  esc :: "('g,'r) var fset"
-  pairs :: "(nat \<times> ('g,'r) var fset) fset"
+text \<open>
+This theory file describes the abstract interference pairs analysis
+and includes a soundness proof.
+\<close>
 
-type_synonym ('v,'g,'r,'a) enumi = "('v,'g,'r,'a) pred \<times> ('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
-type_synonym ('v,'g,'r,'a) enuml = "('v,'g,'r,'a) enumi list"
-
-definition hasGlobal\<^sub>e
-  where "hasGlobal\<^sub>e S \<equiv> \<exists>e. Glb e |\<in>| S"
-
-fun hasGlobalL
-  where "hasGlobalL (Glb x#a) = True" | 
-        "hasGlobalL [] = False" |
-        "hasGlobalL (b#a) = hasGlobalL a"
-
-lemma [intro]: "finite (deps a)" by (induct a, auto)
-lemma [intro]: "finite (deps\<^sub>B a)" by (induct a, auto)
-lemma [intro]: "finite (wr a)" by (induct a, auto)
-lemma [intro]: "finite (rd a)" by (induct a, auto)
-
-text \<open>Substitute a variable for an expression\<close>
-fun subst :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) exp"
-  where
-    "subst (Var r) r' e = (if r = r' then e else Var r)" |
-    "subst (Exp f rs) r e = (Exp f (map (\<lambda>x. subst x r e) rs))" |
-    "subst e _ _ = e"
-
-text \<open>The syntactic dependencies of an expression\<close>
-fun ldeps :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var list"
-  where 
-    "ldeps (Var r) = [r]" |
-    "ldeps (Exp _ rs) = List.bind rs ldeps" |
-    "ldeps _ = []"
-
-fun ldeps\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var list"
-  where 
-    "ldeps\<^sub>B (Neg e) = ldeps\<^sub>B e" |
-    "ldeps\<^sub>B (Exp\<^sub>B _ rs) = List.bind rs ldeps"
-
-definition fdeps 
-  where "fdeps a = fset_of_list (ldeps a)"
-
-definition fdeps\<^sub>B
-  where "fdeps\<^sub>B a = fset_of_list (ldeps\<^sub>B a)"
-
-text \<open>Variables written by an operation\<close>
-fun fwr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var fset"
-  where 
-    "fwr (assign y _) = {|y|}" |
-    "fwr _ = {||}"
-
-text \<open>Variables read by an operation\<close>
-fun frd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var fset"
-  where
-    "frd (assign _ e) = fdeps e" |
-    "frd (cmp b) = fdeps\<^sub>B b" |
-    "frd _ = {||}"
-
-text \<open>Conditions under which a point is ordered after an instruction\<close>
-fun ord\<^sub>e
-  where
-    "ord\<^sub>e nop p = (bar p)" |
-    "ord\<^sub>e (cmp b) p = (bar p \<or> hasGlobal\<^sub>e (wrs p) \<or> hasGlobal\<^sub>e (fdeps\<^sub>B b |\<inter>| rds p))" |
-    "ord\<^sub>e (assign v e) p = 
-      (bar p \<or> 
-        hasGlobal\<^sub>e (fdeps e |\<inter>| (rds p |\<union>| wrs p)) \<or> 
-        (case v of Glb g \<Rightarrow> Glb g |\<in>| wrs p | _ \<Rightarrow> False) \<or> 
-        (hasGlobal\<^sub>e (fdeps e) \<and> v |\<in>| rds p))" |
-    "ord\<^sub>e full_fence _ = True"
-
-text \<open>Strengthen a point based on a strictly earlier instruction\<close>
-fun stren :: "('v,'g,'r) op \<Rightarrow> ('g,'r) point \<Rightarrow> ('g,'r) point"
-  where
-    "stren a p = p\<lparr> wrs := wrs p |\<union>| fwr a, 
-                    rds := rds p |\<union>| frd a, 
-                    bar := bar p \<or> fences a \<rparr>"
-
-text \<open>Weaken a point based on a reorderable instruction\<close>
-fun wken :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point \<Rightarrow> ('g,'r) point"
-  where
-    "wken n \<alpha> p = p\<lparr> rds := rds p - fwr \<alpha> |\<union>| 
-                            (if fwr \<alpha> |\<inter>| rds p \<noteq> {||} then frd \<alpha> else {||}), 
-                     esc := esc p |\<union>| fwr \<alpha>,
-                     pairs := pairs p |\<union>| {|(n, esc p)|} \<rparr>"
-
-text \<open>Convert an instruction into a point\<close>
-definition gen :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point"
-  where
-    "gen n a = \<lparr> id = n, wrs = fwr a, rds = frd a, bar = fences a, esc = {||}, pairs = {||} \<rparr>"
-
-text \<open>Process a new instruction against one point\<close>
-definition proc1 :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point \<Rightarrow> ('g,'r) point"
-  where
-    "proc1 n \<alpha> p \<equiv> if ord\<^sub>e \<alpha> p then stren \<alpha> p else wken n \<alpha> p"
-
-text \<open>Process a new instruction against a set of points\<close>
-definition proc\<^sub>i :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
-  where 
-    "proc\<^sub>i n a P \<equiv> proc1 n a ` P"
-
-fun enum :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> (nat, nat) com \<times> ('v,'g,'r,'a) enuml"
-  where
-    "enum Skip l = (com.Nil,l)" |
-    "enum (Op v a f) l = (Basic (length l,{},{}),l@[(v,a,f)])" |
-    "enum (Seq c\<^sub>1 c\<^sub>2) l = 
-      (case enum c\<^sub>2 l of (n\<^sub>2,l) \<Rightarrow> (case enum c\<^sub>1 l of (n\<^sub>1,l) \<Rightarrow> (com.Seq n\<^sub>1 n\<^sub>2,l)))" |
-    "enum (If b c\<^sub>1 c\<^sub>2) l = 
-      (case enum c\<^sub>2 l of (n\<^sub>2,l) \<Rightarrow> case enum c\<^sub>1 l of (n\<^sub>1,l) \<Rightarrow> 
-        (Choice (com.Seq (Basic (length l,{},{})) n\<^sub>1) (com.Seq (Basic (length l,{},{})) n\<^sub>2),
-          l@[({},cmp b,state_rec.more)]))" |
-    "enum (While b I c) l = 
-      (case enum c l of (n,l) \<Rightarrow> 
-        (com.Seq ((com.Seq (Basic (length l,{},{})) n)*) (Basic (length l,{},{}))),
-          l@[({},cmp b,state_rec.more)])" |
-    "enum (DoWhile I c b) l = 
-      (case enum c l of (n,l) \<Rightarrow> 
-        ((n ;; Basic (length l,{},{}))* ;; n ;; Basic (length l,{},{}), 
-          l@[({},cmp b,state_rec.more)]))" 
-
-text \<open>Process a new instruction against a set of points\<close>
-definition rif\<^sub>i :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
-  where 
-    "rif\<^sub>i n a P \<equiv> { gen n a } \<union> proc\<^sub>i n a P"
-
-text \<open>Process a full program\<close>
-fun rif :: "(nat, nat) com \<Rightarrow> ('v,'g,'r) op list \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
-  where 
-    "rif (Basic a) l P = (rif\<^sub>i (tag a) (l ! (tag a)) P)" |
-    "rif (Choice c\<^sub>1 c\<^sub>2) l P = (rif c\<^sub>1 l P \<union> rif c\<^sub>2 l P)" |
-    "rif (Loop c) l P = lfp (\<lambda>Y. (P \<union> rif c l Y))" |
-    "rif (c\<^sub>1 ;; c\<^sub>2) l P = rif c\<^sub>1 l (rif c\<^sub>2 l P)" |
-    "rif _ _ P = P"
-declare rif.simps(3)[simp del]
-
-subsection \<open>Refinement\<close>
-
-fun expand :: "(nat, nat) com \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com"
-  where
-    "expand Nil l = Nil" |
-    "expand (Basic a) l = (case l ! tag a of (v,\<alpha>,f) \<Rightarrow> Basic (\<lfloor>v,\<alpha>,f\<rfloor>))" |
-    "expand (com.Seq c\<^sub>1 c\<^sub>2) l = com.Seq (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Choice c\<^sub>1 c\<^sub>2) l = Choice (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Loop c\<^sub>1) l = Loop (expand c\<^sub>1 l)" |
-    "expand (Parallel c\<^sub>1 c\<^sub>2) l = Parallel (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Thread c\<^sub>1) l = Thread (expand c\<^sub>1 l)"
-
-fun expand_op 
-  where "expand_op (v,\<alpha>,f) = \<lfloor>v,\<alpha>,f\<rfloor>"
-
-fun expand_pairs :: "(nat \<times> ('g,'r) var fset) fset \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> (('v,'g,'r,'a) opbasic \<times> ('g,'r) var set) set"
-  where
-    "expand_pairs p l = {(expand_op (l ! i), fset s) | i s. (i,s) \<in> fset p}"
-
-fun expand_point :: "('g,'r) point \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> ('v,'g,'r,'a) SimAsm_Abs.point"
-  where
-    "expand_point p l = \<lparr> op = expand_op (l ! id p), 
-                          wrs = fset (wrs p), 
-                          rds = fset (rds p), 
-                          bar = bar p, 
-                          esc = fset (esc p),
-                          pairs = expand_pairs (pairs p) l \<rparr>"
-
-fun expand_points
-  where "expand_points P l = (\<lambda>s. expand_point s l) ` P"
-
-lemma [simp]:
-  "inst (\<lfloor>x1,x2,x3\<rfloor>) = x2"
-  by (auto simp: liftg_def)
-  
-lemma [simp]:
-  "fset (fwr a) = wr a"
-  sorry
-
-lemma [simp]:
-  "fset (frd a) = rd a"
-  sorry
-
-lemma [simp]:
-  "((map (\<lambda>a. fst (snd a)) l' @ [x2]) ! length l') = x2"
-  sorry
-
-lemma
-  assumes "enum c l' = (r,l)"
-  shows "SimAsm_Abs.rif (lift\<^sub>c c) (expand_points P l) = expand_points (rif r (map (fst o snd) l) P) l"
-  using assms
-proof (induct c arbitrary: P l l' r)
-  case Skip
-  then show ?case by simp
-next
-  case (Op x1 x2 x3)
-  hence [simp]: "r = Basic (length l', {}, {})" "l = l' @ [(x1, x2, x3)]" by auto
-  then show ?case 
-    apply (simp add: rif\<^sub>i_def gen_def SimAsm_Abs.rif\<^sub>i_def SimAsm_Abs.gen_def SimAsm_Abs.proc\<^sub>i_def) sorry
-next
-  case (Seq c1 c2)
-  show ?case
-    unfolding lift\<^sub>c.simps SimAsm_Abs.rif.simps
-    apply simp sorry
-next
-  case (If x1 c1 c2)
-  then show ?case sorry
-next
-  case (While x1 x2 c)
-  then show ?case sorry
-next
-  case (DoWhile x1 c x3)
-  then show ?case sorry
-qed
-
+section \<open>Definitions\<close>
 
 (*
-text \<open>Interference Check\<close>
-fun sp 
-  where 
-    "sp P (v,i,a) R = {m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> beh\<^sub>i i \<and> (m''(aux: a),m) \<in> step\<^sub>t R}"
- 
-definition chk 
+type_synonym ('v,'g,'r,'a) enumi = "('v,'g,'r,'a) pred \<times> ('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
+type_synonym ('v,'g,'r,'a) enuml = "('v,'g,'r,'a) enumi list"
+*)
+
+text \<open>
+A data point, extends an instruction with reordering information.
+Forms the basis of the analysis, as each instruction generates a point that is maintained
+across all instructions earlier to it in program-order.
+Collects the transitive dependencies of said instruction along with all instructions
+it may reorder with.
+Moreover, it collects those variables that may be redefined between the two (esc) two
+handle forwarding manipulations.
+\<close>
+record ('v,'g,'r,'a) point =
+  op :: "('v,'g,'r,'a) opbasic"
+  wrs :: "('g,'r) var set"
+  rds :: "('g,'r) var set"
+  bar :: bool
+  esc :: "('g,'r) var set"
+  pairs :: "(('v,'g,'r,'a) opbasic \<times> ('g,'r) var set) set"
+
+type_synonym ('v,'g,'r,'a) points = "('v,'g,'r,'a) point set"
+
+subsection \<open>Tests\<close>
+
+text \<open>Test if a set contains a global variable\<close>
+definition hasGlobal :: "('g,'r) var set \<Rightarrow> bool"
+  where "hasGlobal S \<equiv> \<exists>e. Glb e \<in> S"
+
+text \<open>Test if a point is dependent on an operation, implying ordering of their execution\<close>
+fun ord :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> bool"
   where
-    "chk a b R = (\<forall>P. stable\<^sub>t R P \<longrightarrow> sp (sp P a R) b R  \<subseteq> sp (sp P b R) a R)"
+    "ord nop p = (bar p)" |
+    "ord (cmp b) p = (bar p \<or> hasGlobal (wrs p) \<or> hasGlobal (deps\<^sub>B b \<inter> rds p))" |
+    "ord (assign v e) p = 
+      (bar p \<or> 
+        hasGlobal (deps\<^sub>E e \<inter> (rds p \<union> wrs p)) \<or> 
+        (case v of Glb g \<Rightarrow> Glb g \<in> wrs p | _ \<Rightarrow> False) \<or> 
+        (hasGlobal (deps\<^sub>E e) \<and> v \<in> rds p))" |
+    "ord full_fence _ = True"
 
-definition checks 
-  where "checks l P R \<equiv> \<forall>p \<in> P. \<forall>i. i |\<in>| pairs p \<longrightarrow> chk (l ! i) (l ! id p) R"
+subsection \<open>Point Manipulations\<close>
 
-definition rif_full
-  where "rif_full c \<equiv> case enum c [] of (n,l) \<Rightarrow> (rif n (map (fst o snd) l) {},l)"
+text \<open>Strengthen a point based on a strictly earlier instruction\<close>
+definition stren :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> ('v,'g,'r,'a) point"
+  where
+    "stren a p = p\<lparr> wrs := wrs p \<union> wr (inst a), 
+                    rds := rds p - (wr (inst a) \<inter> locals) \<union> rd (inst a), 
+                    bar := bar p \<or> barriers (inst a) \<rparr>"
 
-definition rif_checks
-  where "rif_checks c R \<equiv> case rif_full c of (n,l) \<Rightarrow> checks l n R"
+text \<open>Weaken a point based on a reorderable instruction\<close>
+definition wken :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> ('v,'g,'r,'a) point"
+  where
+    "wken \<alpha> p = p\<lparr> rds := rds p - wr (inst \<alpha>) \<union> 
+                            (if wr (inst \<alpha>) \<inter> rds p \<noteq> {} then rd (inst \<alpha>) else {}), 
+                   esc := esc p \<union> wr (inst \<alpha>),
+                   pairs := pairs p \<union> {(\<alpha>, esc p)} \<rparr>"
+
+text \<open>Convert an instruction into a point\<close>
+abbreviation gen :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) point"
+  where "gen a \<equiv> \<lparr> op = a, wrs = wr (inst a), 
+                   rds = rd (inst a), bar = barriers (inst a), 
+                   esc = {}, pairs = {} \<rparr>"
+
+text \<open>Process a new instruction against one point\<close>
+definition proc1 :: "('v,'g,'r,'a) opbasic \<Rightarrow> (_,_,_,_) point \<Rightarrow> (_,_,_,_) points"
+  where "proc1 \<alpha> p \<equiv> if ord (inst \<alpha>) p then {stren \<alpha> p} else {stren \<alpha> p, wken \<alpha> p}"
+
+text \<open>Process a new instruction against a set of points\<close>
+definition rif\<^sub>i :: "('v,'g,'r,'a) opbasic \<Rightarrow> (_,_,_,_) points \<Rightarrow> (_,_,_,_) points"
+  where "rif\<^sub>i a P \<equiv> { gen a } \<union> \<Union> (proc1 a ` P)"
+
+text \<open>Process a full program, lifted to low-level choice and loop structures\<close>
+fun rif :: "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com \<Rightarrow> (_,_,_,_) points \<Rightarrow> (_,_,_,_) points"
+  where 
+    "rif (Basic a) P = rif\<^sub>i a P" |
+    "rif (Choice c\<^sub>1 c\<^sub>2) P = (rif c\<^sub>1 P \<union> rif c\<^sub>2 P)" |
+    "rif (Loop c) P = lfp (\<lambda>Y. (P \<union> rif c Y))" |
+    "rif (c\<^sub>1 ;; c\<^sub>2) P = rif c\<^sub>1 (rif c\<^sub>2 P)" |
+    "rif _ P = P"
+
+subsection \<open>Interference Check\<close>
+
+definition escape
+  where "escape V \<alpha> \<equiv> { ((\<beta>,aux \<alpha>),vc \<alpha>,beh\<^sub>a (\<beta>,aux \<alpha>)) | \<beta>. \<beta> \<in> forall V (inst \<alpha>) }"
+
+definition chk
+  where
+    "chk \<beta> \<alpha> R G \<equiv> \<forall>\<alpha>'. wfbasic \<beta> \<longrightarrow> reorder_inst \<alpha>' \<beta> \<alpha> \<longrightarrow> guar\<^sub>\<alpha> (fwd\<^sub>s \<alpha> (tag \<beta>)) (step G) \<and> 
+                   (\<forall>Q. stabilize R (wp\<^sub>\<alpha> \<beta> (stabilize R (wp\<^sub>\<alpha> \<alpha> (stabilize R Q)))) \<subseteq>
+                        stabilize R (wp\<^sub>\<alpha> \<alpha>' (stabilize R (wp\<^sub>\<alpha> \<beta> (stabilize R Q)))))"
+
+definition chke
+  where
+    "chke \<beta> \<alpha> R G \<equiv> \<forall>\<alpha> \<in> escape (snd \<beta>) \<alpha>. chk (fst \<beta>) \<alpha> R G"
+
+definition checks
+  where "checks P R G \<equiv> \<forall>p \<in> P. \<forall>\<beta> \<in> pairs p. chke \<beta> (op p) R G"
 
 section \<open>Soundness\<close>
 
-lemma mono_proc\<^sub>i:
-  "mono (proc\<^sub>i n a)"
-  by (smt Un_mono image_Un monoI order_refl sup.orderE sup_ge2 proc\<^sub>i_def)
+subsection \<open>Mono Properties\<close>
+
+text \<open>A series of mono properties to help in reasoning about least-fixed-point\<close>
 
 lemma mono_rif\<^sub>i:
-  "mono (rif\<^sub>i n a)"
-  by (smt Un_mono monoI mono_Un mono_proc\<^sub>i rif\<^sub>i_def subset_Un_eq subset_refl sup.bounded_iff)
-
-lemma mono_proc:
-  "mono (proc c l)"
-proof (induct c)
-  case (Seq c1 c2)
-  then show ?case by (simp add: mono_def)
-next
-  case (Choice c1 c2)
-  then show ?case
-    by (smt Un_mono mono_def proc.simps(2))
-next
-  case (Loop c)
-  then show ?case 
-    by (smt Un_iff lfp_mono monoI subset_eq proc.simps(3))
-qed (simp add: monoI mono_proc\<^sub>i)+
+  "mono (rif\<^sub>i a)"
+  apply (rule monoI)
+  unfolding rif\<^sub>i_def by blast
 
 lemma mono_rif:
-  "mono (rif c l)"
+  "mono (rif c)"
 proof (induct c)
-  case (Basic x)
-  then show ?case by (cases "tag x < length l") (auto simp add: monoI mono_rif\<^sub>i)
-next
   case (Seq c1 c2)
   then show ?case by (simp add: mono_def)
 next
@@ -279,118 +135,279 @@ next
     by (smt Un_iff lfp_mono monoI subset_eq rif.simps(3))
 qed (simp add: monoI mono_rif\<^sub>i)+
 
-lemma lfp_const [intro]:
+lemma mono_union_rif:
+  "mono (\<lambda>Y. P \<union> rif c Y)"
+  by (smt Un_mono monoD monoI mono_rif sup.idem sup.order_iff)
+
+lemma lfp_const:
   "x \<in> P \<longrightarrow> x \<in> lfp (\<lambda>Y. P \<union> f Y)"
   by (meson Un_subset_iff basic_trans_rules(31) lfp_greatest)
 
-lemma lfp_fn [intro]:
-  "mono f \<Longrightarrow> x \<in> f (lfp (\<lambda>Y. Q \<union> f Y)) \<Longrightarrow> x \<in> lfp (\<lambda>Y. Q \<union> f Y)" 
-proof -
-  assume a1: "x \<in> f (lfp (\<lambda>Y. Q \<union> f Y))"
-  assume a2: "mono f"
-  have f3: "\<forall>A. mono ((\<union>) (A::'a set))"
-    by (meson Un_mono monoI subset_refl)
-  then have "x \<in> lfp (\<lambda>A. f (Q \<union> A))"
-    using a2 a1 by (simp add: lfp_rolling)
-  then show ?thesis
-    using f3 a2 lfp_rolling by blast
+subsection \<open>Helper Properties\<close>
+
+text \<open>A series of helper properties, generally useful simplifications\<close>
+
+lemma op_proc1 [simp]:
+  "\<forall>q \<in> proc1 x p. op q = op p"
+  by (auto simp: stren_def wken_def proc1_def)
+
+lemma pairs_proc1:
+  "\<forall>q \<in> proc1 x p. pairs q \<supseteq> pairs p"
+  unfolding proc1_def stren_def wken_def by clarsimp
+
+lemma proc1_non_nil [intro]:
+  "proc1 x p \<noteq> {}"
+  unfolding proc1_def stren_def wken_def by clarsimp
+
+lemma [intro]:
+  "stren \<alpha> q \<in> proc1 \<alpha> q"
+  unfolding proc1_def by auto
+
+text \<open>The ord test shouldn't establish dependencies between reorderable operations\<close>
+lemma ord_sound [intro]:
+  assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
+  shows "\<not> ord (inst \<beta>) (gen \<alpha>)"
+  using assms 
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE) 
+     (auto simp: Let_def hasGlobal_def split: if_splits var.splits)
+
+subsection \<open>Pairwise Check Properties\<close>
+
+text \<open>Properties of the pairwise interference check\<close>
+
+lemma stabilize':
+  "transitive R \<Longrightarrow> stable\<^sub>t R P \<Longrightarrow> P \<subseteq> stabilize R P"
+  unfolding stabilize_def transitive_def stable_def step\<^sub>t_def
+  by auto
+
+lemma stabilize'':
+  "reflexive R \<Longrightarrow> stable\<^sub>t R Q \<Longrightarrow> stabilize R Q = Q"
+  unfolding stabilize_def reflexive_def stable_def step\<^sub>t_def
+  by auto
+
+text \<open>Pairwise check implies the abstract interference freedom property\<close>
+lemma chk_sound:       
+  "wellformed R G \<Longrightarrow> chk \<beta> \<alpha> R G \<Longrightarrow> wfbasic \<beta> \<Longrightarrow> reorder_inst \<alpha>' \<beta> \<alpha> \<Longrightarrow> inter\<^sub>\<alpha> (step\<^sub>t R) (step G) \<beta> \<alpha>"
+proof (clarsimp simp: inter\<^sub>\<alpha>_def, goal_cases)
+  case (1 P M Q)
+  \<comment> \<open>Nominate the strongest-postcondition of \<alpha> from P as the state between \<alpha> and \<beta>\<close>  
+  let ?M="{m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> beh (fwd\<^sub>s \<alpha> (tag \<beta>)) \<and> (m'',m) \<in> step\<^sub>t R}"
+  let ?a="fwd\<^sub>s \<alpha> (tag \<beta>)"
+
+  \<comment> \<open>Establish stability for P, Q and the new intermediate state, in addition to guarantees\<close>
+  have stablePQ: "stable\<^sub>t R P" "stable\<^sub>t R Q" "guar\<^sub>\<alpha> \<alpha> (step G)" "guar\<^sub>\<alpha> \<beta> (step G)"
+    using 1 by (auto simp: atomic_rule_def)
+  have stableM: "stable\<^sub>t R ?M" using 1 unfolding stable_def transitive_def step\<^sub>t_def by force
+
+  \<comment> \<open>Extract order independence properties\<close> 
+  have ref: "\<forall>Q. stabilize R (wp\<^sub>\<alpha> \<beta> (stabilize R (wp\<^sub>\<alpha> \<alpha> (stabilize R Q)))) \<subseteq>
+                 stabilize R (wp\<^sub>\<alpha> ?a (stabilize R (wp\<^sub>\<alpha> \<beta> (stabilize R Q))))"
+    using 1 by (auto simp: chk_def)
+  have g: "guar\<^sub>\<alpha> ((fwd\<^sub>s \<alpha> (tag \<beta>))) (step G)" using 1 by (auto simp: chk_def)
+
+  \<comment> \<open>Show transition from P to Q is independent of order\<close>
+  have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> stabilize R M" "P \<subseteq> stabilize R P" "Q \<subseteq> stabilize R Q"
+    using 1 stabilize' unfolding atomic_rule_def by (auto)
+  hence "P \<subseteq> stabilize R (wp\<^sub>\<alpha> \<beta> (stabilize R (wp\<^sub>\<alpha> \<alpha> (stabilize R Q))))" 
+    unfolding wp_def stabilize_def by blast
+  hence exec: "P \<subseteq> stabilize R (wp\<^sub>\<alpha> ?a (stabilize R (wp\<^sub>\<alpha> \<beta> (stabilize R Q))))" 
+    using ref by (auto simp: )
+  hence exec': "P \<subseteq> stabilize R (wp\<^sub>\<alpha> ?a (stabilize R (wp\<^sub>\<alpha> \<beta> (Q))))" 
+    using stabilize'' stablePQ(2) 1 by force
+  hence vc: "P \<subseteq> vc ?a" using 1 by (auto simp: reflexive_def stabilize_def wp_def)
+
+  \<comment> \<open>Establish the late judgement over \<beta>\<close>
+  have "step\<^sub>t R,step G \<turnstile>\<^sub>A ?M {\<beta>} Q" 
+  proof (unfold atomic_rule_def, intro conjI Int_greatest)
+    show "?M \<subseteq> wp\<^sub>\<alpha> \<beta> Q" using exec' 1 
+      unfolding wp_def stabilize_def step\<^sub>t_def reflexive_def transitive_def
+      apply auto
+      by fast
+  qed (insert stablePQ stableM, auto)
+
+  \<comment> \<open>Establish the early judgement over the new \<alpha>\<close>
+  moreover have "step\<^sub>t R,step G \<turnstile>\<^sub>A P {?a} ?M"
+  proof (unfold atomic_rule_def, intro conjI Int_greatest)
+    show "P \<subseteq> wp\<^sub>\<alpha> ?a ?M" using vc 1 unfolding wp_def reflexive_def step\<^sub>t_def by auto
+  qed (insert stablePQ stableM g, auto)
+
+  ultimately show ?case by blast
 qed
 
-lemma mono_union_rif:
-  "mono (\<lambda>Y. (P \<union> rif c l Y))"
-  by (smt Un_mono monoD monoI mono_rif sup.idem sup.order_iff)
+
+fun exec
+  where "exec m (assign x e) = (m (x :=\<^sub>s ev\<^sub>E m e))" | "exec m _ = m"
+
+lemma beh_fwd\<^sub>i [simp]:
+  "beh\<^sub>i (fwd\<^sub>i \<alpha> \<beta>) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) | m m\<^sub>1. (exec m\<^sub>1 \<beta>,m) \<in> beh\<^sub>i \<alpha>}"
+  apply (cases \<beta>; auto)
+  by (cases \<alpha>; clarsimp simp: )+
 
 lemma [simp]:
-  "proc r l (P \<union> Q) = proc r l P \<union> proc r l Q"
-proof (induct r arbitrary: P Q)
-  case (Loop r)
-  have p: "lfp (\<lambda>Y. P \<union> Q \<union> proc r l Y) \<supseteq> lfp (\<lambda>Y. P \<union> proc r l Y)"
-    apply (rule lfp_mono)
-    by auto
-  have q: "lfp (\<lambda>Y. P \<union> Q \<union> proc r l Y) \<supseteq> lfp (\<lambda>Y. Q \<union> proc r l Y)"
-    apply (rule lfp_mono)
-    by auto
-  hence a: "lfp (\<lambda>Y. P \<union> Q \<union> proc r l Y) \<supseteq> lfp (\<lambda>Y. Q \<union> proc r l Y) \<union> lfp (\<lambda>Y. P \<union> proc r l Y)" (is "?L \<supseteq> ?R")
-    using p by auto
-  hence lr: "?L \<inter> ?R = ?R" by blast
-  have "lfp (\<lambda>Y. Q \<union> proc r l Y) \<union> lfp (\<lambda>Y. P \<union> proc r l Y) \<supseteq> lfp (\<lambda>Y. P \<union> Q \<union> proc r l Y)"
-    apply (rule lfp_induct)
-    unfolding lr Loop
+  "upd (dom (\<lambda>y. if x = y then Some c else M y)) (the \<circ> (\<lambda>y. if x = y then Some c else M y)) m = 
+  (upd (dom M) (the o M) m)(x :=\<^sub>s c)"
+  apply (auto simp: upd_def st_upd_def intro!: state_rec.equality)
+  by force
+
+lemma escE:
+  assumes "\<beta> \<in> escape V \<alpha>"
+  obtains M where "V = dom M" "vc \<beta> = vc \<alpha>" "beh \<beta> = beh\<^sub>a (smap (inst \<alpha>) M,aux \<alpha>)" "aux \<beta> = aux \<alpha>" "inst \<beta> = smap (inst \<alpha>) M" 
+  using assms unfolding escape_def forall_def by auto   
+
+lemma ev_upd_exec [simp]:
+  "wfbasic \<gamma> \<Longrightarrow> (m,m') \<in> beh \<gamma> \<Longrightarrow> ev\<^sub>E (upd V f (exec m (inst \<gamma>))) e = ev\<^sub>E (upd V f m') e"
+  unfolding upd_def
+  by (cases \<gamma> rule: opbasicE) (auto simp: wfbasic_def st_upd_def aux_upd_def)
+
+lemma ev_upd_local [simp]:
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E (upd V f m) e = ev\<^sub>E (upd V f m') e"
+  apply (intro deps_ev\<^sub>E ballI, case_tac x) 
+  by (auto simp: upd_def rg_def) metis
+
+lemma escape_guar:
+  assumes "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. guar\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' \<gamma>) (step G)"
+  shows "\<forall>\<alpha>' \<in> escape V (fwd\<^sub>s \<alpha> (assign x e,f)). guar\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' \<gamma>) (step G)"
+  unfolding guar_def
+proof (auto split: op.splits elim!: escE, goal_cases)
+  case (1 M m\<^sub>1 m\<^sub>2)
+  let ?m = "exec m\<^sub>1 (fst \<gamma>)"
+  let ?M = "\<lambda>y. (if x = y then Some (ev\<^sub>E (upd (dom M) (the \<circ> M) ?m) e) else M y)"
+  let ?i = "smap (inst \<alpha>) ?M"
+  let ?\<alpha> = "((?i, aux \<alpha>), vc \<alpha>, beh\<^sub>a (?i, aux \<alpha>))"
+
+  have "insert x V = dom ?M" using 1 by auto
+  hence "?\<alpha> \<in> escape (insert x V) \<alpha>" unfolding escape_def by auto
+  moreover have "m\<^sub>1 \<in> vc (fwd\<^sub>s ?\<alpha> \<gamma>)" using 1 by auto
+  moreover have "(m\<^sub>1, (upd (wr (inst \<alpha>)) (st m\<^sub>2) m\<^sub>1)(aux: aux \<alpha>)) \<in> beh (fwd\<^sub>s ?\<alpha> \<gamma>)"
+    using 1
+    apply (clarsimp; intro exI conjI)
+    prefer 2 by simp+
+
+  ultimately show ?case using assms unfolding guar_def by blast
+qed
+
+lemma escape_wp:
+  assumes "deps\<^sub>E e \<subseteq> locals" "wfbasic \<gamma>" "x \<in> rd (inst \<alpha>)" 
+  assumes "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R (wp\<^sub>\<alpha> \<alpha>' (stabilize R Q)))) \<subseteq>
+                                      stabilize R (wp\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' (tag \<gamma>)) (stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R Q))))"
+  shows "\<forall> \<alpha>' \<in> escape V (fwd\<^sub>s \<alpha> (assign x e,f)). 
+    \<forall>\<alpha>''. reorder_inst \<alpha>'' \<gamma> \<alpha>' \<longrightarrow> stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R (wp\<^sub>\<alpha> \<alpha>' (stabilize R Q)))) \<subseteq>
+                              stabilize R (wp\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' (tag \<gamma>)) (stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R Q))))" 
+proof (intro allI impI ballI subsetI, elim escE, goal_cases)
+  case (1 \<alpha>' \<alpha>'' m M)
+  let ?m = "exec m (inst \<gamma>)"
+  let ?M = "\<lambda>y. (if x = y then Some (ev\<^sub>E (upd (dom M) (the \<circ> M) ?m) e) else M y)"
+  let ?i = "smap (inst \<alpha>) ?M"
+
+  let ?\<alpha> = "((?i, aux \<alpha>), vc \<alpha>, beh\<^sub>a (?i, aux \<alpha>))"
+  have "insert x V = dom ?M" using 1 by auto
+  hence esc: "?\<alpha> \<in> escape (insert x V) \<alpha>" unfolding escape_def by auto
+
+  have "rd (inst \<alpha>') = rd (inst \<alpha>) - {x} \<union> deps\<^sub>E e - V"
+    using 1 assms(3) by auto
+  hence "wr (inst \<gamma>) \<inter> (deps\<^sub>E e - V) = {} \<or> rd (inst \<gamma>) \<subseteq> locals"
+    using 1(1) assms(1,2,3)
+    by (cases \<alpha>' rule: opbasicE; cases \<gamma> rule: opbasicE; clarsimp; blast)
+
+  hence e: "\<forall>m'. rg m = rg m' \<longrightarrow> 
+      ev\<^sub>E (upd (dom M) (the \<circ> M) (exec m (inst \<gamma>))) e =
+      ev\<^sub>E (upd (dom M) (the \<circ> M) (exec m' (inst \<gamma>))) e"
+    using 1(3) assms(1)
+    apply (intro allI impI deps_ev\<^sub>E)
+    apply (auto simp: upd_def)
+    by (case_tac x; cases "inst \<gamma>"; auto simp: rg_def split: if_splits; metis)+
+
+  have "m \<in> stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R (wp\<^sub>\<alpha> ?\<alpha> (stabilize R Q))))"
+    using 1
+    unfolding stabilize_def wp_def
     apply auto
-    apply (smt Loop.hyps Un_mono monoI subset_Un_eq sup.idem)
-    using lfp_const apply fast
-     using lfp_const apply fast
-     using lfp_fn mono_proc apply fast
-     using lfp_fn mono_proc apply fast
+    apply (subgoal_tac "ev\<^sub>E (upd (dom M) (the \<circ> M) ?m) e = ev\<^sub>E (upd (dom M) (the \<circ> M) m\<^sub>1) e")
+    apply fastforce
+    apply (subgoal_tac "ev\<^sub>E (upd (dom M) (the \<circ> M) m'a) e = ev\<^sub>E (upd (dom M) (the \<circ> M) m\<^sub>1) e")
+    apply (subgoal_tac "ev\<^sub>E (upd (dom M) (the \<circ> M) (exec m' (inst \<gamma>))) e = ev\<^sub>E (upd (dom M) (the \<circ> M) m'a) e")
+    using e assms(2) apply force
+    using assms(2) apply auto[1]
+    using ev_upd_local[OF assms(1)] apply metis
     done
-  then show ?case unfolding proc.simps using a by blast
-qed (auto simp: proc\<^sub>i_def)
 
-lemma [simp]:
-  "rif r l (P \<union> Q) = rif r l P \<union> rif r l Q"
-proof (induct r arbitrary: P Q)
-  case (Loop r)
-  have p: "lfp (\<lambda>Y. P \<union> Q \<union> rif r l Y) \<supseteq> lfp (\<lambda>Y. P \<union> rif r l Y)"
-    apply (rule lfp_mono)
-    by auto
-  have q: "lfp (\<lambda>Y. P \<union> Q \<union> rif r l Y) \<supseteq> lfp (\<lambda>Y. Q \<union> rif r l Y)"
-    apply (rule lfp_mono)
-    by auto
-  hence a: "lfp (\<lambda>Y. P \<union> Q \<union> rif r l Y) \<supseteq> lfp (\<lambda>Y. Q \<union> rif r l Y) \<union> lfp (\<lambda>Y. P \<union> rif r l Y)" (is "?L \<supseteq> ?R")
-    using p by auto
-  hence lr: "?L \<inter> ?R = ?R" by blast
-  have "lfp (\<lambda>Y. Q \<union> rif r l Y) \<union> lfp (\<lambda>Y. P \<union> rif r l Y) \<supseteq> lfp (\<lambda>Y. P \<union> Q \<union> rif r l Y)"
-    apply (rule lfp_induct)
-    unfolding lr Loop
+  hence "m \<in> stabilize R (wp\<^sub>\<alpha> (fwd\<^sub>s ?\<alpha> (tag \<gamma>)) (stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R Q))))"
+    using assms 1 esc by blast
+  thus ?case using 1(4,5,6,7)
+    unfolding stabilize_def wp_def
     apply auto
-    apply (smt Loop.hyps Un_mono monoI subset_Un_eq sup.idem)
-    using lfp_const apply fast
-    using lfp_const apply fast
-     using lfp_fn mono_rif apply fast
-     using lfp_fn mono_rif apply fast
-    done
-  then show ?case unfolding rif.simps using a by blast
-qed (auto simp: rif\<^sub>i_def proc\<^sub>i_def)
+    apply (clarsimp simp add: e)
+    apply fastforce
+    apply (clarsimp simp add: e)
+    by fastforce
+qed
 
-lemma rif_split:
-  "rif r l P = proc r l P \<union> rif r l {}"
-proof (induct r arbitrary: P)
-  case (Seq r1 r2)
-  show ?case 
-    using Seq(2)[of P] Seq(1)[of "rif r2 l P"] Seq(1)[of "rif r2 l {}"]
-    apply simp by blast
+lemma escape_reorder:
+  assumes "\<alpha>' \<in> escape V (fwd\<^sub>s \<alpha> \<beta>)" "reorder_inst \<alpha>'' \<gamma> \<alpha>'"
+  shows "\<forall>\<alpha>'\<in>escape (wr (fst \<beta>) \<union> V) \<alpha>. \<exists>\<alpha>''. reorder_inst \<alpha>'' \<gamma> \<alpha>'"
+  apply (intro ballI)
+  using assms
+  unfolding escape_def
+  apply clarsimp
+  apply (cases "fst \<beta>"; cases "\<beta>"; cases \<alpha> rule: opbasicE; cases \<gamma> rule: opbasicE)
+  by (auto split: if_splits)
+
+lemma escape_check:
+  assumes "deps\<^sub>E e \<subseteq> locals" "x \<in> rd (inst \<alpha>)"
+  assumes "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. chk \<gamma> \<alpha>' R G"
+  shows "\<forall>\<alpha>' \<in> escape V (fwd\<^sub>s \<alpha> (assign x e,f)). chk \<gamma> \<alpha>' R G"
+  unfolding chk_def
+proof (intro ballI allI impI conjI, goal_cases)
+  case (1 \<alpha>' \<alpha>'')
+  hence "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. guar\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' (tag \<gamma>)) (step G)"
+    using assms(3) escape_reorder[OF 1(1)] by (auto simp: chk_def)
+  then show ?case using escape_guar 1 by blast
 next
-  case (Choice r1 r2)
-  then show ?case unfolding rif.simps proc.simps by blast
-next
-  case (Loop r)
-  have p: "lfp (\<lambda>Y. P \<union> rif r l Y) \<supseteq> lfp (\<lambda>Y. P \<union> proc r l Y)" (is "?L \<supseteq> ?R1")
-    apply (rule lfp_mono)
-    using Loop by blast
-  have q: "lfp (\<lambda>Y. P \<union> rif r l Y) \<supseteq> lfp (\<lambda>Y. {} \<union> rif r l Y)" (is "?L \<supseteq> ?R2")
-    apply (rule lfp_mono)
-    by auto
-  hence a: "?L \<supseteq> ?R1 \<union> ?R2" (is "?L \<supseteq> ?R") using p by auto
-  hence lr: "?L \<inter> ?R = ?R" by blast
-  have "?R \<supseteq> ?L"
-    apply (rule lfp_induct)
-    unfolding lr
-    apply (simp add: mono_union_rif)
-    apply auto
-    using lfp_const apply fast
-    defer 1
-    using lfp_unfold mono_rif apply blast
-    unfolding Loop[of "lfp (\<lambda>Y. P \<union> proc r l Y)"]
-    apply auto
-     using lfp_fn mono_proc apply fast
-    by (metis Loop.hyps UnCI lfp_unfold mono_rif)
-  then show ?case unfolding rif.simps proc.simps using a by blast
-qed (auto simp: proc\<^sub>i_def rif\<^sub>i_def)
+  case (2 \<alpha>' \<alpha>'' Q)
+  hence "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R (wp\<^sub>\<alpha> \<alpha>' (stabilize R Q)))) \<subseteq>
+      stabilize R (wp\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' (tag \<gamma>)) (stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R Q))))"
+    using assms(3) escape_reorder[OF 2(1)] by (auto simp: chk_def)
+  then show ?case using escape_wp 2 assms by blast
+qed
 
-(*
-subsection \<open>Correctness\<close>
+text \<open>
+Given two reorderable instructions, escaping the writes of the earlier instruction
+implies a check over the forwarded variant.
+\<close>
+lemma chke_sound:
+  assumes "reorder_inst \<alpha>' \<beta> \<alpha>" "wfbasic \<beta>" "wfbasic \<alpha>"
+  assumes "chke (\<gamma>, wr (inst \<beta>) \<union> V) \<alpha> R G" 
+  shows "chke (\<gamma>, V) \<alpha>' R G"
+  unfolding chke_def
+proof (intro ballI allI impI, simp)
+  fix \<alpha>'' assume e: "\<alpha>'' \<in> escape V \<alpha>'"
+  show "chk \<gamma> \<alpha>'' R G" using assms(1)
+  proof (cases rule: fwdE)
+    case no_fwd
+    hence "forall V (inst \<alpha>') = forall (wr (inst \<beta>) \<union> V) (inst \<alpha>)"
+      by (cases "inst \<beta>") fastforce+
+    hence "escape V \<alpha>' = escape (wr (inst \<beta>) \<union> V) \<alpha>"
+      using no_fwd unfolding escape_def by simp
+    thus ?thesis using e assms(4) unfolding chke_def by auto
+  next
+    case (fwd x e f)
+    hence [simp]: "wr (inst \<beta>) = {x}" by (cases "inst \<beta>", auto)
+    thus ?thesis using fwd escape_check[of e x \<alpha> V] e assms(1,4) unfolding chke_def by simp
+  qed
+qed
 
-lemma upd_rw:
+text \<open>Escape check with an empty escape set implies a full check\<close>
+lemma chke_nil_esc:
+  assumes "chke (\<beta>, {}) \<alpha> R G" "wfbasic \<alpha>"
+  shows "chk \<beta> \<alpha> R G"
+proof -
+  have "\<alpha> \<in> escape {} \<alpha>" using assms(2) by (cases \<alpha>; auto simp: wfbasic_def escape_def) 
+  thus "chk \<beta> \<alpha> R G" using assms by (auto simp:  chke_def)
+qed
+
+subsection \<open>Silent rif Checks\<close>
+
+text \<open>Trivial proof showing rif is preserved across silent steps\<close>
+lemma silent_rif_checks:
   assumes "c \<leadsto> c'" "local c"
   shows "rif c' P \<subseteq> rif c P"
   using assms
@@ -407,241 +424,357 @@ next
     using def_lfp_unfold[OF _ mono_union_rif] by blast
 qed auto
 
-lemma rif\<^sub>i_I:
-  assumes "p \<in> P"
-  shows "ord (inst \<alpha>) p \<longrightarrow> stren \<alpha> p \<in> rif\<^sub>i \<alpha> P"
-        "\<not>ord (inst \<alpha>) p \<longrightarrow> (wken \<alpha> p)\<lparr>inv := inv p \<and> chk \<alpha> (op p)\<rparr> \<in> rif\<^sub>i \<alpha> P"
-  using assms unfolding proc\<^sub>i_def proc1_def rif\<^sub>i_def by auto
+subsection \<open>Execution rif Checks\<close>
 
-lemma rif\<^sub>i_preserve_inv [intro]:
-  assumes "\<forall> x \<in> rif\<^sub>i \<alpha> P. point.inv x" 
-  shows "\<forall>p \<in> P. inv p"
-proof (clarsimp)
-  fix x assume a: "x \<in> P"
-  show "point.inv x" 
-  proof (cases "ord (inst \<alpha>) x")
-    case True
-    hence "stren \<alpha> x \<in> rif\<^sub>i \<alpha> P" using rif\<^sub>i_I[OF a, of \<alpha>] by simp
-    then show ?thesis using assms by auto
+text \<open>
+Show that the checks produced by an instruction \<alpha> with a prefix r are sufficient
+to establish the desired abstract rif properties.
+\<close>
+
+text \<open>
+Relate two points such that their reordering constraints are the same,
+but the checks of one implies the checks of the other, including all future checks.
+\<close>
+definition point_ord (infix "\<prec>" 60)
+  where "point_ord p q \<equiv>  
+            wrs p = wrs q \<and> rds p = rds q \<and> (bar p = bar q) \<and> 
+            (\<forall>R G (\<alpha> :: ('v,'g,'r,'a) opbasic) V. 
+              chke (\<alpha>, esc p \<union> V) (op p) R G \<longrightarrow> chke (\<alpha>, esc q \<union> V) (op q) R G) \<and>
+            (\<forall>R G. (\<forall>\<beta> \<in> pairs p. chke \<beta> (op p) R G) \<longrightarrow> (\<forall>\<beta> \<in> pairs q. chke \<beta> (op q) R G))"
+
+text \<open>
+Extend this point relation over two sets of points, such that for all points in the RHS,
+one exists in the LHS that establishes the relation.
+\<close>
+definition points_ord (infix "\<prec>\<prec>" 60)
+  where "points_ord P Q \<equiv> \<forall>q \<in> Q. \<exists>p \<in> P. p \<prec> q"
+
+text \<open>The point relation is reflexive\<close>
+lemma point_ord_refl [intro]:
+  "p \<prec> p" 
+  by (auto simp: point_ord_def)
+
+text \<open>The point relation is preserved across stren\<close>
+lemma point_ord_stren [intro]:
+  "p \<prec> q \<Longrightarrow> stren \<alpha> p \<prec> stren \<alpha> q"
+  by (auto simp: point_ord_def stren_def)
+
+text \<open>The point relation is preserved across wken\<close>
+lemma point_ord_wken [intro]:
+  "p \<prec> q \<Longrightarrow> wken \<alpha> p \<prec> wken \<alpha> q"
+  unfolding point_ord_def wken_def
+  by (auto simp: Un_assoc sup_assoc funion_assoc)
+     (case_tac \<alpha>; case_tac a; metis boolean_algebra_cancel.sup0)+
+
+text \<open>The point relation ensures equivalent ordering constraints\<close>
+lemma point_ord [simp]:
+  "p \<prec> q \<Longrightarrow> ord \<alpha> p = ord \<alpha> q"
+  by (cases \<alpha>) (auto simp: point_ord_def hasGlobal_def split: var.splits)
+
+text \<open>Based on the above, proc1 preserves the point relation\<close>
+lemma point_ord_proc1 [intro]:
+  "p \<prec> q \<Longrightarrow> proc1 \<alpha> p \<prec>\<prec> proc1 \<alpha> q"
+  unfolding points_ord_def proc1_def by auto
+
+text \<open>Based on the above, proci preserves the point relation\<close>
+lemma points_ord_rif\<^sub>i [intro]:
+  "P \<prec>\<prec> Q \<Longrightarrow> rif\<^sub>i \<alpha> P \<prec>\<prec> rif\<^sub>i \<alpha> Q"
+  using point_ord_proc1 unfolding rif\<^sub>i_def points_ord_def by fast
+
+lemma points_ord_union [intro]:
+  "P \<prec>\<prec> Q \<Longrightarrow> P' \<prec>\<prec> Q' \<Longrightarrow> P \<union> P' \<prec>\<prec> Q \<union> Q'"
+  by (auto simp: points_ord_def)
+
+text \<open>Finally, rif preserves the point relation\<close>
+lemma points_ord_rif [intro]:
+  "P \<prec>\<prec> Q \<Longrightarrow> rif c P \<prec>\<prec> rif c Q"
+proof (induct c arbitrary: P Q)
+  case (Loop c)
+  show ?case using Loop(2) unfolding rif.simps
+  proof (induct rule: lfp_ordinal_induct)
+    case mono
+    then show ?case by (simp add: mono_union_rif)
   next
-    case False
-    hence "(wken \<alpha> x)\<lparr>inv := inv x \<and> chk R \<alpha> (op x)\<rparr> \<in> rif\<^sub>i \<alpha> P"
-      using rif\<^sub>i_I[OF a, of \<alpha>] by simp
-    then show ?thesis using assms by auto
+    case (step S)
+    hence "rif c (lfp (\<lambda>Y. P \<union> rif c Y)) \<prec>\<prec> rif c S" using Loop(1) by blast
+    then show ?case using step(3) by (subst lfp_unfold[OF mono_union_rif]) auto
+  next
+    case (union M)
+    then show ?case by (auto simp: points_ord_def)
   qed
-qed 
+qed auto
 
-lemma rif_preserve_inv [intro]:
-  assumes "\<forall>p \<in> rif c P. inv p"
-  shows "\<forall>p \<in> P. inv p"
+text \<open>Establish the point relation between \<alpha> weakened by \<beta> and one generated from \<alpha>' directly\<close>
+lemma point_ord_fwd:
+  assumes "reorder_inst \<alpha>' \<beta> \<alpha>" "wfbasic \<beta>" "wfbasic \<alpha>"
+  shows "wken \<beta> (gen \<alpha>) \<prec> gen \<alpha>'"
+  using assms apply (auto simp: point_ord_def wken_def) 
+  apply (insert chke_sound, blast)+
+  done
+
+text \<open>Checks against the LHS of a points relation imply checks against the RHS\<close>
+lemma points_ord_checks [intro]:
+  "checks P R G \<Longrightarrow> P \<prec>\<prec> Q \<Longrightarrow> checks Q R G"
+  unfolding checks_def points_ord_def point_ord_def by metis
+
+text \<open>rif checks on sequential composition should imply rif checks of just the postfix\<close>
+lemma rif_checks_postfix [intro]:
+  assumes "checks (rif (c ;; r) P) R G"
+  shows "checks (rif r P) R G"
   using assms
-proof (induct c arbitrary: P)
+proof (induct c arbitrary: r P)
   case (Basic x)
-  then show ?case using rif\<^sub>i_preserve_inv by fastforce
-next
-  case (Seq c1 c2)
-  then show ?case unfolding rif.simps by blast
-next
-  case (Choice c1 c2)
-  then show ?case unfolding rif.simps by blast
+  show ?case unfolding checks_def
+  proof (intro ballI)
+    fix p \<beta> assume a: "p \<in> rif r P" "\<beta> \<in> pairs p"
+    hence "\<exists>q \<in> proc1 x p. \<beta> \<in> pairs q" using pairs_proc1 proc1_non_nil by blast
+    thus "chke \<beta> (op p) R G"
+      using Basic a by (auto simp: checks_def rif_def rif\<^sub>i_def)
+  qed
 next
   case (Loop c)
-  then show ?case unfolding rif.simps 
-    using lfp_unfold mono_union_rif by blast 
-qed (unfold rif.simps, blast)
+  thus ?case by (simp add: lfp_const checks_def) 
+qed (unfold checks_def rif.simps; blast)+
 
-
-lemma point_cmp_refl [intro]:
-  "point_cmp a a"
-  by (auto simp: point_cmp_def)
-
-lemma [simp]:
-  "deps (subst e r e') = deps e - {r} \<union> (if r \<in> deps e then deps e' else {})"
-  sorry
-
-lemma [simp]:
-  "deps\<^sub>B (subst\<^sub>B e r e') = deps\<^sub>B e - {r} \<union> (if r \<in> deps\<^sub>B e then deps e' else {})"
-  sorry
-
-lemma ord_sound:
-  assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
-  shows "\<not>ord (inst \<beta>) (gen \<alpha>)"
+text \<open>rif checks on sequential composition should imply rif checks of just the prefix\<close>
+lemma rif_checks_prefix [intro]:
+  assumes "checks (rif (c ;; r) P) R G"
+  shows "checks (rif c {}) R G"
   using assms
-  apply (cases \<alpha>; cases \<beta>; clarsimp; case_tac a; case_tac aa)
-  by (auto simp: gen_def)
-
-lemma ord_cmp:
-  assumes "\<not>ord \<beta> p'" "p \<prec> p'"
-  shows "\<not>ord \<beta> p"
-  using assms by (cases \<beta>, auto simp: point_cmp_def)
-
-lemma
-  assumes "reorder_com \<alpha>' (Basic \<beta>) \<alpha>" "p \<prec> gen \<alpha>"
-  shows "\<not> ord (inst \<beta>) p"
-  apply (rule ord_cmp)
-  apply (rule ord_sound)
-  using assms by auto
-
-(*
-lemma upd_reorder_com:
-  assumes "reorder_com \<alpha>' c \<alpha>" "p \<in> P" "p \<prec> gen \<alpha>" "op p = \<alpha>"
-  shows "\<exists>p'. p' \<in> rif c P \<and> op p' = \<alpha>' \<and> p' \<prec> gen \<alpha>'"
-  using assms
-proof (induct \<alpha>' c \<alpha> rule: reorder_com.induct)
-  case (2 \<alpha>' \<beta> \<alpha>)
-  hence [simp]: "op p = \<alpha>" by auto
-  have "\<not> ord (inst \<beta>) p" sorry
-
-  hence "(wken \<beta> p)\<lparr>inv := inv p \<and> chk R \<beta> (op p)\<rparr> \<in> proc \<beta> P"
-    using proc_I 2 by blast
-
-  moreover have "(wken \<beta> p)\<lparr>inv := inv p \<and> chk R \<beta> (op p)\<rparr> \<prec> gen \<alpha>'"
-    using 2(1,4) unfolding point_cmp_def gen_def
-    apply auto
-    apply (cases \<alpha>'; cases \<beta>; case_tac a; case_tac aa; case_tac ab; case_tac ac; simp split: if_splits)
-    
-    sorry
-
-  moreover have "op ((wken \<beta> p)\<lparr>inv := inv p \<and> chk R \<beta> (op p)\<rparr>) = \<alpha>'" using 2 by auto
-
-  ultimately show ?case by auto
-next
-  case (3 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
-  then show ?case
-    apply simp
-    sorry
-qed auto
-
-
-lemma execute_act:
-  assumes "lexecute c r \<alpha> c'"
-  shows "\<exists>p. p \<in> rif c P \<and> op p = (fwd_com \<alpha> r) \<and> point_cmp p (gen (fwd_com \<alpha> r))"
-  using assms
-proof (induct arbitrary: P)
-  case (act \<alpha>)
-  have "gen \<alpha> \<in> proc \<alpha> P" by (auto simp: proc_def)
-  then show ?case by (auto simp: gen_def)
-next
-  case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case by simp
-next
-  case (ooo c\<^sub>1 r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>2)
-  obtain p where p: "p \<in> rif c\<^sub>1 P" "op p = (fwd_com \<alpha> r)" "point_cmp p (gen (fwd_com \<alpha> r))"
-    using ooo by blast
-  have r: "reorder_com \<alpha>' (c\<^sub>2) (fwd_com \<alpha> r)" using ooo by auto
-  then show ?case using p(2) upd_reorder_com[OF r p(1,3), of R] by auto
+proof -
+  have "rif c {} \<subseteq> rif c (rif r P)" by (simp add: monoD mono_rif)
+  thus ?thesis using assms unfolding checks_def by auto
 qed
 
-(*
-lemma upd_po:
-  assumes "reorder_com \<alpha>' c \<alpha>" "p \<in> P" "point_cmp p (gen \<alpha>)" "\<alpha> = op p" "\<forall>a \<in> rif c P. point.inv a"
-  shows "inter\<^sub>c (step\<^sub>t R) (step G) c \<alpha>"
+text \<open>
+rif checks on sequential composition due to an action that can reorder with the postfix
+correspond to the checks that would be seen if the postfix wasn't present and forwarding
+was captured fully.
+\<close>
+lemma rif_checks_fwd:
+  assumes "reorder_com \<alpha>' c\<^sub>2 \<alpha>" "wfcom c\<^sub>2" "wfbasic \<alpha>"
+  assumes "checks (rif (c\<^sub>1 ;; c\<^sub>2 ;; Basic \<alpha>) {}) R G" 
+  shows "checks (rif (c\<^sub>1 ;; Basic \<alpha>') {}) R G"
   using assms
-proof (induct \<alpha>' c \<alpha> arbitrary: P rule: reorder_com.induct)
+proof (induct \<alpha>' c\<^sub>2 \<alpha> arbitrary: c\<^sub>1 rule: reorder_com.induct)
   case (2 \<alpha>' \<beta> \<alpha>)
-  hence "\<not> ord (inst \<beta>) p" sorry (* correctness of ordering analysis *)
-  hence "(wken (inst \<beta>) p)\<lparr>inv := inv p \<and> chk R \<beta> p\<rparr> \<in> rif \<beta> P"
-    using 2(2) unfolding upd\<^sub>a_def upd2.simps upd\<^sub>i.simps by auto
-  hence "chk R \<beta> p" using 2 by auto
-  then show ?case
-    apply simp
-    sorry (* correctness of chk *)
+  text \<open>Remove the checks on gen \<beta>\<close>
+  hence "checks (rif c\<^sub>1 ({gen \<beta>} \<union> proc1 \<beta> (gen \<alpha>))) R G"
+    by (auto simp: rif\<^sub>i_def)
+  hence c: "checks (rif c\<^sub>1 (proc1 \<beta> (gen \<alpha>))) R G"
+    unfolding checks_def using mono_Un mono_rif by blast
+  text \<open>Show the point relation between \<alpha> and \<alpha>'\<close>
+  have r: "reorder_inst \<alpha>' \<beta> \<alpha>" using 2 by auto
+  have "proc1 \<beta> (gen \<alpha>) \<prec>\<prec> {gen \<alpha>'}" 
+    using point_ord_fwd[OF r] ord_sound[OF r] 2(2,3) 
+    unfolding points_ord_def proc1_def wfcom_def by auto
+  text \<open>Use properties of the point relation to establish checks on c1 and \<alpha>'\<close>
+  hence "rif c\<^sub>1 (proc1 \<beta> (gen \<alpha>)) \<prec>\<prec> rif c\<^sub>1 {gen \<alpha>'}" by auto
+  hence "checks (rif c\<^sub>1 {gen \<alpha>'}) R G" using c by blast
+  then show ?case by (auto simp: rif\<^sub>i_def)
 next
-  case (3 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
-  then show ?case sorry
+  case (3 \<alpha>' c\<^sub>1' c\<^sub>2 \<alpha>)
+  then obtain \<alpha>'' where \<alpha>: "reorder_com \<alpha>' c\<^sub>1' \<alpha>''" "reorder_com \<alpha>'' c\<^sub>2 \<alpha>" by auto
+  hence "checks (rif (c\<^sub>1 ;; c\<^sub>1' ;; Basic \<alpha>'') {}) R G" 
+    using 3(2)[of _ "c\<^sub>1 ;; c\<^sub>1'"] 3(4,5,6) by (auto simp: wfcom_def)
+  moreover have "wfbasic \<alpha>''" using 3 \<alpha> fwd_wfbasic by blast
+  ultimately show ?case using \<alpha> 3 by auto
 qed auto
-*)
 
-lemma upd_exec':
+text \<open>Convert an execution step to a reordering\<close>
+lemma exec_to_reorder:
   assumes "lexecute c r \<alpha> c'"
-  assumes "\<forall>p \<in> rif c P. inv p"
+  shows "\<exists>\<alpha>'. reorder_com \<alpha>' r \<alpha>"
+  using assms
+  by (induct, unfold reorder_com.simps(1); blast)
+
+text \<open>Phrase the desired property for induction over a reordering\<close>
+lemma exec_checks_induct:
+  assumes "wellformed R G" "wfcom r" "wfbasic \<alpha>"
+  assumes "reorder_com \<alpha>' r \<alpha>"
+  assumes "checks (rif (r ;; Basic \<alpha>) {}) R G"
   shows "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
   using assms
-proof (induct arbitrary: P)
-  case (act \<alpha>)
-  then show ?case by auto
+proof (induct \<alpha>' r \<alpha> rule: reorder_com.induct)
+  case (2 \<alpha>' \<beta> \<alpha>)
+  hence r: "reorder_inst \<alpha>' \<beta> \<alpha>" "wfbasic \<beta>" by (auto simp: wfcom_def)
+  text \<open>Given the two instructions can reorder, they mustn't be considered ordered\<close>
+  hence "\<not> ord (inst \<beta>) (gen \<alpha>)" using ord_sound[of \<alpha>' \<alpha> \<beta>] by auto
+  text \<open>Obtain the point generated for \<alpha>\<close>
+  then obtain p where "p \<in> rif\<^sub>i \<beta> (rif\<^sub>i \<alpha> {})" "op p = \<alpha>" "(\<beta>,{}) \<in> pairs p"
+    unfolding rif\<^sub>i_def proc1_def stren_def wken_def
+    by (clarsimp split: if_splits) fastforce
+  text \<open>Extract the check between \<beta> and \<alpha> and show it establishes inter\<close>
+  hence "chke (\<beta>,{}) \<alpha> R G" using 2(5) by (auto simp: checks_def)
+  thus ?case using chk_sound chke_nil_esc 2(1,3) r unfolding inter\<^sub>c.simps by blast
 next
-  case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case by auto
-next
-  case (ooo c\<^sub>1 r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>2)
-  then obtain p where p: "p \<in> rif c\<^sub>1 P" "op p = fwd_com \<alpha> r" "point_cmp p (gen (fwd_com \<alpha> r))"
-    using execute_act by blast
-  have r: "reorder_com \<alpha>' (c\<^sub>2) (fwd_com \<alpha> r)" using ooo by auto
-  have f: "fwd_com \<alpha> r =  (op p) " using p by auto
-  have "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>" using ooo rif_preserve_inv by force
-  thus ?case using upd_po[OF r p(1,3) f] ooo(4) by auto
-qed
-
-lemma upd\<^sub>aE:
-  assumes "x \<in> proc \<alpha> P"
-  obtains (ord) p where "ord (inst \<alpha>) p" "x = stren \<alpha> p" "p \<in> P" |
-          (ooo) p where "\<not> ord (inst \<alpha>) p" "x = (wken \<alpha> p)\<lparr>inv := inv p \<and> chk R \<alpha> (op p)\<rparr>" "p \<in> P" |
-          (gen) "x = gen \<alpha>"
-proof -
-  have "x = gen \<alpha> \<or> x \<in> proc1 R \<alpha> ` P" using assms by (auto simp: proc_def)
-  thus ?thesis
-  proof (elim disjE)
-    assume "x = gen \<alpha>"
-    thus ?thesis using gen by auto
-  next
-    assume "x \<in> proc1 R \<alpha> ` P"
-    then obtain p where p: "p \<in> P" "x = proc1 R \<alpha> p" by blast
-    thus ?thesis
-    proof (cases "ord (inst \<alpha>) p")
-      case True
-      thus ?thesis using p ord by (auto simp: proc1_def)
-    next
-      case False
-      thus ?thesis using p ooo by (auto simp: proc1_def)
-    qed
-  qed
-qed*)
-
-(*
-This isn't quite right, as this relation won't be preserved across
-earlier actions.
-
-*)
-
-definition set_ord (infix "\<lhd>" 60)
-  where "set_ord P' P \<equiv> \<forall>p' \<in> P'. \<exists>p \<in> P. p' \<prec> p"
-
-definition ignore_deps ("_ \<prec>_,_,_\<prec> _" 60)
-  where "ignore_deps P \<alpha> r R P' \<equiv> rif r P \<lhd> rif r (rif\<^sub>i \<alpha> P')"
-
-lemma ignore_deps_pres:
-  assumes "reorder_inst \<alpha>' \<beta> (fwd_com \<alpha> r)"
-  shows "P \<prec>\<alpha>,r,R\<prec> Q \<Longrightarrow> rif\<^sub>i \<beta> P \<prec>\<alpha>,Basic \<beta>;;r,R\<prec> rif\<^sub>i \<beta> Q"
-  unfolding ignore_deps_def proc\<^sub>i_def set_ord_def rif\<^sub>i_def by auto
-
-lemma rif_transitive:
-  assumes "reorder_com \<alpha>' r' (fwd_com \<alpha> r)"
-  shows "P \<prec>\<alpha>,r,R\<prec> Q \<Longrightarrow> rif r' P \<prec>\<alpha>,r';;r,R\<prec> rif r' Q"
-  using assms
-proof (induct r' arbitrary: r \<alpha>' \<alpha> P Q)
-  case Nil
-  then show ?case by (auto simp: ignore_deps_def)
-next
-  case (Basic \<beta>)
-  thus ?case using ignore_deps_pres apply simp sorry
-next
-  case (Seq r\<^sub>1 r\<^sub>2)
-  obtain \<alpha>'' where r: "reorder_com \<alpha>'' r\<^sub>2 (fwd_com \<alpha> r)" "reorder_com \<alpha>' r\<^sub>1 (fwd_com \<alpha> (r\<^sub>2 ;; r))"
-    using Seq by auto
-  have s: "SimAsm_Inter.rif r\<^sub>2 P \<prec>\<alpha>,r\<^sub>2 ;; r,R\<prec> SimAsm_Inter.rif r\<^sub>2 Q"
-    using Seq(2)[OF Seq(3) r(1)] by auto
-  show ?case using Seq(1)[OF s r(2)] 
-    unfolding ignore_deps_def by auto
+  case (3 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
+  then obtain \<alpha>'' where \<alpha>: "reorder_com \<alpha>' c\<^sub>1 \<alpha>''" "reorder_com \<alpha>'' c\<^sub>2 \<alpha>" by auto
+  hence w:  "wfbasic \<alpha>''" using 3(4,5) fwd_wfbasic by blast
+  hence "inter\<^sub>c (step\<^sub>t R) (step G) c\<^sub>2 \<alpha>" using 3 rif_checks_postfix by fastforce
+  moreover have "inter\<^sub>c (step\<^sub>t R) (step G) c\<^sub>1 \<alpha>''" 
+    using \<alpha> 3(1)[OF 3(3) _ w \<alpha>(1)] 3(4,7) rif_checks_fwd[OF \<alpha>(2) _ 3(5), of c\<^sub>1] by simp
+  ultimately show ?case using \<alpha> by auto
 qed auto
 
+text \<open>rif should perform checks on any instruction that can reorder before some prefix\<close>
+lemma exec_rif_checks:
+  assumes "wellformed R G" "wfcom r" "wfbasic \<alpha>"
+  assumes "lexecute c r \<alpha> c'"
+  assumes "checks (rif (r ;; Basic \<alpha>) {}) R G"
+  shows "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
+  using assms exec_to_reorder exec_checks_induct by blast
+
+subsection \<open>Remaining rif Checks\<close>
+
+text \<open>
+It is necessary to show that the early execution of an instruction does not result in
+a remaining program for which rif no longer holds. 
+We demonstrate this by relating two versions of the analysis, one where the executed
+instruction has been considered and one where it is not.
+We then demonstrate that checks against the version with the instruction present imply
+those where it is not.
+\<close>
+
+text \<open>
+Compare two points ignoring the implications of some instruction \<alpha>,
+such that the checks of the LHS are implied by those of the RHS and the
+reordering constraints of the LHS are stronger than the RHS ignoring \<alpha>.
+\<close>
+definition point_ign :: "('v,'g,'r,'a) point \<Rightarrow> (_,_,_,_) opbasic \<Rightarrow> (_,_,_,_) point \<Rightarrow> bool" 
+  ("_ \<sim>\<^sub>_ _" [0,100,0] 60)
+  where "point_ign p \<alpha> q \<equiv> 
+     wrs p \<subseteq> wrs q \<union> wr (inst \<alpha>) \<and> 
+     rds p \<subseteq> rds q \<union> (wrs q - locals) \<union> rd (inst \<alpha>) \<and> 
+     (bar p = bar q \<or> barriers (inst \<alpha>)) \<and>
+     (op p = op q) \<and>
+     (esc p = esc q) \<and>
+     (pairs p \<supseteq> pairs q)"
+
+lemma [intro]:
+  "p \<sim>\<^sub>\<alpha> p"
+  by (auto simp: point_ign_def)
+
+text \<open>
+Extend the point comparison over two sets of points, such that there exists a point in
+the RHS for all in the LHS.
+\<close>
+definition points_ign :: "('v,'g,'r,'a) points \<Rightarrow> (_,_,_,_) opbasic \<Rightarrow> (_,_,_,_) points \<Rightarrow> bool"
+  ("_ \<approx>\<^sub>_ _" [0,100,0] 60)
+  where "points_ign P \<alpha> Q \<equiv> \<forall>q \<in> Q. \<exists>p \<in> P. (p \<sim>\<^sub>\<alpha> q)"
+
+text \<open>
+Given an instruction that the ignored operation can reorder before, q should have
+stronger reordering constraints than p.
+\<close>
+lemma point_ign_ord:
+  assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
+  assumes "p \<sim>\<^sub>\<alpha> q"
+  shows "ord (inst \<beta>) p \<longrightarrow> ord (inst \<beta>) q"
+  using assms 
+  apply (cases \<alpha>; cases \<beta>; case_tac a; case_tac aa; case_tac ab; case_tac ac; clarsimp)
+  by (auto simp: point_ign_def hasGlobal_def split: var.splits if_splits)
+
+text \<open>
+The point_ign relation is preserved across updates due to an instruction that the
+ignored instruction can reorder before.
+\<close>
+lemma point_ign_pres:
+  assumes "reorder_inst \<alpha>' \<beta> \<alpha>" "p \<sim>\<^sub>\<alpha> q" "q' \<in> proc1 \<beta> q"
+  shows "\<exists>p'\<in>proc1 \<beta> p. (p' \<sim>\<^sub>\<alpha>' q')"
+proof (cases "q' = stren \<beta> q")
+  case True
+  moreover have "stren \<beta> p \<sim>\<^sub>\<alpha>' (stren \<beta> q)" 
+    using assms(1,2) by (auto simp: stren_def point_ign_def)
+  ultimately show ?thesis by blast
+next
+  case False
+  text \<open>Must have weakened due to out-of-order otherwise\<close>
+  hence q: "q' = wken \<beta> q" "\<not> ord (inst \<beta>) q" 
+    using assms(3) unfolding proc1_def by (auto split: if_splits)
+  text \<open>Therefore, \<beta> can't have a global write in common with q\<close>
+  hence wr: "(wr (inst \<beta>) - locals) \<inter> wrs q = {}"
+    by (cases "inst \<beta>"; auto split: var.splits)
+  text \<open>Also, \<beta> can't be ordered with p due to q's stronger constraints\<close>
+  have "\<not> ord (inst \<beta>) p" using q point_ign_ord assms(1,2) by blast
+  text \<open>Therefore, \<beta> must weaken p as well\<close>
+  hence "wken \<beta> p \<in> proc1 \<beta> p" unfolding proc1_def by auto
+  text \<open>wken preserves the relation\<close>
+  moreover have "wken \<beta> p \<sim>\<^sub>\<alpha>' (wken \<beta> q)"
+    using assms(1,2) wr unfolding wken_def point_ign_def
+    by clarsimp (intro conjI impI; blast)
+  ultimately show ?thesis using q(1) by blast
+qed
+
+text \<open>
+It is possible to establish the points_ign relation between P and a version of P
+updated using the ignored instruction.
+\<close>
+lemma points_ignI [intro]:
+  shows "rif (Basic \<alpha>) P \<approx>\<^sub>\<alpha> P"
+proof (simp add: points_ign_def rif\<^sub>i_def, intro ballI disjI2)
+  fix q assume "q \<in> P"
+  moreover have "stren \<alpha> q \<sim>\<^sub>\<alpha> q" by (auto simp: stren_def point_ign_def)
+  ultimately show "\<exists>y\<in>P. \<exists>p\<in>proc1 \<alpha> y. (p \<sim>\<^sub>\<alpha> q)" by auto
+qed
+
+text \<open>
+It is also possible to preserve the points_ign relation across a program that
+the ignored instruction can reorder before.
+\<close>
+lemma points_ign_presI [intro]:
+  assumes "reorder_com \<beta> r \<alpha>"
+  assumes "P \<approx>\<^sub>\<alpha> Q"
+  shows "rif r P \<approx>\<^sub>\<beta> (rif r Q)"
+  using assms
+proof (induct \<beta> r \<alpha> arbitrary: P Q rule: reorder_com.induct)
+  case (2 \<alpha>' \<beta> \<alpha>)
+  then show ?case using point_ign_pres by (simp add: rif\<^sub>i_def points_ign_def) blast
+qed auto
+
+text \<open>
+Checks against the RHS of the points_ign relation implies checks against the LHS.
+\<close>
+lemma points_ign_check:
+  assumes "P \<approx>\<^sub>\<alpha> Q"
+  assumes "checks P R G"
+  shows "checks Q R G"
+proof (simp add: checks_def, intro ballI)
+  fix q \<beta> assume q: "q \<in> Q" "\<beta> \<in> pairs q"
+  then obtain p where p: "p \<in> P" "p \<sim>\<^sub>\<alpha> q" using assms(1) by (auto simp: points_ign_def)
+  hence "\<beta> \<in> pairs p" "op p = op q" using q by (auto simp: point_ign_def)
+  thus "chke \<beta> (op q) R G" using p(1) assms(2) by (auto simp: checks_def)
+qed
+
+text \<open>
+These properties allow us to show that rif checks for (r ;; \<alpha>) imply the rif checks for 
+just r given \<alpha> can execute before r. 
+\<close>
+theorem remaining_rif_checks:
+  assumes "lexecute c r \<alpha> c'"
+  assumes "checks (rif (r ;; Basic \<alpha>) P) R G"
+  shows "checks (rif r P) R G"
+proof -
+  obtain \<alpha>' where "reorder_com \<alpha>' r \<alpha>" using assms(1) exec_to_reorder by metis
+  moreover have "rif (Basic \<alpha>) P \<approx>\<^sub>\<alpha> P" by blast
+  ultimately have i: "rif r (rif (Basic \<alpha>) P) \<approx>\<^sub>\<alpha>' (rif r P)"
+    using points_ign_presI by fastforce
+  thus ?thesis using assms(2) points_ign_check by simp blast
+qed
+
+subsection \<open>Soundness\<close>
+
+text \<open>
+Show that the rif analysis can be rephrased in terms of the prefix r and instruction \<alpha>
+encountered when executing a program step.
+\<close>
 lemma rif_lexecute:
   assumes "lexecute c r \<alpha> c'"
   shows "\<exists>c\<^sub>2. rif c P = rif ((r ;; Basic \<alpha>) ;; c\<^sub>2) P \<and> rif c' P = rif (r ;; c\<^sub>2) P"
 using assms
 proof (induct arbitrary: P)
   case (act \<alpha>)
-  have a: "rif\<^sub>i \<alpha> P = rif\<^sub>i \<alpha> (SimAsm_Inter.rif Nil P)" "P = rif Nil P" by auto
+  have a: "rif\<^sub>i \<alpha> P = rif\<^sub>i \<alpha> (rif Nil P)" "P = rif Nil P" by auto
   show ?case apply auto using a by blast
 next
   case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
@@ -657,9 +790,13 @@ next
   then show ?case by auto
 qed
 
-theorem rif_sound_helper:
-  assumes "reorder_trace t c" "local c"
-  assumes "\<forall>p \<in> rif c P. inv p"
+text \<open>
+Soundness statement suitable for induction over the reordering trace property.
+Reordering trace consists of steps of rewrites and program steps, which we verify separately.
+\<close>
+lemma rif_sound_induct:
+  assumes "reorder_trace t c" "local c" "wfcom c"
+  assumes "wellformed R G" "checks (rif c {}) R G"
   shows "\<forall>(r,\<alpha>) \<in> set t. inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
   using assms
 proof (induct)
@@ -667,276 +804,28 @@ proof (induct)
   then show ?case by auto
 next
   case (2 c c' t)
-  then show ?case using upd_rw[OF 2(1)] local_silent by blast
+  thus ?case using silent_rif_checks local_silent wfcom_silent unfolding checks_def by fast
 next
   case (3 c r \<alpha> c' t)
-  obtain c\<^sub>2 where "rif c P = rif ((r ;; Basic \<alpha>) ;; c\<^sub>2) P" "rif c' P = rif (r ;; c\<^sub>2) P"
-    using rif_lexecute 3 by metis
-  then show ?case using  local_execute[OF 3(1,4)] by auto
-qed
-*)
-
-fun expand :: "(nat, nat) com \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com"
-  where
-    "expand Nil l = Nil" |
-    "expand (Basic a) l = (case l ! tag a of (v,\<alpha>,f) \<Rightarrow> Basic (\<lfloor>v,\<alpha>,f\<rfloor>))" |
-    "expand (com.Seq c\<^sub>1 c\<^sub>2) l = com.Seq (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Choice c\<^sub>1 c\<^sub>2) l = Choice (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Loop c\<^sub>1) l = Loop (expand c\<^sub>1 l)" |
-    "expand (Parallel c\<^sub>1 c\<^sub>2) l = Parallel (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Thread c\<^sub>1) l = Thread (expand c\<^sub>1 l)"
-
-lemma expand_seqE [elim!]:
-  assumes "expand n l = c\<^sub>1 ;; c\<^sub>2"
-  obtains n\<^sub>1 n\<^sub>2 where "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_seqE' [elim!]:
-  assumes "c\<^sub>1 ;; c\<^sub>2  = expand n l"
-  obtains n\<^sub>1 n\<^sub>2 where "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_nilE [elim!]:
-  assumes "expand n l = com.Nil"
-  obtains "n = com.Nil"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_nilE' [elim!]:
-  assumes "com.Nil = expand n l"
-  obtains "n = com.Nil"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_choiceE [elim!]:
-  assumes "expand n l = Choice c\<^sub>1 c\<^sub>2"
-  obtains n\<^sub>1 n\<^sub>2 where "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = Choice n\<^sub>1 n\<^sub>2"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_choiceE' [elim!]:
-  assumes "Choice c\<^sub>1 c\<^sub>2 = expand n l"
-  obtains n\<^sub>1 n\<^sub>2 where "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = Choice n\<^sub>1 n\<^sub>2"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_loopE' [elim!]:
-  assumes "Loop c\<^sub>1 = expand n l"
-  obtains n\<^sub>1 where "expand n\<^sub>1 l = c\<^sub>1" "n = Loop n\<^sub>1"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma expand_basicE' [elim!]:
-  assumes "Basic b = expand n l"
-  obtains a v \<alpha> f where " l ! tag a = (v,\<alpha>,f)" "n = Basic a" "b = (\<lfloor>v,\<alpha>,f\<rfloor>)"
-  using assms by (cases "(n,l)" rule: expand.cases) (auto split: prod.splits)
-
-lemma rif_sound_sil:
-  assumes "c \<leadsto> c'" "local c" "c = expand n l"
-  obtains n' where "rif n (map (fst o snd) l) P \<supseteq> rif n' (map (fst o snd) l) P" "expand n' l = c'"
-  using assms
-proof (induct arbitrary: n P)
-  case (seq1 c\<^sub>1 c\<^sub>1' c\<^sub>2)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "local c\<^sub>1" "c\<^sub>1 = expand n\<^sub>1 l" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2" by auto
-  show ?case 
-    apply (rule seq1(2)[OF _ n(1,2)])
-    apply (rule seq1(3)[of "n' ;; n\<^sub>2" for n'])
-    using n(3,4) by auto
-next
-  case (seq2 c\<^sub>2 c\<^sub>2' c\<^sub>1)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "local c\<^sub>2" "c\<^sub>2 = expand n\<^sub>2 l" "c\<^sub>1 = expand n\<^sub>1 l" "n = n\<^sub>1 ;; n\<^sub>2" by auto
-  show ?case
-    apply (rule seq2(2)[OF _ n(1,2)])
-    apply (rule seq2(3)[of "n\<^sub>1 ;; n'" for n'])
-    using n apply auto 
-    using mono_rif[of n\<^sub>1 "map (\<lambda>a. fst (snd a)) l"] apply (drule monoD)
-    by auto
-next
-  case (seqE1 c\<^sub>1)
-  then obtain n\<^sub>1 where n:  "c\<^sub>1 = expand n\<^sub>1 l" "n = Nil ;; n\<^sub>1" by auto
-  then show ?case using seqE1(1)[of n\<^sub>1] by auto
-next
-  case (seqE2 c\<^sub>1)
-  then obtain n\<^sub>1 where n: "c\<^sub>1 = expand n\<^sub>1 l" "n = n\<^sub>1 ;; Nil" by auto
-  then show ?case using seqE2(1)[of n\<^sub>1] by auto
-next
-  case (left c\<^sub>1 c\<^sub>2)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "local c\<^sub>1" "c\<^sub>1 = expand n\<^sub>1 l" "expand n\<^sub>2 l = c\<^sub>2" "n = Choice n\<^sub>1 n\<^sub>2" by auto
-  then show ?case using left(1)[of n\<^sub>1] by auto
-next
-  case (right c\<^sub>1 c\<^sub>2)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "local c\<^sub>1" "c\<^sub>1 = expand n\<^sub>1 l" "expand n\<^sub>2 l = c\<^sub>2" "n = Choice n\<^sub>1 n\<^sub>2" by auto
-  then show ?case using right(1)[of n\<^sub>2] by auto
-next
-  case (loop1 c)
-  then obtain n\<^sub>1 where n: "n = Loop n\<^sub>1" by auto
-  thus ?case using loop1(1)[of "Nil"] lfp_unfold mono_union_rif by (auto simp: rif.simps(3))
-next
-  case (loop2 c)
-  then obtain n\<^sub>1 where n: "expand n\<^sub>1 l = c" "n = Loop n\<^sub>1" by auto
-  then show ?case using loop2(1)[of "n\<^sub>1 ;; n"] apply auto unfolding rif.simps
-    using lfp_fn[OF mono_rif] by blast
-qed (unfold local.simps; simp)+
-
-lemma rif_sound_exec:
-  assumes "lexecute c r \<alpha> c'" "local c" "c = expand n l"
-  obtains n' where "rif n (map (fst o snd) l) P \<supseteq> rif n' (map (fst o snd) l) P" "expand n' l = c'"
-  using assms
-proof (induct arbitrary: n P)
-  case (act \<alpha>)
-  then show ?case sorry
-next
-  case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case sorry
-next
-  case (ooo c\<^sub>1 r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>2)
-  then show ?case sorry
-qed
-
-lemma rif_lexecute:
-  assumes "lexecute c r \<alpha> c'" "expand n l = c" 
-  obtains c\<^sub>2 n' where "rif n (map (fst o snd) l) P = rif n' (map (fst o snd) l) P" "expand n' l = ((r ;; Basic \<alpha>) ;; c\<^sub>2)"
-using assms
-proof (induct arbitrary: P n)
-  case (act \<alpha>)
-  show ?case using act(1)[of "(Nil ;; n) ;; Nil" Nil] act(2) by auto
-next
-  case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  obtain n\<^sub>1 n\<^sub>2 where n: "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2" using ino(4) by auto
-  show ?case
-  proof (rule ino(2)[OF _ n(1), of "rif n\<^sub>2 (map (fst \<circ> snd) l) P"], goal_cases)
-    case (1 n' c\<^sub>2')
-    then obtain n\<^sub>1' n\<^sub>2' where "expand n\<^sub>1' l = r ;; Basic \<alpha>" "expand n\<^sub>2' l = c\<^sub>2'" "n' = n\<^sub>1' ;; n\<^sub>2'"
-      by force
-    thus ?case 
-      using 1(1) n(2) ino(3)[of "n\<^sub>1' ;; (n\<^sub>2' ;; n\<^sub>2)" "c\<^sub>2' ;; c\<^sub>2"] 
-      by (auto simp: n(3) o_def) 
-  qed
-next
-  case (ooo c\<^sub>2 r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>1)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2" by auto
-  show ?case
-  proof (rule ooo(2)[OF _ n(2), of P], goal_cases)
-    case (1 n' c\<^sub>2')
-    then obtain n\<^sub>1' n\<^sub>2' where n': "expand n\<^sub>1' l = r ;; Basic \<alpha>" "expand n\<^sub>2' l = c\<^sub>2'" "n' = n\<^sub>1' ;; n\<^sub>2'"
-      by force
-    then obtain n\<^sub>1'' n\<^sub>2'' where n'': "expand n\<^sub>1'' l = r" "expand n\<^sub>2'' l = Basic \<alpha>" "n\<^sub>1' = n\<^sub>1'' ;; n\<^sub>2''"
-      by force
-    then show ?case
-      using 1(1) n(1,2) n'(1,2) ooo(4)[of "((n\<^sub>1 ;; n\<^sub>1'') ;; n\<^sub>2'') ;; n\<^sub>2'" c\<^sub>2']
-      by (auto simp: n(3) n'(3))
-  qed
-qed
-
-lemma rif_lexecute':
-  assumes "lexecute c r \<alpha> c'" "expand n l = c" 
-  obtains c\<^sub>2 n' n'' n''' where 
-    "rif n (map (fst o snd) l) P = rif n' (map (fst o snd) l) P" 
-    "expand n' l = ((r ;; Basic \<alpha>) ;; c\<^sub>2)"
-    "expand n'' l = c'"
-    "expand n''' l = (r ;; c\<^sub>2)"
-    "rif n'' (map (fst o snd) l) P = rif n''' (map (fst o snd) l) P" 
-using assms
-proof (induct arbitrary: P n)
-  case (act \<alpha>)
-  show ?case using act(1)[of "(Nil ;; n) ;; Nil" Nil Nil "Nil ;; Nil"] act(2) by auto
-next
-  case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  obtain n\<^sub>1 n\<^sub>2 where n: "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2" using ino(4) by auto
-  show ?case
-  proof (rule ino(2)[OF _ n(1), of "rif n\<^sub>2 (map (fst \<circ> snd) l) P"], goal_cases)
-    case (1 n' c\<^sub>2' n'' n''')
-    then obtain n\<^sub>1' n\<^sub>2' where n': "expand n\<^sub>1' l = r ;; Basic \<alpha>" "expand n\<^sub>2' l = c\<^sub>2'" "n' = n\<^sub>1' ;; n\<^sub>2'"
-      by force
-    then obtain n\<^sub>1'' n\<^sub>2'' where n'': "expand n\<^sub>1'' l = r" "expand n\<^sub>2'' l = Basic \<alpha>" "n\<^sub>1' = n\<^sub>1'' ;; n\<^sub>2''"
-      by force
-    thus ?case 
-      using n' 1(1,3,4,5) n(2) ino(3)[of "n\<^sub>1' ;; (n\<^sub>2' ;; n\<^sub>2)" "c\<^sub>2' ;; c\<^sub>2" "n'' ;; n\<^sub>2" "n\<^sub>1'' ;; n\<^sub>2' ;; n\<^sub>2"] 
-      by (auto simp: n(3) o_def) 
-  qed
-next
-  case (ooo c\<^sub>2 r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>1)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2" by auto
-  show ?case
-  proof (rule ooo(2)[OF _ n(2), of P], goal_cases)
-    case (1 n' c\<^sub>2')
-    then obtain n\<^sub>1' n\<^sub>2' where n': "expand n\<^sub>1' l = r ;; Basic \<alpha>" "expand n\<^sub>2' l = c\<^sub>2'" "n' = n\<^sub>1' ;; n\<^sub>2'"
-      by force
-    then obtain n\<^sub>1'' n\<^sub>2'' where n'': "expand n\<^sub>1'' l = r" "expand n\<^sub>2'' l = Basic \<alpha>" "n\<^sub>1' = n\<^sub>1'' ;; n\<^sub>2''"
-      by force
-    then show ?case
-      using 1(1) n(1,2) n'(1,2) ooo(4)[of "((n\<^sub>1 ;; n\<^sub>1'') ;; n\<^sub>2'') ;; n\<^sub>2'" c\<^sub>2']
-      by (auto simp: n(3) n'(3))
-  qed
-qed
-
-lemma upd_exec':
-  assumes "lexecute c r \<alpha> c'" "expand n l = c"
-  assumes "checks l (rif n (map (fst o snd) l) P) R"
-  shows "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
-  using assms
-proof (induct arbitrary: n P)
-  case (act \<alpha>)
-  then show ?case by auto
-next
-  case (ino c\<^sub>1 r \<alpha> c\<^sub>1' c\<^sub>2)
-  then show ?case by auto
-next
-  case (ooo c\<^sub>2 r \<alpha> c\<^sub>1' \<alpha>' c\<^sub>1)
-  then obtain n\<^sub>1 n\<^sub>2 where n: "expand n\<^sub>1 l = c\<^sub>1" "expand n\<^sub>2 l = c\<^sub>2" "n = n\<^sub>1 ;; n\<^sub>2" by auto
-  hence "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>" using ooo(5) ooo(2)[OF n(2), of P]
-    unfolding n(3)
-    sorry
-  then show ?case sorry
-
-  then obtain p where p: "p \<in> rif c\<^sub>1 P" "op p = fwd_com \<alpha> r" "point_cmp p (gen (fwd_com \<alpha> r))"
-    using execute_act by blast
-  have r: "reorder_com \<alpha>' (c\<^sub>2) (fwd_com \<alpha> r)" using ooo by auto
-  have f: "fwd_com \<alpha> r =  (op p) " using p by auto
-  have "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>" using ooo rif_preserve_inv by force
-  thus ?case using upd_po[OF r p(1,3) f] ooo(4) by auto
-qed  
-
-lemma [simp]:
-  "tag (\<lfloor>v,\<alpha>,f\<rfloor>) = (\<alpha>,f)"
-  by (auto simp: liftg_def)
-
-lemma
-  assumes "reorder_com \<alpha>' r \<alpha>"
-  assumes "r = expand n l" "\<forall>a \<in> basics n. tag a < length l" 
-  assumes "Basic \<alpha> = expand (Basic a) l" "tag a < length l"
-  assumes "checks l (rif (n ;; Basic a)  (map (fst o snd) l) P) R"
-  shows "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
-  using assms
-proof (induct arbitrary: n a rule: reorder_com.induct )
-  case (2 \<alpha>' \<beta> \<alpha>)
-  then show ?case
-    apply (auto split: prod.splits)
-    sorry
-next
-  case (3 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
-  then show ?case sorry
-qed (unfold reorder_com.simps, auto)
-
-theorem rif_sound:
-  assumes "reorder_trace t c" "local c"
-  assumes "expand n l = c"
-  assumes "checks l (rif n (map (fst o snd) l) {}) R"
-  shows "\<forall>(r,\<alpha>) \<in> set t. inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
-  using assms
-proof (induct arbitrary: n)
-  case (1 c)
-  then show ?case by auto
-next
-  case (2 c c' t)
-  then obtain n' where "rif n (map (fst o snd) l) {} \<supseteq> rif n' (map (fst o snd) l) {}" "expand n' l = c'"
-    using rif_sound_sil by metis
-  moreover have "local c'" using 2 local_silent by auto
-  ultimately show ?case using 2 unfolding checks_def by blast
-next
-  case (3 c r \<alpha> c' t)
-  then obtain c\<^sub>2 n' where 
-      "rif n (map (fst o snd) l) {} = rif n' (map (fst o snd) l) {}" 
-      "expand n' l = ((r ;; Basic \<alpha>) ;; c\<^sub>2)"
+  text \<open>Re-phrase rif in terms of r and \<alpha>\<close>
+  then obtain c\<^sub>2 where c2[simp]: 
+      "rif c {} = rif ((r ;; Basic \<alpha>) ;; c\<^sub>2) {}" "rif c' {} = rif (r ;; c\<^sub>2) {}"
     using rif_lexecute by metis
-
-  then show ?case sorry
+  text \<open>rif checks between r and \<alpha> must have been carried out\<close>
+  have "wfcom r \<and> wfbasic \<alpha>" using 3 wfcom_exec_prefix by metis
+  hence "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
+    using 3 exec_rif_checks unfolding c2
+    using rif_checks_prefix by (metis rif.simps(4))
+  text \<open>rif checks on the remaining program must have been carried out\<close>
+  moreover have "\<forall>a\<in>set t. case a of (a, b) \<Rightarrow> inter\<^sub>c (step\<^sub>t R) (step G) a b"
+    using 3 by (simp add: local_execute wfcom_exec remaining_rif_checks)
+  ultimately show ?case by simp
 qed
-*)
+
+text \<open>Simplify the soundness property\<close>
+theorem rif_sound:
+  assumes "checks (rif c {}) R G" "local c" "wellformed R G" "wfcom c"
+  shows "SimAsm_WP.rif (step\<^sub>t R) (step G) c"
+  using assms rif_sound_induct unfolding rif_def by blast
 
 end

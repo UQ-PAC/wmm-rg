@@ -4,11 +4,6 @@ begin
 
 section \<open>Wellformedness\<close>
 
-definition glb
-  where "glb m \<equiv> \<lparr> st = (\<lambda>v. st m (Glb v)), \<dots> = more m \<rparr>"
-
-definition rg
-  where "rg m \<equiv> \<lambda>v. st m (Reg v)"
 
 definition stabilize
   where "stabilize R P \<equiv> {m. \<forall>m'. (glb m,glb m') \<in> R \<longrightarrow> rg m = rg m' \<longrightarrow> m' \<in> P}"
@@ -81,7 +76,7 @@ section \<open>Predicate Transformations\<close>
 text \<open>Transform a predicate based on an sub-operation\<close>
 fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) trans" 
   where 
-    "wp\<^sub>i (assign r e) Q = {m. (m (r :=\<^sub>s ev m e)) \<in> Q}" |
+    "wp\<^sub>i (assign r e) Q = {m. (m (r :=\<^sub>s ev\<^sub>E m e)) \<in> Q}" |
     "wp\<^sub>i (cmp b) Q =  {m. ev\<^sub>B m b \<longrightarrow> m \<in> Q}" | 
     "wp\<^sub>i _ Q = Q"
 
@@ -147,6 +142,111 @@ proof (induct c)
   then show ?case by (cases p) (auto simp: liftg_def guar_def wp\<^sub>r_def)
 qed (auto simp: guar_def reflexive_def liftl_def step_def)
 
-interpretation rules fwd\<^sub>s re\<^sub>a by (unfold_locales) (auto)
+interpretation rules fwd\<^sub>s re\<^sub>a 
+  by (unfold_locales) (auto, case_tac ad, auto simp: Let_def)
+
+text \<open>Extract the instruction from an abstract operation\<close>
+abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
+  where "inst a \<equiv> fst (tag a)"
+
+abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
+  where "aux a \<equiv> snd (tag a)"
+
+definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
+
+definition wfcom
+  where "wfcom c \<equiv> \<forall>\<beta> \<in> basics c. wfbasic \<beta>"
+
+lemma wfcomI:
+  "wfcom (lift\<^sub>c c)"
+  by (induct c) (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
+
+lemma opbasicE:
+  obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
+          (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
+          (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
+          (nop) f v b where "(basic ) = ((nop,f), v, b)" 
+  by (cases basic, case_tac a, case_tac aa; clarsimp)
+
+lemma [simp]:
+  "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+
+lemma [simp]:
+  "barriers (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = barriers (inst \<alpha>)"
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+
+lemma [simp]:
+  "rd (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = (if wr (inst \<beta>) \<inter> rd (inst \<alpha>) \<noteq> {} then rd (inst \<alpha>) - wr (inst \<beta>) \<union> rd (inst \<beta>) else rd (inst \<alpha>))"
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto)
+
+lemma vc_fwd\<^sub>s[simp]:
+  "vc (fwd\<^sub>s \<alpha> \<beta>) = vc \<alpha>"
+  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
+
+lemma beh_fwd\<^sub>s [simp]:
+  "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (aux \<alpha>)) )"
+  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits)
+
+lemma aux_fwd\<^sub>s [simp]:
+  "aux (fwd\<^sub>s \<alpha> \<beta>) = aux \<alpha>"
+  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
+
+lemma inst_fwd\<^sub>s [simp]:
+  "inst (fwd\<^sub>s \<alpha> (assign x e, f)) = subst\<^sub>i (inst \<alpha>) x e"
+  by (cases \<alpha> rule: opbasicE; auto simp: Let_def split: if_splits)
+
+lemma fwdE:
+  assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
+  obtains (no_fwd) "inst \<alpha>' = inst \<alpha>" "aux \<alpha>' = aux \<alpha>" "vc \<alpha>' = vc \<alpha>" "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}" |
+          (fwd) x e f where "tag \<beta> = (assign x e,f)" "x \<in> rd (inst \<alpha>)" "deps\<^sub>E e \<subseteq> locals"
+proof (cases "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}")
+  case True
+  then show ?thesis using no_fwd assms    
+    by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+next
+  case False
+  then show ?thesis using fwd assms 
+    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+    by blast+
+qed
+
+lemma fwd_wfbasic:
+  assumes "reorder_com \<alpha>' r \<alpha>" "wfbasic \<alpha>" 
+  shows "wfbasic \<alpha>'"
+  using assms
+proof (induct \<alpha>' r \<alpha> rule: reorder_com.induct)
+  case (2 \<alpha>' \<beta> \<alpha>)
+  then show ?case by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def wfbasic_def)
+qed auto
+
+lemma [simp]:
+  "wfcom (c\<^sub>1 ;; c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
+  by (auto simp: wfcom_def)
+
+lemma basics_silent:
+  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
+  using assms by (induct) auto
+
+lemma basics_exec:
+  assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> basics c'"
+  using assms by (induct) auto
+
+lemma basics_exec_prefix:
+  assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
+  using assms by (induct) auto
+
+lemma wfcom_silent:
+  "c \<leadsto> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
+  using basics_silent by (auto simp: wfcom_def)
+
+lemma wfcom_exec:
+  "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
+  using basics_exec unfolding wfcom_def by blast
+
+lemma wfcom_exec_prefix:
+  "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom r \<and> wfbasic \<alpha>"
+  using basics_exec_prefix unfolding wfcom_def by blast
 
 end
