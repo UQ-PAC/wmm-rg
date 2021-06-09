@@ -158,7 +158,7 @@ definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
 definition wfcom
   where "wfcom c \<equiv> \<forall>\<beta> \<in> basics c. wfbasic \<beta>"
 
-lemma wfcomI:
+lemma wfcomI [intro]:
   "wfcom (lift\<^sub>c c)"
   by (induct c) (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
 

@@ -1,5 +1,5 @@
 theory SimAsm_Inter
-  imports SimAsm_WP "HOL-Library.FSet" "HOL-Library.While_Combinator" "HOL-Eisbach.Eisbach"
+  imports SimAsm_WP
 begin
 
 text \<open>
@@ -8,11 +8,6 @@ and includes a soundness proof.
 \<close>
 
 section \<open>Definitions\<close>
-
-(*
-type_synonym ('v,'g,'r,'a) enumi = "('v,'g,'r,'a) pred \<times> ('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
-type_synonym ('v,'g,'r,'a) enuml = "('v,'g,'r,'a) enumi list"
-*)
 
 text \<open>
 A data point, extends an instruction with reordering information.
@@ -463,7 +458,7 @@ text \<open>The point relation is preserved across wken\<close>
 lemma point_ord_wken [intro]:
   "p \<prec> q \<Longrightarrow> wken \<alpha> p \<prec> wken \<alpha> q"
   unfolding point_ord_def wken_def
-  by (auto simp: Un_assoc sup_assoc funion_assoc)
+  by (auto simp: Un_assoc sup_assoc)
      (case_tac \<alpha>; case_tac a; metis boolean_algebra_cancel.sup0)+
 
 text \<open>The point relation ensures equivalent ordering constraints\<close>
@@ -823,9 +818,14 @@ next
 qed
 
 text \<open>Simplify the soundness property\<close>
-theorem rif_sound:
+theorem rif_lift_sound:
   assumes "checks (rif c {}) R G" "local c" "wellformed R G" "wfcom c"
   shows "SimAsm_WP.rif (step\<^sub>t R) (step G) c"
   using assms rif_sound_induct unfolding rif_def by blast
+
+theorem rif_sound:
+  assumes "checks (rif (lift\<^sub>c c) {}) R G" "wellformed R G"
+  shows "SimAsm_WP.rif (step\<^sub>t R) (step G) (lift\<^sub>c c)"
+  using assms by (intro rif_lift_sound) auto
 
 end
