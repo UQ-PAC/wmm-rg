@@ -1,5 +1,5 @@
 theory SimAsm_Inter_Exec
-  imports "HOL-Library.FSet" "SimAsm_Inter" "HOL-Library.While_Combinator"
+  imports "HOL-Library.FSet" "SimAsm_Inter" 
 begin
 
 text \<open>
@@ -114,7 +114,7 @@ definition rif\<^sub>i :: "nat \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('g,'r)
 text \<open>Process a full program\<close>
 fun rif :: "(nat, nat) com \<Rightarrow> ('v,'g,'r) op list \<Rightarrow> ('g,'r) point set \<Rightarrow> ('g,'r) point set"
   where 
-    "rif (Basic a) l P = (rif\<^sub>i (tag a) (l ! (tag a)) P)" |
+    "rif (Basic a) l P = (if tag a < length l then rif\<^sub>i (tag a) (l ! (tag a)) P else P)" |
     "rif (Choice c\<^sub>1 c\<^sub>2) l P = (rif c\<^sub>1 l P \<union> rif c\<^sub>2 l P)" |
     "rif (Loop c) l P = lfp (\<lambda>Y. (P \<union> rif c l Y))" |
     "rif (c\<^sub>1 ;; c\<^sub>2) l P = rif c\<^sub>1 l (rif c\<^sub>2 l P)" |
@@ -295,6 +295,9 @@ lemma mono_rif\<^sub>i:
 lemma mono_rif:
   "mono (rif c l)"
 proof (induct c)
+  case (Basic x)
+  then show ?case by (cases "tag x < length l"; simp add: monoI mono_rif\<^sub>i)
+next
   case (Seq c1 c2)
   then show ?case by (simp add: mono_def)
 next
@@ -318,7 +321,7 @@ proof (induct c arbitrary: P l)
   case (Basic \<alpha>)
   have e: "expand (Basic \<alpha>) l = Basic (expand_op (l ! tag \<alpha>))" by (cases \<alpha>; case_tac "l ! a"; auto)
   have d: "map (\<lambda>a. fst (snd a)) l ! tag \<alpha> = fst (snd (l ! tag \<alpha>))" using Basic by simp
-  show ?case unfolding e by (simp add: d rif\<^sub>i_exec)
+  show ?case using Basic unfolding e by (simp add: d rif\<^sub>i_exec)
 next
   case (Loop c)
   let ?f="\<lambda>Y. expand_points P l \<union> SimAsm_Inter.rif (expand c l) Y"
