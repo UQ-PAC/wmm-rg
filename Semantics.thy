@@ -29,6 +29,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
   where
   act[intro]: "Basic \<alpha> \<mapsto>[Nil,\<alpha>] Nil" |
   ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
+  ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
 inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 
@@ -45,9 +46,12 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<leadsto> _" [71,71] 70)
   where
   seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1' ;; c\<^sub>2" |
+ord1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<leadsto> c\<^sub>1' \<cdot> c\<^sub>2" |
   seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1 ;; c\<^sub>2'" |
   seqE1[intro]: "Nil ;; c\<^sub>1 \<leadsto> c\<^sub>1" |
   seqE2[intro]: "c\<^sub>1 ;; Nil \<leadsto> c\<^sub>1" |
+  ordE[intro]:  "Nil \<cdot> c\<^sub>1 \<leadsto> c\<^sub>1" |
+  bigc[intro]:  "s \<in> S \<Longrightarrow> (\<Sqinter> S) \<leadsto> seq2com s" |
   left[intro]:  "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>1" |
   right[intro]: "c\<^sub>1 \<sqinter> c\<^sub>2 \<leadsto> c\<^sub>2" |
   loop1[intro]: "c* \<leadsto> Nil" |
@@ -78,6 +82,10 @@ lemma gexecute_neq:
 lemma [simp]:
   "c \<mapsto>[g] c = False"
   using gexecute_neq by blast
+
+lemma [intro]:
+  "local (seq2com s)"
+  by (induct s) auto
 
 text \<open>A silent step will not introduce parallelism\<close>
 lemma local_silent:

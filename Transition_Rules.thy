@@ -12,51 +12,6 @@ ensure any executed behaviours conform to the desired specification.
 
 section \<open>Reordering Rules\<close> 
 
-(*
-text \<open>
-  Reorder the judgements of two reorderable instructions given a suitable interference property.
-  The precondition P and postcondition Q are preserved.
-\<close>
-lemma reorder_action:
-  assumes "R,G \<turnstile>\<^sub>A P {\<beta>} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>\<alpha> R G \<beta> \<alpha>"
-  obtains M' where "R,G \<turnstile>\<^sub>A P {\<alpha>\<langle>tag \<beta>\<rangle>} M'" "R,G \<turnstile>\<^sub>A M' {\<beta>} Q"
-proof -
-  \<comment> \<open>Nominate the strongest-postcondition of \<alpha> from P as the state between \<alpha> and \<beta>\<close>
-  let ?M="{m. \<exists>m' m''. m' \<in> P \<and> (m',m'') \<in> beh (\<alpha>\<langle>tag \<beta>\<rangle>) \<and> (m'',m) \<in> R\<^sup>*}"
-
-  \<comment> \<open>Establish stability for P, Q and the new intermediate state, in addition to guarantees\<close>
-  have stablePQ: "stable R P" "stable R Q" "guar\<^sub>\<alpha> \<alpha> G" "guar\<^sub>\<alpha> \<beta> G"
-    using assms(1,2) by (auto simp: atomic_rule_def)
-  have stableM: "stable R ?M" unfolding stable_def by force
-
-  \<comment> \<open>Extract order independence properties\<close> 
-  have ref: "Env R ;; Basic \<beta> ;; Env R ;; Basic \<alpha> \<sqsubseteq> Env R ;; Basic \<alpha>\<langle>tag \<beta>\<rangle> ;; Env R ;; Basic \<beta>"
-    using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
-  have g: "guar\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> G" using assms(3) by (auto simp: inter\<^sub>\<alpha>_def)
-
-  \<comment> \<open>Show transition from P to Q is independent of order\<close>
-  have p: "P \<subseteq> wp\<^sub>\<alpha> \<beta> M" "M \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "M \<subseteq> wp\<^sub>e R M" "P \<subseteq> wp\<^sub>e R P" "Q \<subseteq> wp\<^sub>e R Q"
-    using assms(1,2)  unfolding atomic_rule_def by (auto intro!: stable_wpI)
-  hence "P \<subseteq> wp\<^sub>e R (wp\<^sub>\<alpha> \<beta> (wp\<^sub>e R (wp\<^sub>\<alpha> \<alpha> Q)))" unfolding wp_def by blast
-  hence exec: "P \<subseteq> wp\<^sub>e R (wp\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> (wp\<^sub>e R (wp\<^sub>\<alpha> \<beta> Q)))" using ref by (auto simp: refine_def)
-  hence vc: "P \<subseteq> vc \<alpha>\<langle>tag \<beta>\<rangle>" by (auto simp: wp_def)
-
-  \<comment> \<open>Establish the late judgement over \<beta>\<close>
-  have "R,G \<turnstile>\<^sub>A ?M {\<beta>} Q" 
-  proof (unfold atomic_rule_def, intro conjI Int_greatest)
-    show "?M \<subseteq> wp\<^sub>\<alpha> \<beta> Q" using exec unfolding wp_def by fast
-  qed (insert stablePQ stableM, auto)
-
-  \<comment> \<open>Establish the early judgement over the new \<alpha>\<close>
-  moreover have "R,G \<turnstile>\<^sub>A P {\<alpha>\<langle>tag \<beta>\<rangle>} ?M"
-  proof (unfold atomic_rule_def, intro conjI Int_greatest)
-    show "P \<subseteq> wp\<^sub>\<alpha> \<alpha>\<langle>tag \<beta>\<rangle> ?M" using vc unfolding wp_def wf_def by fast
-  qed (insert stablePQ stableM g, auto)
-
-  ultimately show ?thesis using that by blast
-qed
-*)
-
 text \<open>
   Reorder the judgements of a reorderable instruction \<alpha> and program c, given a suitable 
   interference property.
@@ -105,6 +60,9 @@ lemma rewrite_ruleI [intro]:
 proof (induct arbitrary: c' rule: rules.induct)
   case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) blast+
+next
+  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
+  thus ?case by (cases rule: silentE, auto) blast+
 qed (cases rule: silentE, auto)+
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
@@ -119,6 +77,11 @@ next
   case (ino c\<^sub>1 c \<alpha>' c\<^sub>1' c\<^sub>2)
   then obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" by auto
   then show ?case using ino(2)[OF m(1) ino(4)] m(2) by blast
+next
+  case (ord c\<^sub>1 c \<alpha> c\<^sub>1' c\<^sub>2)
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" 
+    using ord by fast
+  then show ?case using ord(2)[OF m(1) ord(4)] m(2) by blast
 next
   case (ooo c\<^sub>2 c \<alpha> c\<^sub>2' \<alpha>' c\<^sub>1)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" using ooo(4) by blast

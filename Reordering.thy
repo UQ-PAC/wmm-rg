@@ -30,6 +30,7 @@ fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b
     "\<alpha>' < Nil <\<^sub>c \<alpha> = (\<alpha>' = \<alpha>)" |
     "\<alpha>' < Basic \<beta> <\<^sub>c \<alpha> = (\<alpha>' < \<beta> <\<^sub>a \<alpha>)" |
     "\<alpha>' < c\<^sub>1 ;; c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
+    "\<alpha>' < c\<^sub>1 \<cdot> c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
     "_ < _ <\<^sub>c _ = False"
 
 text \<open>Recursively define forwarding of an instruction across a program\<close>
@@ -39,6 +40,7 @@ fun fwd_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) ba
     "\<alpha>\<llangle>Nil\<rrangle> = \<alpha>" |
     "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>tag \<beta>\<rangle>" |
     "\<alpha>\<llangle>c\<^sub>1 ;; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
+    "\<alpha>\<llangle>c\<^sub>1 \<cdot> c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>_\<rrangle> = \<alpha>"
 
 text \<open>Relationship between program reordering and program forwarding\<close>
