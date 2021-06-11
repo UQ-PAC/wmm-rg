@@ -126,6 +126,22 @@ inductive_set transitions :: "('a,'b) config list set"
     sil[intro]: "s -s\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions"
 inductive_cases transitionsE[elim]: "t \<in> transitions"
 
+lemma [simp]:
+  "basics (seq2com s) = set s"
+  by (induct s) auto
+
+lemma basics_silent:
+  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
+  using assms by (induct) auto
+
+lemma basics_exec:
+  assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> basics c'"
+  using assms by (induct) auto
+
+lemma basics_exec_prefix:
+  assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
+  using assms by (induct) auto
+
 end
 
 end

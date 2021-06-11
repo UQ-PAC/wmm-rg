@@ -118,12 +118,24 @@ next
   thus "step\<^sub>t R,step G \<turnstile> ?I {(lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))*} ?I"
     using assms 
     apply (intro rules.loop rules.seq)
-    defer 1
+    prefer 2
     apply auto[1]
-    apply (auto)[1]
-    apply (auto)
+    apply blast
     unfolding valid_def
-    by (simp add: rules.intros(8) stabilize_entail stabilize_stable subsetI)
+    apply (simp add: rules.intros(8) stabilize_entail stabilize_stable subsetI)
+    apply (subgoal_tac "stable\<^sub>t R
+     (stabilize R
+       ({m. ev\<^sub>B m b \<longrightarrow> m \<in> stabilize R J} \<inter>
+        {m. \<not> ev\<^sub>B m b \<longrightarrow> m \<in> Q}))")
+    apply clarsimp
+    apply (rule rules.conseq)
+    apply blast
+    apply blast
+    apply blast
+    apply blast
+    defer 1
+    apply blast
+    using stabilize_entail by auto
 qed (insert assms, auto, rule stabilize_entail, auto)
 
 text \<open>False Rule\<close>

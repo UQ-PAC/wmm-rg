@@ -496,6 +496,12 @@ next
 next
   case (Thread c)
   show ?case unfolding rif.simps using set_all_points_bound'[OF Thread(2)] by auto
+next
+  case (Ord c1 c2)
+  show ?case unfolding rif.simps using set_all_points_bound'[OF Ord(3)] by auto
+next
+  case (SeqChoice x)
+  show ?case unfolding rif.simps using set_all_points_bound'[OF SeqChoice(1)] by auto
 qed
 
 subsection \<open>While Rule\<close>

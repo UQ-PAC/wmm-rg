@@ -129,11 +129,6 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
     "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c))*) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
     "lift\<^sub>c (DoWhile I c b) = (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
-text \<open>The language is always thread-local\<close>
-lemma local_lift [intro]:
-  "local (lift\<^sub>c c)"
-  by (induct c) auto
-
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:
   "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow> \<forall>\<beta>\<in>basics (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
@@ -225,18 +220,6 @@ lemma [simp]:
   "wfcom (c\<^sub>1 ;; c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
   by (auto simp: wfcom_def)
 
-lemma basics_silent:
-  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
-  using assms by (induct) auto
-
-lemma basics_exec:
-  assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> basics c'"
-  using assms by (induct) auto
-
-lemma basics_exec_prefix:
-  assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
-  using assms by (induct) auto
-
 lemma wfcom_silent:
   "c \<leadsto> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
   using basics_silent by (auto simp: wfcom_def)
@@ -248,5 +231,27 @@ lemma wfcom_exec:
 lemma wfcom_exec_prefix:
   "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom r \<and> wfbasic \<alpha>"
   using basics_exec_prefix unfolding wfcom_def by blast
+
+fun sim :: "('a,'b) com \<Rightarrow> bool"
+  where 
+    "sim (c\<^sub>1 || c\<^sub>2) = False" |
+    "sim (Thread _) = False" |
+    "sim (SeqChoice _) = False" |
+    "sim (c\<^sub>1 ;; c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
+    "sim (c\<^sub>1 \<cdot> c\<^sub>2) = False" |
+    "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |  
+    "sim (c*) = (sim c)" |    
+    "sim _ = True"
+
+
+text \<open>The language is always thread-local\<close>
+lemma sim_lift [intro]:
+  "sim (lift\<^sub>c c)"
+  by (induct c) auto
+
+text \<open>The language is always thread-local\<close>
+lemma local_lift [intro]:
+  "local (lift\<^sub>c c)"
+  by (induct c) auto
 
 end

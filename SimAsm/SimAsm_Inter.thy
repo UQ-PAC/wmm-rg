@@ -403,7 +403,7 @@ subsection \<open>Silent rif Checks\<close>
 
 text \<open>Trivial proof showing rif is preserved across silent steps\<close>
 lemma silent_rif_checks:
-  assumes "c \<leadsto> c'" "local c"
+  assumes "c \<leadsto> c'" "sim c"
   shows "rif c' P \<subseteq> rif c P"
   using assms
 proof (induct arbitrary: P)
@@ -547,7 +547,7 @@ correspond to the checks that would be seen if the postfix wasn't present and fo
 was captured fully.
 \<close>
 lemma rif_checks_fwd:
-  assumes "reorder_com \<alpha>' c\<^sub>2 \<alpha>" "wfcom c\<^sub>2" "wfbasic \<alpha>"
+  assumes "reorder_com \<alpha>' c\<^sub>2 \<alpha>" "wfcom c\<^sub>2" "wfbasic \<alpha>" "sim c\<^sub>2"
   assumes "checks (rif (c\<^sub>1 ;; c\<^sub>2 ;; Basic \<alpha>) {}) R G" 
   shows "checks (rif (c\<^sub>1 ;; Basic \<alpha>') {}) R G"
   using assms
@@ -571,7 +571,7 @@ next
   case (3 \<alpha>' c\<^sub>1' c\<^sub>2 \<alpha>)
   then obtain \<alpha>'' where \<alpha>: "reorder_com \<alpha>' c\<^sub>1' \<alpha>''" "reorder_com \<alpha>'' c\<^sub>2 \<alpha>" by auto
   hence "checks (rif (c\<^sub>1 ;; c\<^sub>1' ;; Basic \<alpha>'') {}) R G" 
-    using 3(2)[of _ "c\<^sub>1 ;; c\<^sub>1'"] 3(4,5,6) by (auto simp: wfcom_def)
+    using 3(2)[of _ "c\<^sub>1 ;; c\<^sub>1'"] 3(4,5,6,7) by (auto simp: wfcom_def)
   moreover have "wfbasic \<alpha>''" using 3 \<alpha> fwd_wfbasic by blast
   ultimately show ?case using \<alpha> 3 by auto
 qed auto
@@ -585,7 +585,7 @@ lemma exec_to_reorder:
 
 text \<open>Phrase the desired property for induction over a reordering\<close>
 lemma exec_checks_induct:
-  assumes "wellformed R G" "wfcom r" "wfbasic \<alpha>"
+  assumes "wellformed R G" "wfcom r" "wfbasic \<alpha>" "sim r"
   assumes "reorder_com \<alpha>' r \<alpha>"
   assumes "checks (rif (r ;; Basic \<alpha>) {}) R G"
   shows "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
@@ -600,7 +600,7 @@ proof (induct \<alpha>' r \<alpha> rule: reorder_com.induct)
     unfolding rif\<^sub>i_def proc1_def stren_def wken_def
     by (clarsimp split: if_splits) fastforce
   text \<open>Extract the check between \<beta> and \<alpha> and show it establishes inter\<close>
-  hence "chke (\<beta>,{}) \<alpha> R G" using 2(5) by (auto simp: checks_def)
+  hence "chke (\<beta>,{}) \<alpha> R G" using 2(6) by (auto simp: checks_def)
   thus ?case using chk_sound chke_nil_esc 2(1,3) r unfolding inter\<^sub>c.simps by blast
 next
   case (3 \<alpha>' c\<^sub>1 c\<^sub>2 \<alpha>)
@@ -608,13 +608,14 @@ next
   hence w:  "wfbasic \<alpha>''" using 3(4,5) fwd_wfbasic by blast
   hence "inter\<^sub>c (step\<^sub>t R) (step G) c\<^sub>2 \<alpha>" using 3 rif_checks_postfix by fastforce
   moreover have "inter\<^sub>c (step\<^sub>t R) (step G) c\<^sub>1 \<alpha>''" 
-    using \<alpha> 3(1)[OF 3(3) _ w \<alpha>(1)] 3(4,7) rif_checks_fwd[OF \<alpha>(2) _ 3(5), of c\<^sub>1] by simp
+    using \<alpha> 3(1)[OF 3(3) _ w _ \<alpha>(1)] 3(4,6,8)
+    using  rif_checks_fwd[OF \<alpha>(2) _ 3(5), of c\<^sub>1]  by simp
   ultimately show ?case using \<alpha> by auto
 qed auto
 
 text \<open>rif should perform checks on any instruction that can reorder before some prefix\<close>
 lemma exec_rif_checks:
-  assumes "wellformed R G" "wfcom r" "wfbasic \<alpha>"
+  assumes "wellformed R G" "wfcom r" "wfbasic \<alpha>" "sim r"
   assumes "lexecute c r \<alpha> c'"
   assumes "checks (rif (r ;; Basic \<alpha>) {}) R G"
   shows "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
@@ -718,7 +719,7 @@ It is also possible to preserve the points_ign relation across a program that
 the ignored instruction can reorder before.
 \<close>
 lemma points_ign_presI [intro]:
-  assumes "reorder_com \<beta> r \<alpha>"
+  assumes "reorder_com \<beta> r \<alpha>" "sim r"
   assumes "P \<approx>\<^sub>\<alpha> Q"
   shows "rif r P \<approx>\<^sub>\<beta> (rif r Q)"
   using assms
@@ -746,15 +747,15 @@ These properties allow us to show that rif checks for (r ;; \<alpha>) imply the 
 just r given \<alpha> can execute before r. 
 \<close>
 theorem remaining_rif_checks:
-  assumes "lexecute c r \<alpha> c'"
+  assumes "lexecute c r \<alpha> c'" "sim r"
   assumes "checks (rif (r ;; Basic \<alpha>) P) R G"
   shows "checks (rif r P) R G"
 proof -
   obtain \<alpha>' where "reorder_com \<alpha>' r \<alpha>" using assms(1) exec_to_reorder by metis
   moreover have "rif (Basic \<alpha>) P \<approx>\<^sub>\<alpha> P" by blast
   ultimately have i: "rif r (rif (Basic \<alpha>) P) \<approx>\<^sub>\<alpha>' (rif r P)"
-    using points_ign_presI by fastforce
-  thus ?thesis using assms(2) points_ign_check by simp blast
+    using points_ign_presI assms(2) by fastforce
+  thus ?thesis using assms(3) points_ign_check by simp blast
 qed
 
 subsection \<open>Soundness\<close>
@@ -764,9 +765,9 @@ Show that the rif analysis can be rephrased in terms of the prefix r and instruc
 encountered when executing a program step.
 \<close>
 lemma rif_lexecute:
-  assumes "lexecute c r \<alpha> c'"
+  assumes "lexecute c r \<alpha> c'" "sim c"
   shows "\<exists>c\<^sub>2. rif c P = rif ((r ;; Basic \<alpha>) ;; c\<^sub>2) P \<and> rif c' P = rif (r ;; c\<^sub>2) P"
-using assms
+  using assms
 proof (induct arbitrary: P)
   case (act \<alpha>)
   have a: "rif\<^sub>i \<alpha> P = rif\<^sub>i \<alpha> (rif Nil P)" "P = rif Nil P" by auto
@@ -783,14 +784,26 @@ next
   then obtain c where "rif c\<^sub>1 P = rif ((r ;; Basic \<alpha>) ;; c) P" "rif c\<^sub>1' P = rif (r ;; c) P" 
     by force
   then show ?case by auto
-qed
+qed auto
+
+lemma sim_silent:
+  "c \<leadsto> c' \<Longrightarrow> sim c \<Longrightarrow> sim c'"
+  by (induct rule: silent.induct) auto
+
+lemma sim_execute:
+  "lexecute c r \<alpha> c' \<Longrightarrow> sim c \<Longrightarrow> sim c'"
+  by (induct rule: lexecute.induct) auto
+
+lemma sim_prefix:
+  "lexecute c r \<alpha> c' \<Longrightarrow> sim c \<Longrightarrow> sim r"
+  by (induct rule: lexecute.induct, auto)
 
 text \<open>
 Soundness statement suitable for induction over the reordering trace property.
 Reordering trace consists of steps of rewrites and program steps, which we verify separately.
 \<close>
 lemma rif_sound_induct:
-  assumes "reorder_trace t c" "local c" "wfcom c"
+  assumes "reorder_trace t c" "sim c" "wfcom c"
   assumes "wellformed R G" "checks (rif c {}) R G"
   shows "\<forall>(r,\<alpha>) \<in> set t. inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
   using assms
@@ -799,27 +812,29 @@ proof (induct)
   then show ?case by auto
 next
   case (2 c c' t)
-  thus ?case using silent_rif_checks local_silent wfcom_silent unfolding checks_def by fast
+  thus ?case using silent_rif_checks sim_silent wfcom_silent 
+    unfolding checks_def by fast
 next
   case (3 c r \<alpha> c' t)
   text \<open>Re-phrase rif in terms of r and \<alpha>\<close>
   then obtain c\<^sub>2 where c2[simp]: 
       "rif c {} = rif ((r ;; Basic \<alpha>) ;; c\<^sub>2) {}" "rif c' {} = rif (r ;; c\<^sub>2) {}"
     using rif_lexecute by metis
+  have s: "sim r" using 3 sim_prefix by blast
   text \<open>rif checks between r and \<alpha> must have been carried out\<close>
-  have "wfcom r \<and> wfbasic \<alpha>" using 3 wfcom_exec_prefix by metis
+  have a: "wfcom r \<and> wfbasic \<alpha>" using 3 wfcom_exec_prefix by metis
   hence "inter\<^sub>c (step\<^sub>t R) (step G) r \<alpha>"
-    using 3 exec_rif_checks unfolding c2
+    using s 3 exec_rif_checks unfolding c2
     using rif_checks_prefix by (metis rif.simps(4))
   text \<open>rif checks on the remaining program must have been carried out\<close>
   moreover have "\<forall>a\<in>set t. case a of (a, b) \<Rightarrow> inter\<^sub>c (step\<^sub>t R) (step G) a b"
-    using 3 by (simp add: local_execute wfcom_exec remaining_rif_checks)
+    using 3 by (simp add: remaining_rif_checks[OF _ s] wfcom_exec sim_execute)
   ultimately show ?case by simp
 qed
 
 text \<open>Simplify the soundness property\<close>
 theorem rif_lift_sound:
-  assumes "checks (rif c {}) R G" "local c" "wellformed R G" "wfcom c"
+  assumes "checks (rif c {}) R G" "sim c" "wellformed R G" "wfcom c"
   shows "SimAsm_WP.rif (step\<^sub>t R) (step G) c"
   using assms rif_sound_induct unfolding rif_def by blast
 

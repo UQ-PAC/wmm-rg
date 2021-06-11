@@ -150,7 +150,8 @@ fun expand :: "(nat, nat) com \<Rightarrow> ('v,'g,'r,'a) enuml \<Rightarrow> ((
     "expand (Choice c\<^sub>1 c\<^sub>2) l = Choice (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
     "expand (Loop c\<^sub>1) l = Loop (expand c\<^sub>1 l)" |
     "expand (Parallel c\<^sub>1 c\<^sub>2) l = Parallel (expand c\<^sub>1 l) (expand c\<^sub>2 l)" |
-    "expand (Thread c\<^sub>1) l = Thread (expand c\<^sub>1 l)"
+    "expand (Thread c\<^sub>1) l = Thread (expand c\<^sub>1 l)" |
+    "expand _ l = Nil" 
 
 fun expand_op 
   where "expand_op (v,\<alpha>,f) = \<lfloor>v,\<alpha>,f\<rfloor>"

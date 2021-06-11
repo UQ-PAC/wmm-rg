@@ -123,6 +123,10 @@ next
   thus ?case by (intro ballI seqset false_seqI) auto
 qed auto
 
+lemma seq_rot:
+  "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;; c\<^sub>2 } M"
+  by auto
+
 end
 
 end
