@@ -1,5 +1,5 @@
 theory SimAsm_Syntax
-  imports SimAsm_Rules SimAsm_Inter
+  imports SimAsm_Rules SimAsm_Inter_Term
 begin
 
 syntax
@@ -84,7 +84,7 @@ fun fn_valid :: "('v::equal,'r::equal,'g::equal,'a) threads \<Rightarrow> bool"
   where 
     "fn_valid [(R,G,P,c,Q)] = (stable\<^sub>t R Q \<and> wellformed R G \<and> guar\<^sub>c c G \<and> 
                                 (wellformed R G \<longrightarrow> stable\<^sub>t R Q \<longrightarrow> P \<subseteq> wp R c Q) \<and>
-                                (rif_checks c R))" |
+                                (wellformed R G \<longrightarrow> rif_checks c R G))" |
     "fn_valid _ = undefined"
 
 nonterminal prgs

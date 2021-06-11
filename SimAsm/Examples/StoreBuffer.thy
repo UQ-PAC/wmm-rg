@@ -16,7 +16,7 @@ lemma sb0:
     {
       \<lbrakk>X\<rbrakk> := #1;
       fence;
-      \<^bold>r0 := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>Y\<rbrakk> = 1)
+      \<^bold>r(0 :: nat) := \<lbrakk>Y\<rbrakk> :\<^sub>a \<^sup>aS := (\<^sup>0\<lbrakk>Y\<rbrakk> = 1)
     }
     Q: (\<^sup>0\<lbrakk>X\<rbrakk> = 1 \<and> (\<^sup>aS \<longrightarrow> \<^sup>0\<^bold>r0 = 1))
   FNEND" 
@@ -32,7 +32,11 @@ lemma sb0:
   apply (auto simp: wp\<^sub>r_def st_upd_def step_def glb_def aux_upd_def)[1]
 
   (* WP reasoning *)
-  by simp (clarsimp simp: stabilize_def st_upd_def glb_def aux_upd_def rg_def)
+  apply simp
+  apply (clarsimp simp: stabilize_def st_upd_def glb_def aux_upd_def rg_def)
+
+  (* RIF *)
+  by rif_eval (simp add: expand_points_def checks_def)
 
 text \<open>Verification of the second thread\<close>
 lemma sb1:
@@ -59,7 +63,10 @@ lemma sb1:
   apply (auto simp: wp\<^sub>r_def st_upd_def step_def glb_def aux_upd_def)[1]
 
   (* WP reasoning *)
-  by simp (clarsimp simp: stabilize_def st_upd_def glb_def aux_upd_def rg_def)
+  apply (simp; clarsimp simp: stabilize_def st_upd_def glb_def aux_upd_def rg_def)
+
+  (* RIF *)
+  by rif_eval (simp add: expand_points_def checks_def)
 
 text \<open>Show the conjunction of their post-conditions achieves the desired outcome\<close>
 lemma Q_rewrite:

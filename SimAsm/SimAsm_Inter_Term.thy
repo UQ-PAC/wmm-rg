@@ -583,13 +583,10 @@ attribute_setup get_conv = \<open>Args.term >> (fn t =>
           (Code_Simp.dynamic_conv (Context.proof_of context) o Thm.cterm_of (Context.proof_of context)) t))\<close>
 
 method rif_eval = 
-  (simp add: rif_checks_def rif_full_def del: rif.simps(1,2,4,5,6,7);
-   match conclusion in "checks l (rif c l' {}) R" for c and R 
-      and l :: "('a :: equal \<times>
-    ('b :: equal, 'c :: equal, 'd :: equal) op \<times>
-    (('b, ('c, 'd) SimAsm.var, 'e) state_rec_scheme
-     \<Rightarrow> 'e)) list"
-      and l' :: "('b :: equal, 'c  :: equal, 'd  :: equal) op list" \<Rightarrow>
-    \<open>match [[get_conv "rif c l' {}"]] in U: _ \<Rightarrow> \<open>subst U\<close>\<close>)
+  (unfold rif_executable; simp add: Let_def del: rif.simps(1,2,4,5,6,7);
+   match conclusion in "wellformed R G \<longrightarrow> checks (expand_points (rif c l {}) l') R G" for c and R and G 
+      and l' :: "('v :: equal,'g :: equal,'r :: equal,'a :: equal) enuml" 
+      and l :: "('v,'g,'r) op list"  \<Rightarrow>
+    \<open>match [[get_conv "rif c l {}"]] in U: _ \<Rightarrow> \<open>subst U\<close>\<close>)
 
 end

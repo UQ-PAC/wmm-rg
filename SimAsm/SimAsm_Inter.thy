@@ -38,7 +38,7 @@ text \<open>Test if a point is dependent on an operation, implying ordering of t
 fun ord :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> bool"
   where
     "ord nop p = (bar p)" |
-    "ord (cmp b) p = (bar p \<or> hasGlobal (wrs p) \<or> hasGlobal (deps\<^sub>B b \<inter> rds p))" |
+    "ord (cmp b) p = (bar p \<or> hasGlobal (wrs p) \<or> hasGlobal (deps\<^sub>B b \<inter> rds p) \<or> wrs p \<inter> deps\<^sub>B b \<noteq> {})" |
     "ord (assign v e) p = 
       (bar p \<or> 
         hasGlobal (deps\<^sub>E e \<inter> (rds p \<union> wrs p)) \<or> 
@@ -827,5 +827,8 @@ theorem rif_sound:
   assumes "checks (rif (lift\<^sub>c c) {}) R G" "wellformed R G"
   shows "SimAsm_WP.rif (step\<^sub>t R) (step G) (lift\<^sub>c c)"
   using assms by (intro rif_lift_sound) auto
+
+abbreviation rif_checks
+  where "rif_checks c R G \<equiv> checks (rif (lift\<^sub>c c) {}) R G"
 
 end

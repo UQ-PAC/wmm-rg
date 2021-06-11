@@ -74,7 +74,7 @@ text \<open>Conditions under which a point is ordered after an instruction\<clos
 fun ord\<^sub>e
   where
     "ord\<^sub>e nop p = (bar p)" |
-    "ord\<^sub>e (cmp b) p = (bar p \<or> hasGlobal\<^sub>e (wrs p) \<or> hasGlobal\<^sub>e (fdeps\<^sub>B b |\<inter>| rds p))" |
+    "ord\<^sub>e (cmp b) p = (bar p \<or> hasGlobal\<^sub>e (wrs p) \<or> hasGlobal\<^sub>e (fdeps\<^sub>B b |\<inter>| rds p) \<or>  wrs p |\<inter>| fdeps\<^sub>B b \<noteq> {||})" |
     "ord\<^sub>e (assign v e) p = 
       (bar p \<or> 
         hasGlobal\<^sub>e (fdeps e |\<inter>| (rds p |\<union>| wrs p)) \<or> 
@@ -257,14 +257,24 @@ lemma [intro]:
   "x \<in> fset P \<Longrightarrow> x |\<in>| P"
   by (meson notin_fset)
 
-lemma [intro]:
+lemma fin [intro]:
   "x |\<in>| P \<Longrightarrow> x \<in> fset P"
   by (meson notin_fset)
 
 lemma ord_exec:
   "ord (inst (expand_op \<alpha>)) (expand_point p l) = ord\<^sub>e (fst (snd \<alpha>)) p"
-  by (cases \<alpha>; case_tac b; auto split: var.splits)
-  
+  apply (cases \<alpha>; case_tac b; auto split: var.splits)
+  apply (subgoal_tac "fset (wrs p |\<inter>| fdeps\<^sub>B x2) = fset {||}")
+  apply force
+  apply simp
+  apply (subgoal_tac "x \<in> fset (SimAsm_Inter_Exec.point.wrs p) \<inter> deps\<^sub>B x2")
+  apply force
+  apply (subgoal_tac "x \<in> fset (SimAsm_Inter_Exec.point.wrs p)")
+  apply (subgoal_tac "x \<in> fset (fdeps\<^sub>B x2)")
+  apply auto[1]
+  apply blast+
+  done
+
 lemma proc1_exec:
   "l ! n = \<alpha> \<Longrightarrow> SimAsm_Inter.proc1 (expand_op \<alpha>) (expand_point p l) = expand_points (proc1 n (fst (snd \<alpha>)) p) l"
   apply (simp only: expand_points_def wken_exec proc1_def SimAsm_Inter.proc1_def ord_exec stren_exec)
