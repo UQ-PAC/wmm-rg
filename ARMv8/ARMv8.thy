@@ -1,5 +1,5 @@
 theory ARMv8
-  imports ARMv8_State Syntax
+  imports ARMv8_State "../Syntax"
 begin
 
 chapter \<open>ARMv8\<close>

@@ -1,5 +1,5 @@
 theory ARMv8_Rules    
-  imports Soundness ARMv8 "HOL-Eisbach.Eisbach"
+  imports "../Soundness" ARMv8 "HOL-Eisbach.Eisbach"
 begin
 
 section \<open>Wellformedness\<close>
