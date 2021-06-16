@@ -21,14 +21,6 @@ type_synonym ('v,'g,'r,'a) rtrans = "('v,'g,'r,'a) trel \<Rightarrow> ('v,'g,'r,
 
 type_synonym ('v,'g,'r,'a) auxfn = "('v,('g,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
 
-(*
-definition glb
-  where "glb m \<equiv> \<lambda>v. m (Glb v)"
-
-definition rg
-  where "rg m \<equiv> \<lambda>v. m (Reg v)"
-*)
-
 section \<open>Write Operations\<close>
 
 definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v \<Rightarrow> ('v,'a,'b) state_rec_scheme"

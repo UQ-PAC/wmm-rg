@@ -47,6 +47,20 @@ next
       then show ?case using Seq(3) outer by auto
     qed
   qed
+next
+  case (Ord c\<^sub>1 c\<^sub>2)
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Ord(4) by fast
+  have i: "inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle>" "inter\<^sub>c R G c\<^sub>2 \<alpha>" using Ord by auto
+  show ?case
+  proof (rule Ord(2)[OF _ m(2) Ord(5) i(2)], goal_cases outer)
+    case (outer P' N')
+    hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
+    show ?case 
+    proof (rule Ord(1)[OF _ c1 outer(2) i(1)], goal_cases inner)
+      case (inner P'' M'')
+      then show ?case using Ord(3) outer by auto
+    qed
+  qed
 qed auto
 
 section \<open>Transition Rules\<close>

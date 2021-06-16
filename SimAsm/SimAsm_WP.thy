@@ -203,8 +203,7 @@ proof (cases "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}")
 next
   case False
   then show ?thesis using fwd assms 
-    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-    by blast+
+    by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
 qed
 
 lemma fwd_wfbasic:
