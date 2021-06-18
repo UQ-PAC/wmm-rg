@@ -1,5 +1,5 @@
 theory ARMv8
-  imports ARMv8_Exp "../Syntax"
+  imports "../State" ARMv8_Exp "../Syntax" 
 begin
 
 chapter \<open>ARMv8\<close>
@@ -66,6 +66,8 @@ type_synonym ('v,'r,'a) subbasic = "(('v,'r,'a) auxop, ('v,'r,'a) state) basic"
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
 fun fwd\<^sub>s :: "('v,'r,'a) subbasic \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) subbasic" 
   where "fwd\<^sub>s (\<alpha>,v,_) \<beta> =  (fwd\<^sub>a \<alpha> \<beta>, v, beh\<^sub>a (fwd\<^sub>a \<alpha> \<beta>))" 
+(*   where "fwd\<^sub>s (\<alpha>,v,_) \<beta> =  (fwd\<^sub>a \<alpha> \<beta>, wp UNIV (beh\<^sub>a \<beta>) v, beh\<^sub>a (fwd\<^sub>a \<alpha> \<beta>))" 
+ *)
 
 text \<open>Lift an operation with specification\<close>
 definition liftg :: "('v,'r,'a) pred \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) subbasic" 
@@ -87,10 +89,10 @@ significantly.
 datatype ('v,'r,'a) com_armv8 =
   Skip
   | Fence
-  | Load "('v,'r,'a) pred" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
-  | Store "('v,'r,'a) pred" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
+  | Load "('v,'r,'a) pred" "'v set" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
+  | Store "('v,'r,'a) pred" "'v set" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
   | Op 'r "('v,'r) exp" 
-  | CAS "('v,'r,'a) pred" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
+  | CAS "('v,'r,'a) pred" "'v set" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
   | Seq "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
   | If "('v,'r) bexp" "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
 

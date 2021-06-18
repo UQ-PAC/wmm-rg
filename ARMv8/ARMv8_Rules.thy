@@ -102,6 +102,17 @@ datatype ('v,'r,'a) insts =
   | cm "('v,'r) bexp"
   | ncm "('v,'r) bexp"
   | env "('v,'a) grel"
+  | cs "('v,'r,'a) pred" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
+
+text \<open>Transform a predicate based on a successful CAS instruction\<close>
+abbreviation wp_CAS\<^sub>T :: "('v,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
+  where "wp_CAS\<^sub>T v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<equiv> 
+    {m. m \<in> v \<and> (st m (Glb (rg m r\<^sub>a)) = st m (Reg r\<^sub>1) \<longrightarrow> (m(Glb (rg m r\<^sub>a) :=\<^sub>s rg m r\<^sub>2, Reg r :=\<^sub>s T, aux: a)) \<in> Q)}"
+
+text \<open>Transform a predicate based on a failed CAS instruction\<close>
+abbreviation wp_CAS\<^sub>F :: "('v,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
+  where "wp_CAS\<^sub>F v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<equiv> 
+    {m. m \<in> v \<and> (st m (Glb (rg m r\<^sub>a)) \<noteq> st m (Reg r\<^sub>1) \<longrightarrow> (m(Reg r :=\<^sub>s F, aux: a)) \<in> Q)}"
 
 fun wpre :: "('v,'r,'a) insts \<Rightarrow> ('v,'r,'a) trans"
   where
@@ -110,31 +121,18 @@ fun wpre :: "('v,'r,'a) insts \<Rightarrow> ('v,'r,'a) trans"
     "wpre (ir r e) Q = wp\<^sub>i (op r e) Q" |
     "wpre (cm b) Q = wp\<^sub>i (cmp b) Q" |
     "wpre (ncm b) Q = wp\<^sub>i (ncmp b) Q" |
-    "wpre (env R) Q = stabilize R Q"
-
-text \<open>Transform a predicate based on a successful CAS instruction\<close>
-definition wp_CAS\<^sub>T :: "'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
-  where "wp_CAS\<^sub>T r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<equiv> 
-    {m. st m (Glb (rg m r\<^sub>a)) = st m (Reg r\<^sub>1) \<longrightarrow> (m(Glb (rg m r\<^sub>a) :=\<^sub>s rg m r\<^sub>2, Reg r :=\<^sub>s T, aux: a)) \<in> Q}"
-
-text \<open>Transform a predicate based on a failed CAS instruction\<close>
-definition wp_CAS\<^sub>F :: "'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
-  where "wp_CAS\<^sub>F r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<equiv> 
-    {m. st m (Glb (rg m r\<^sub>a)) \<noteq> st m (Reg r\<^sub>1) \<longrightarrow> (m(Reg r :=\<^sub>s F, aux: a)) \<in> Q}"
-
-text \<open>Transform a predicate based on a CAS instruction\<close>
-definition wp_CAS :: "'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
-  where "wp_CAS r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<equiv> wp_CAS\<^sub>T r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<inter> wp_CAS\<^sub>F r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q"
-
+    "wpre (env R) Q = stabilize R Q" |
+    "wpre (cs v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q = wp_CAS\<^sub>T v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q \<inter> wp_CAS\<^sub>F v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q"
+ 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "('v,'a) grel \<Rightarrow> ('v,'r,'a) com_armv8 \<Rightarrow> ('v,'r,'a) trans"
   where
     "wp R Skip Q = Q" |
     "wp R Fence Q = Q" |
-    "wp R (Load v r\<^sub>a r a) Q = stabilize R (wpre (ld v r\<^sub>a r a) Q)" |
-    "wp R (Store v r\<^sub>a r a) Q = stabilize R (wpre (sr v True\<^sub>B r\<^sub>a r a) Q)" |
+    "wp R (Load v d r\<^sub>a r a) Q = stabilize R (wpre (ld (v \<inter> {m. ev\<^sub>E (rg m) r\<^sub>a \<in> d}) r\<^sub>a r a) Q)" |
+    "wp R (Store v d r\<^sub>a r a) Q = stabilize R (wpre (sr  (v \<inter> {m. ev\<^sub>E (rg m) r\<^sub>a \<in> d}) True\<^sub>B r\<^sub>a r a) Q)" |
     "wp R (Op r e) Q = wpre (ir r e) Q" |
-    "wp R (CAS v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q = stabilize R (v \<inter> wp_CAS r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a Q)" |
+    "wp R (CAS v d r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q = stabilize R (wpre (cs (v \<inter> {m. rg m r\<^sub>a \<in> d}) r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) Q)" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = (wpre (cm b) (wp R c\<^sub>1 Q) \<inter> wpre (ncm b) (wp R c\<^sub>2 Q))"
 
@@ -151,9 +149,9 @@ abbreviation guar
 text \<open>Ensure all global operations in a thread conform to its guarantee\<close>
 fun guar\<^sub>c
   where 
-    "guar\<^sub>c (Load v r\<^sub>a r a) G = (v \<subseteq> guar (wpre (ld UNIV r\<^sub>a r a)) (step G))" |
-    "guar\<^sub>c (Store v r\<^sub>a r a) G = (v \<subseteq> guar (wpre (sr UNIV True\<^sub>B r\<^sub>a r a)) (step G))" |
-    "guar\<^sub>c (CAS v r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) G = (v \<subseteq> guar (wp_CAS r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) (step G))" |
+    "guar\<^sub>c (Load v d r\<^sub>a r a) G = (v \<inter> {m. ev\<^sub>E (rg m) r\<^sub>a \<in> d} \<subseteq> guar (wpre (ld UNIV r\<^sub>a r a)) (step G))" |
+    "guar\<^sub>c (Store v d r\<^sub>a r a) G = (v \<inter> {m. ev\<^sub>E (rg m) r\<^sub>a \<in> d} \<subseteq> guar (wpre (sr UNIV True\<^sub>B r\<^sub>a r a)) (step G))" |
+    "guar\<^sub>c (CAS v d r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) G = (v \<inter> {m. (rg m) r\<^sub>a \<in> d} \<subseteq> guar (wpre (cs UNIV r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a)) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If b c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c _ _ = True"
@@ -166,22 +164,22 @@ fun lift\<^sub>c :: "('v,'r,'a) com_armv8 \<Rightarrow> (('v,'r,'a) auxop, ('v,'
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c Fence = Basic (\<lfloor>fence\<rfloor>)" |
     "lift\<^sub>c (Op r e) = Basic (\<lfloor>op r e\<rfloor>)" |
-    "lift\<^sub>c (Load c r\<^sub>a r a) = \<Sqinter> {[
+    "lift\<^sub>c (Load c d r\<^sub>a r a) = \<Sqinter> {[
       \<lfloor>eq r\<^sub>a (Val v\<^sub>a)\<rfloor>, 
       \<lfloor>{m. ev\<^sub>E (rg m) r\<^sub>a = v\<^sub>a} \<inter> c,load v\<^sub>a (Val v), (\<lambda>m. a (m(Reg r :=\<^sub>s v)))\<rfloor>, 
-      \<lfloor>op r (Val v)\<rfloor>] |v v\<^sub>a. True}" |
-    "lift\<^sub>c (Store c r\<^sub>a r a) = \<Sqinter> {[
+      \<lfloor>op r (Val v)\<rfloor>] |v v\<^sub>a. v\<^sub>a \<in> d}" |
+    "lift\<^sub>c (Store c d r\<^sub>a r a) = \<Sqinter> {[
       \<lfloor>eq r\<^sub>a (Val v\<^sub>a)\<rfloor>, 
-      \<lfloor>{m. ev\<^sub>E (rg m) r\<^sub>a = v\<^sub>a} \<inter> c,cstore True\<^sub>B v\<^sub>a (Var r), a\<rfloor>] |v\<^sub>a. True}" |
-    "lift\<^sub>c (CAS c r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) = (Choice
+      \<lfloor>{m. ev\<^sub>E (rg m) r\<^sub>a = v\<^sub>a} \<inter> c,cstore True\<^sub>B v\<^sub>a (Var r), a\<rfloor>] |v\<^sub>a. v\<^sub>a \<in> d}" |
+    "lift\<^sub>c (CAS c d r\<^sub>a r\<^sub>1 r\<^sub>2 r T F a) = (Choice
       (\<Sqinter> {[
         \<lfloor>eq (Var r\<^sub>a) (Val v\<^sub>a)\<rfloor>, 
         \<lfloor>{m. rg m r\<^sub>a = v\<^sub>a} \<inter> c,cas\<^sub>T v\<^sub>a (Var r\<^sub>1) (Var r\<^sub>2),(\<lambda>m. a (m(Reg r :=\<^sub>s T)))\<rfloor>, 
-        \<lfloor>op r (Val T)\<rfloor>] |v\<^sub>a. True})
+        \<lfloor>op r (Val T)\<rfloor>] |v\<^sub>a. v\<^sub>a \<in> d})
       (\<Sqinter> {[
         \<lfloor>eq (Var r\<^sub>a) (Val v\<^sub>a)\<rfloor>, 
         \<lfloor>{m. rg m r\<^sub>a = v\<^sub>a} \<inter> c,cas\<^sub>F v\<^sub>a (Var r\<^sub>1),(\<lambda>m. a (m(Reg r :=\<^sub>s F)))\<rfloor>, 
-        \<lfloor>op r (Val F)\<rfloor>] |v\<^sub>a. True}))" |
+        \<lfloor>op r (Val F)\<rfloor>] |v\<^sub>a. v\<^sub>a \<in> d}))" |
     "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1 ;; lift\<^sub>c c\<^sub>2)" |
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
       (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c\<^sub>1)) 
@@ -206,7 +204,7 @@ lemma local_lift [intro]:
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:
   "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow> \<forall>\<beta>\<in>basics (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
-  by (induct c) (auto simp: guar_def step_def reflexive_def wp\<^sub>r_def wp_CAS\<^sub>T_def wp_CAS_def wp_CAS\<^sub>F_def liftl_def liftg_def)
+  by (induct c) (auto simp: guar_def step_def reflexive_def wp\<^sub>r_def liftl_def liftg_def)
  
 text \<open>An ordering property on contexts\<close>
 definition context_order 
@@ -293,7 +291,7 @@ method expand_seq =
 method basic_wp\<^sub>i = 
   ((rule basic_wp\<^sub>i_local | rule basic_wp\<^sub>i_global), 
    (rule stabilize_cmp | rule subset_refl); 
-   auto simp: wp\<^sub>r_def step_def wp_CAS_def wp_CAS\<^sub>T_def wp_CAS\<^sub>F_def)
+   auto simp: wp\<^sub>r_def step_def)
 
 text \<open>A rule for cmp operations, used for If/While/DoWhile\<close>
 lemma cmp_sound [intro!]:
