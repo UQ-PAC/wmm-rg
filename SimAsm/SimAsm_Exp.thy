@@ -4,6 +4,8 @@ begin
 
 section \<open>Expression Language\<close>
 
+(* first value in Exp is a function used to combine the values from its
+subexpressions into one value. *)
 datatype ('v,'g,'r) exp = Var "('g,'r) var" | Val 'v | Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list"
 
 text \<open>Evaluate an expression given a state\<close>

@@ -10,6 +10,15 @@ fun re\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> bool"
     "re\<^sub>i (cmp b) \<alpha> = (\<alpha> \<noteq> full_fence \<and> wr \<alpha> \<subseteq> locals \<and> rd (cmp b) \<inter> wr \<alpha> = {} \<and> rd (cmp b) \<inter> rd \<alpha> \<subseteq> locals)" |
     "re\<^sub>i \<alpha> \<beta> = (\<beta> \<noteq> full_fence \<and> wr \<alpha> \<inter> wr \<beta> = {} \<and> rd \<alpha> \<inter> wr \<beta> = {} \<and> rd \<alpha> \<inter> rd \<beta> \<subseteq> locals)"
 
+fun re\<^sub>i' :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> bool" where
+"re\<^sub>i' full_fence \<alpha> = False" |
+"re\<^sub>i' \<alpha> full_fence = False" |
+"re\<^sub>i' (cmp b) \<alpha> = ((wr \<alpha> \<subseteq> locals) \<and> (wr \<alpha> \<inter> rd (cmp b) = {}) \<and> (rd (cmp b) \<inter> rd \<alpha> \<subseteq> locals))" |
+"re\<^sub>i' \<alpha> \<beta> = ((wr \<alpha> \<inter> wr \<beta> = {}) \<and> (wr \<beta> \<inter> rd \<alpha> = {}) \<and> (rd \<alpha> \<inter> rd \<beta> \<subseteq> locals))"
+
+lemma "re\<^sub>i' \<alpha> \<beta> = re\<^sub>i \<alpha> \<beta>"
+by (induction rule: re\<^sub>i'.induct) auto
+
 fun fwd\<^sub>i  :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,'g,'r) op" 
   where "fwd\<^sub>i \<alpha> (assign x e) = subst\<^sub>i \<alpha> x e" | "fwd\<^sub>i \<alpha> _ = \<alpha>"
 

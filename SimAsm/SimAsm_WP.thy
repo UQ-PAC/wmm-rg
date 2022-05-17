@@ -138,7 +138,12 @@ proof (induct c)
 qed (auto simp: guar_def reflexive_def liftl_def step_def)
 
 interpretation rules fwd\<^sub>s re\<^sub>a 
-  by (unfold_locales) (auto, case_tac ad, auto simp: Let_def)
+  apply (unfold_locales)
+  apply (auto)
+  apply (case_tac ad)
+  apply auto
+  (* apply (auto simp: Let_def) *)
+  done
 
 text \<open>Extract the instruction from an abstract operation\<close>
 abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"

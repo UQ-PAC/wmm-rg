@@ -46,7 +46,7 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<leadsto> _" [71,71] 70)
   where
   seq1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1' ;; c\<^sub>2" |
-ord1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<leadsto> c\<^sub>1' \<cdot> c\<^sub>2" |
+  ord1[intro]:  "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<leadsto> c\<^sub>1' \<cdot> c\<^sub>2" |
   seq2[intro]:  "c\<^sub>2 \<leadsto> c\<^sub>2' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<leadsto> c\<^sub>1 ;; c\<^sub>2'" |
   seqE1[intro]: "Nil ;; c\<^sub>1 \<leadsto> c\<^sub>1" |
   seqE2[intro]: "c\<^sub>1 ;; Nil \<leadsto> c\<^sub>1" |
@@ -119,7 +119,7 @@ abbreviation com_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarr
 
 text \<open>Collect of all possible transitions\<close>
 inductive_set transitions :: "('a,'b) config list set"
-  where 
+  where
     one[intro]: "[s] \<in> transitions" |
     env[intro]: "s -e\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |
     prg[intro]: "s -\<alpha>\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |

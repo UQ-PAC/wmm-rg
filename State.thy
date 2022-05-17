@@ -28,6 +28,12 @@ text \<open>Guarantee check for a pre-condition and post-relation\<close>
 definition guar :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool"
   where "guar pre post G \<equiv> {(m,m'). m \<in> pre \<and> (m,m') \<in> post} \<subseteq> G"
 
+fun guar2 :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool" where
+"guar2 pre post G = (pre \<subseteq> {m. (\<forall>m'. ((m,m') \<in> post \<longrightarrow> (m,m') \<in> G))})"
+
+lemma "guar pre post G = guar2 pre post G"
+by (auto simp add: guar_def)
+
 text \<open>Shorthand for the weakest-precondition of an environment step\<close>
 abbreviation wp\<^sub>e :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
   where "wp\<^sub>e R Q \<equiv> wp UNIV (R\<^sup>* ) Q"

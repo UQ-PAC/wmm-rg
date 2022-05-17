@@ -4,6 +4,8 @@ begin
 
 chapter \<open>While Language Syntax\<close>
 
+(* a basic step is an action, a verification condition, and a behaviour set.  *)
+(* note that iterated product types are right-associated. *)
 type_synonym ('a,'b) basic = "('a \<times> 'b set \<times> 'b rel)"
 type_synonym ('a,'b) seq = "('a,'b) basic list"
 
@@ -31,6 +33,7 @@ datatype ('a,'b) com =
   | Loop "('a,'b) com" ("_*" [100] 150)
   | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
   | Thread "('a,'b) com"
+
 
 text \<open>Ensure there is no parallelism within a program\<close>
 fun local :: "('a,'b) com \<Rightarrow> bool"

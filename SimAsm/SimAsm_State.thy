@@ -4,12 +4,29 @@ begin
 
 section \<open>State\<close>
 
+
+(* variable: either a register or a global. *)
 datatype ('g,'r) var = Reg 'r | Glb 'g
+
+(* state record mapping some key (for example a variable name) to values *)
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
 
+(* because records can be arbitrarily extended, a record automatically gives rise to a
+*_scheme type which defines arbitrary possible extensions to that record.
+for example, given ('v,'a) state_rec, we have ('v,'a,'c) state_rec_scheme which represents an
+extension with 'c. *)
+
+(* this is shown below where "st s" :: 'a \<Rightarrow> 'v and this assigns the value of the st field back to
+itself. *)
+fun test :: "('v,'a,'c) state_rec_scheme \<Rightarrow> ('v,'a,'c) state_rec_scheme" where
+"test s = s\<lparr>st := st s\<rparr>"
+
+(* state: in its most general form maps a global or register to values, possibly extended. *)
 type_synonym ('v,'g,'r,'a) state = "('v,('g,'r) var,'a) state_rec_scheme"
 type_synonym ('v,'g,'a) gstate = "('v,'g,'a) state_rec_scheme"
 
+(* a predicate is defined as a set of states satisfying that predicate.
+analagously for global predicates. *)
 type_synonym ('v,'g,'r,'a) pred = "('v,'g,'r,'a) state set"
 type_synonym ('v,'g,'a) gpred = "('v,'g,'a) gstate set"
 
@@ -19,10 +36,11 @@ type_synonym ('v,'g,'a) grel = "('v,'g,'a) gstate rel"
 type_synonym ('v,'g,'r,'a) trans = "('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
 type_synonym ('v,'g,'r,'a) rtrans = "('v,'g,'r,'a) trel \<Rightarrow> ('v,'g,'r,'a) trel"
 
+(* the possible extension of the state is used to store this auxiliary information *)
 type_synonym ('v,'g,'r,'a) auxfn = "('v,('g,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
 
 section \<open>Write Operations\<close>
-
+                                           
 definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v \<Rightarrow> ('v,'a,'b) state_rec_scheme"
   where "st_upd m a b = m \<lparr> st := ((st m) (a := b)) \<rparr>"
 
@@ -54,10 +72,12 @@ lemma aux_nop [simp]:
 lemma st_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a :=\<^sub>s b))(c :=\<^sub>s d) = (m(c :=\<^sub>s d))(a :=\<^sub>s b)"
   unfolding st_upd_def by (auto intro!: equality fun_upd_twist)
 
-definition glb
+(* obtains the global state *)
+definition glb :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
   where "glb m \<equiv> \<lparr> st = (\<lambda>v. st m (Glb v)), \<dots> = more m \<rparr>"
 
-definition rg
+(* obtains the register state as a usual function. *)
+definition rg :: "('v,'g,'r,'a) state \<Rightarrow> 'r \<Rightarrow> 'v"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
 
 lemma [simp]:
@@ -76,6 +96,7 @@ lemma [simp]:
   "state_rec.more (m(aux: f)) = f m"
   by (auto simp: aux_upd_def)
 
+(* what is this? *)
 lemma aux_exec [intro!]:
   assumes "(m\<^sub>1,m\<^sub>2) \<in> P"
   shows "(m\<^sub>1,m\<^sub>2(aux: f)) \<in> P O {(m, m'). m' = m(aux: f)}"

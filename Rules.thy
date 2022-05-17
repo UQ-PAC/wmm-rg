@@ -113,6 +113,7 @@ lemma false_seqI [intro]:
   "\<forall>\<beta> \<in> set s. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {seq2com s} {}"
   by (induct s) auto
 
+(* why do we need these to satisfy the guarantee, and why do we need local c? *)
 lemma falseI:
   "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c)
