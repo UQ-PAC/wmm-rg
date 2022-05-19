@@ -33,7 +33,7 @@ datatype ('a,'b) com =
   | Loop "('a,'b) com" ("_*" [100] 150)
   | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
   | Thread "('a,'b) com"
-
+  | Capture "'a set" "('a,'b) com"
 
 text \<open>Ensure there is no parallelism within a program\<close>
 fun local :: "('a,'b) com \<Rightarrow> bool"
@@ -44,6 +44,7 @@ fun local :: "('a,'b) com \<Rightarrow> bool"
     "local (c\<^sub>1 \<cdot> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
     "local (c\<^sub>1 \<sqinter> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |  
     "local (c*) = (local c)" |    
+    "local (Capture _ c) = local c" |
     "local _ = True"
 
 text \<open>Identify all operations in a program\<close>
@@ -57,6 +58,7 @@ fun basics :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
     "basics (Parallel c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Loop c) = basics c" |
     "basics (Thread c) = basics c" |
+    "basics (Capture _ c) = basics c" |
     "basics _ = {}"
 
 text \<open>Shorthand for an environment step\<close>

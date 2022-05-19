@@ -26,19 +26,23 @@ r should be the program \<alpha>' has to reorder with in c to execute and
 \<alpha> should be \<alpha>' forwarded across r.\<close>
 inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_,_] _" [71,0,0,71] 70)
-  where
+  where            
   act[intro]: "Basic \<alpha> \<mapsto>[Nil,\<alpha>] Nil" |
   ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
 inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 
+fun captured :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool" where
+"captured (Capture ca c) _ = False"
+
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
   where
   thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> Thread c \<mapsto>[beh \<alpha>\<llangle>r\<rrangle>] Thread c'" |
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
-  par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
+  par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'" |
+  cap[intro]:  "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> tag \<alpha> \<notin> ca \<Longrightarrow> Capture ca c \<mapsto>[beh a\<llangle>r\<rrangle>] Capture ca c'" (* but then can't put Capture inside a thread. *)
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
 
 text \<open>Small step semantics for a silent step\<close>
@@ -61,8 +65,12 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   parE1[intro]: "Nil || c \<leadsto> c" |
   parE2[intro]: "c || Nil \<leadsto> c" |
   thr[intro]:   "c \<leadsto> c' \<Longrightarrow> Thread c \<leadsto> Thread c'" |
-  thrE[intro]:  "Thread Nil \<leadsto> Nil"
+  thrE[intro]:  "Thread Nil \<leadsto> Nil" |
+  (* violates semantics of silent steps because judgements are not preserved, since the state changes. *)
+  (* cap[intro]:   "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> tag \<alpha> \<in> ca \<Longrightarrow> Capture ca c \<leadsto> Capture ca c'" | *)
+  capE[intro]:  "Capture ca Nil \<leadsto> Nil" 
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
+
 
 text \<open>An execution step implies the program has changed\<close>
 lemma execute_neq:
@@ -130,13 +138,13 @@ lemma [simp]:
   "basics (seq2com s) = set s"
   by (induct s) auto
 
-lemma basics_silent:
-  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
-  using assms by (induct) auto
-
 lemma basics_exec:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> basics c'"
   using assms by (induct) auto
+
+lemma basics_silent:
+  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
+  using assms basics_exec by (induct) auto
 
 lemma basics_exec_prefix:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
