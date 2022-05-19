@@ -77,8 +77,6 @@ proof (induct arbitrary: c' rule: rules.induct)
 next
   case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) blast+
-next
-  case (capture R G P c Q ca)
 qed (cases rule: silentE, auto)+
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
