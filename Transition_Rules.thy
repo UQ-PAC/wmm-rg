@@ -104,6 +104,9 @@ next
     using ooo(2)[OF m(2) i(2)] by blast
   hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
+next
+  case (capNil c\<^sub>1 \<alpha> c\<^sub>1' s s')
+  then show ?case sorry
 qed
 
 text \<open>Judgements are preserved across global execution steps\<close>

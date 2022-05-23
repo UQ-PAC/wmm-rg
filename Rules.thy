@@ -29,7 +29,13 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                   R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                    R',G' \<turnstile> P' { c } Q'"  |
-  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)"
+  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" (* |
+  capture[intro]:
+    "R,G \<turnstile> P {c} Q \<Longrightarrow> 
+      {(m,m') |m m'. (merge m s, merge m' s) \<in> R},
+      {(m,m') |m m'. (merge m s, merge m' s') \<in> G} 
+      \<turnstile> {m |m. merge m s \<in> P} {Capture s c} {m |m. merge m s' \<in> Q}" *)
+  | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P'"
 
 subsection \<open>Properties\<close>
 
@@ -107,6 +113,12 @@ next
   hence "stable R (\<Inter>s\<in>S. P\<^sub>s s)" by (auto simp: stable_def)
   moreover have "P \<subseteq> (\<Inter>s\<in>S. P\<^sub>s s)" using s by auto
   ultimately show ?case using s seqset.hyps(1) by blast
+next
+  case (capall R G P c Q)
+  then obtain P' where p': "P \<subseteq> P'" "stable R P'" "R,G \<turnstile> P' {c} Q" by blast
+  hence "R,G \<turnstile> P' {CaptureAll c} P'" using rules.capall by blast
+  hence "R,G \<turnstile> P' {CaptureAll c} P" using rules.conseq p'(1) by try0
+  then show ?case using rules.capall 
 qed blast+
 
 lemma false_seqI [intro]:

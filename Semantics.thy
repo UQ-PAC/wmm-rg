@@ -19,6 +19,8 @@ begin
 
 section \<open>Program Transition Definitions\<close>
 
+
+
 text \<open>
 Semantics that collects reordering effects.
 Given c \<mapsto>[r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha><r> c', such that
@@ -31,6 +33,11 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
   ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
+(*   cap[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> 
+    Capture s c\<^sub>1 \<mapsto>[Nil,
+      (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
+    Capture s' c\<^sub>1'" *)
+  (* | capNil[intro]: "c\<^sub>1 \<mapsto>[Nil,\<alpha>] c\<^sub>1' \<Longrightarrow> Capture s c\<^sub>1 \<mapsto>[Nil,capBasic \<alpha> s s'] Capture s' c\<^sub>1'" *)
 inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -61,7 +68,10 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   parE1[intro]: "Nil || c \<leadsto> c" |
   parE2[intro]: "c || Nil \<leadsto> c" |
   thr[intro]:   "c \<leadsto> c' \<Longrightarrow> Thread c \<leadsto> Thread c'" |
-  thrE[intro]:  "Thread Nil \<leadsto> Nil"
+  thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
+  cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) (* |
+  capE[intro]:  "Capture s Nil \<leadsto> Nil" *)
+  | cap[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> CaptureAll c \<leadsto> CaptureAll c'"
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>
@@ -87,15 +97,16 @@ lemma [intro]:
   "local (seq2com s)"
   by (induct s) auto
 
-text \<open>A silent step will not introduce parallelism\<close>
-lemma local_silent:
-  "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"
-  by (induct rule: silent.induct) auto
-
 text \<open>An execution step will not introduce parallelism\<close>
 lemma local_execute:
   "c \<mapsto>[r,\<alpha>'] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
   by (induct rule: lexecute.induct) auto
+
+text \<open>A silent step will not introduce parallelism\<close>
+lemma local_silent:
+  "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"  
+by (induct rule: silent.induct) (auto simp add: local_execute)
+  
 
 section \<open>Transition Definitions\<close>
 
@@ -136,11 +147,15 @@ lemma basics_silent:
 
 lemma basics_exec:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> basics c'"
-  using assms by (induct) auto
+  using assms by induct auto
+  
 
 lemma basics_exec_prefix:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
-  using assms by (induct) auto
+  using assms by induct auto
+  (* apply induct *)
+  (* apply auto[4] *)
+  (* apply auto+ *)
 
 end
 

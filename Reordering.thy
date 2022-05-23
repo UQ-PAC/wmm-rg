@@ -10,8 +10,9 @@ The ideas here are derived from Colvin & Smith.
 From these definitions we can recursively define reordering and forwarding over programs.
 \<close>
 
+
 locale reordering =
-  fixes fwd :: "('a,'b) basic \<Rightarrow> 'a \<Rightarrow> ('a,'b) basic" ("_\<langle>_\<rangle>" [1000,0] 1000)
+  fixes fwd :: "('a,'b :: state) basic \<Rightarrow> 'a \<Rightarrow> ('a,'b) basic" ("_\<langle>_\<rangle>" [1000,0] 1000)
   and re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
   assumes tag_fwd: "tag a = tag b \<Longrightarrow> tag a\<langle>c\<rangle> = tag b\<langle>c\<rangle>"
 
@@ -28,7 +29,7 @@ fun fwd_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) ba
   ("_\<llangle>_\<rrangle>" [1000,0] 1000)
   where
     "\<alpha>\<llangle>Nil\<rrangle> = \<alpha>" |
-    "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>tag \<beta>\<rangle>" |
+    "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>tag \<beta>\<rangle>" |            
     "\<alpha>\<llangle>c\<^sub>1 ;; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>c\<^sub>1 \<cdot> c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>_\<rrangle> = \<alpha>"
