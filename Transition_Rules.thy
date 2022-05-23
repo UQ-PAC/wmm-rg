@@ -77,6 +77,10 @@ proof (induct arbitrary: c' rule: rules.induct)
 next
   case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) blast+
+next
+  case (capall R G P c Q)
+  then obtain c'' where "c' = CaptureAll c''" by blast
+  then show ?case using capall   
 qed (cases rule: silentE, auto)+
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
@@ -104,9 +108,6 @@ next
     using ooo(2)[OF m(2) i(2)] by blast
   hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
-next
-  case (capNil c\<^sub>1 \<alpha> c\<^sub>1' s s')
-  then show ?case sorry
 qed
 
 text \<open>Judgements are preserved across global execution steps\<close>

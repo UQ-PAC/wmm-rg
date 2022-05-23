@@ -71,6 +71,7 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
   cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) (* |
   capE[intro]:  "Capture s Nil \<leadsto> Nil" *)
+  | capnil[intro]: "CaptureAll Nil \<leadsto> Nil"
   | cap[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> CaptureAll c \<leadsto> CaptureAll c'"
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
@@ -141,14 +142,13 @@ lemma [simp]:
   "basics (seq2com s) = set s"
   by (induct s) auto
 
-lemma basics_silent:
-  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
-  using assms by (induct) auto
-
 lemma basics_exec:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> basics c'"
   using assms by induct auto
-  
+
+lemma basics_silent:
+  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
+  using assms basics_exec by (induct) auto   
 
 lemma basics_exec_prefix:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"

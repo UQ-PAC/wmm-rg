@@ -83,7 +83,7 @@ fun basics :: "('a,'b :: state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Thread c) = basics c" |
     (* "basics (Capture s c) = uncapBasic s ` basics c" | *)
     "basics (Capture s c) = basics c" | 
-    "basics (CaptureAll c) = {}" |
+    "basics (CaptureAll c) = basics c" |
     "basics _ = {}"
 
 text \<open>Shorthand for an environment step\<close>
