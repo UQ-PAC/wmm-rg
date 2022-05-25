@@ -403,7 +403,7 @@ subsection \<open>Silent rif Checks\<close>
 
 text \<open>Trivial proof showing rif is preserved across silent steps\<close>
 lemma silent_rif_checks:
-  assumes "c \<leadsto> c'" "sim c"
+  assumes "silent c c'" "sim c"
   shows "rif c' P \<subseteq> rif c P"
   using assms
 proof (induct arbitrary: P)
@@ -787,7 +787,7 @@ next
 qed auto
 
 lemma sim_silent:
-  "c \<leadsto> c' \<Longrightarrow> sim c \<Longrightarrow> sim c'"
+  "silent c c' \<Longrightarrow> sim c \<Longrightarrow> sim c'"
   by (induct rule: silent.induct) auto
 
 lemma sim_execute:

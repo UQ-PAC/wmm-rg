@@ -65,24 +65,6 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
-text \<open>Judgements are preserved across silent steps\<close>
-lemma rewrite_ruleI [intro]:
-  assumes "R,G \<turnstile> P {c} Q"
-  assumes "c \<leadsto> c'"
-  shows "R,G \<turnstile> P {c'} Q"
-  using assms
-proof (induct arbitrary: c' rule: rules.induct)
-  case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
-  thus ?case by (cases rule: silentE, auto) blast+
-next
-  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
-  thus ?case by (cases rule: silentE, auto) blast+
-next
-  case (capall R G P c Q)
-  then obtain c'' where "c' = CaptureAll c''" by blast
-  then show ?case using capall   
-qed (cases rule: silentE, auto)+
-
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
@@ -109,6 +91,23 @@ next
   hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 qed
+
+thm silentE
+
+text \<open>Judgements are preserved across silent steps\<close>
+lemma rewrite_ruleI [intro]:
+  assumes "R,G \<turnstile> P {c} Q"
+  assumes "c \<leadsto> c'"
+  shows "R,G \<turnstile> P {c'} Q"
+  using assms
+proof (induct arbitrary: c' rule: rules.induct)
+  case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
+  thus ?case by (cases rule: silentE, auto) blast+
+next
+  case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
+  thus ?case by (cases rule: silentE, auto) blast+
+qed (cases rule: silentE, auto)+
+
 
 text \<open>Judgements are preserved across global execution steps\<close>
 lemma gexecute_ruleI [intro]:

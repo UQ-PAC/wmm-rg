@@ -71,8 +71,9 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
   cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) (* |
   capE[intro]:  "Capture s Nil \<leadsto> Nil" *)
-  | capnil[intro]: "CaptureAll Nil \<leadsto> Nil"
-  | cap[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> CaptureAll c \<leadsto> CaptureAll c'"
+  | capE[intro]: "CaptureAll Nil \<leadsto> Nil"
+  | caps[intro]: "c \<leadsto> Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil"
+  | capl[intro]: "c \<mapsto>[r,\<alpha>] Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil" (* TODO: does not handle partial execution *)
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>

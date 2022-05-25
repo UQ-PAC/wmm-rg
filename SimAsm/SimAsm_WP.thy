@@ -225,7 +225,7 @@ lemma [simp]:
   by (auto simp: wfcom_def)
 
 lemma wfcom_silent:
-  "c \<leadsto> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
+  "silent c c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
   using basics_silent by (auto simp: wfcom_def)
 
 lemma wfcom_exec:

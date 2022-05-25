@@ -502,7 +502,10 @@ next
 next
   case (SeqChoice x)
   show ?case unfolding rif.simps using set_all_points_bound'[OF SeqChoice(1)] by auto
-qed
+next
+  case (CaptureAll c)
+  show ?case unfolding rif.simps using set_all_points_bound'[OF CaptureAll(2)] by auto
+qed 
 
 subsection \<open>While Rule\<close>
 

@@ -33,7 +33,7 @@ datatype ('a,'b) com =
   | Loop "('a,'b) com" ("_*" [100] 150)
   | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
   | Thread "('a,'b) com"
-  | Capture 'b "('a,'b) com"
+  (* | Capture 'b "('a,'b) com" *)
   | CaptureAll "('a,'b) com"
 
 
@@ -46,7 +46,7 @@ fun local :: "('a,'b) com \<Rightarrow> bool"
     "local (c\<^sub>1 \<cdot> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |
     "local (c\<^sub>1 \<sqinter> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |  
     "local (c*) = (local c)" |    
-    "local (Capture _ c) = local c" |
+    (* "local (Capture _ c) = local c" | *)
     "local (CaptureAll c) = local c" |
     "local _ = True"
 
@@ -71,7 +71,7 @@ apply auto
 oops
 
 text \<open>Identify all operations in a program\<close>
-fun basics :: "('a,'b :: state) com \<Rightarrow> ('a,'b) basic set"
+fun basics :: "('a,'b ) com \<Rightarrow> ('a,'b) basic set"
   where
     "basics (Basic \<beta>) = {\<beta>}" |
     "basics (Seq c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
@@ -82,7 +82,7 @@ fun basics :: "('a,'b :: state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Loop c) = basics c" |
     "basics (Thread c) = basics c" |
     (* "basics (Capture s c) = uncapBasic s ` basics c" | *)
-    "basics (Capture s c) = basics c" | 
+    (* "basics (Capture s c) = basics c" |  *)
     "basics (CaptureAll c) = basics c" |
     "basics _ = {}"
 

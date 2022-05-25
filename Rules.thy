@@ -128,9 +128,9 @@ proof (induct c)
 next
   case (SeqChoice x)
   thus ?case by (intro ballI seqset false_seqI) auto
-next         
+(* next         
   case (Capture x1 c)
-  then show ?case sorry
+  then show ?case sorry *)
 qed auto
 
 lemma seq_rot:
