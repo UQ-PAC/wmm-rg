@@ -425,6 +425,14 @@ lemma forall_nil [simp]:
 lemma smap1_cong [intro]:
   "M x = N x \<Longrightarrow> smap1 M x = smap1 N x"
   unfolding smap1_def using domIff by fastforce
+
+lemma
+  "comp_fun_commute_on (rd \<alpha>) (smap1 (\<lambda>y. if x = y then None else M y))"
+  by (rule Finite_Set.comp_fun_commute_on.intro) auto
+
+lemma
+  "comp_fun_commute_on (rd \<alpha>) (smap1 (\<lambda>y. if x = y then None else M y))"
+  by (rule Finite_Set.comp_fun_commute_on.intro) auto
   
 lemma forall_unfold:
   shows "forall (insert x V) \<alpha> = {subst\<^sub>i \<alpha>' x (Val c) | c \<alpha>'. \<alpha>' \<in> forall V \<alpha>}" (is "?L = ?R")
@@ -441,7 +449,11 @@ proof -
     let ?M = "\<lambda>y. if x = y then None else M y"
     have "smap \<alpha> M = subst\<^sub>i (smap \<alpha> ?M) x (Val (the (M x)))"
     proof -
-      have mx: "Finite_Set.fold (smap1 M) \<alpha> (rd \<alpha> - {x}) = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})"
+      have 
+        "comp_fun_commute_on (rd \<alpha>) (smap1 M)" 
+        "comp_fun_commute_on (rd \<alpha>) (smap1 (\<lambda>y. if x = y then None else M y))"
+        by standard auto
+      hence mx: "Finite_Set.fold (smap1 M) \<alpha> (rd \<alpha> - {x}) = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})"
         by (auto intro!: Finite_Set.fold_cong simp add: cfi.comp_fun_commute_axioms)
       show ?thesis
       proof (cases "x \<in> rd \<alpha>")
@@ -481,7 +493,11 @@ proof -
     have "dom ?M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> ?M"
     proof -
-      have mx: "Finite_Set.fold (smap1 M) \<alpha> (rd \<alpha> - {x}) = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})"
+      have 
+        "comp_fun_commute_on (rd \<alpha>) (smap1 M)" 
+        "comp_fun_commute_on (rd \<alpha>) (smap1 (\<lambda>y. if y = x then Some c else M y))"
+        by standard auto
+      hence mx: "Finite_Set.fold (smap1 M) \<alpha> (rd \<alpha> - {x}) = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})"
         by (auto intro!: Finite_Set.fold_cong simp add: cfi.comp_fun_commute_axioms)
       show ?thesis
       proof (cases "x \<in> rd \<alpha>")
@@ -567,7 +583,7 @@ lemma beh_substi [simp]:
   apply (clarsimp simp: upd_def)
   apply blast
   apply (clarsimp simp: upd_def st_upd_def)
-  apply auto
+  apply auto     
   apply (rule state_rec.equality)
   apply auto
   apply (rule state_rec.equality)
