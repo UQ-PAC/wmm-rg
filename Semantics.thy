@@ -37,7 +37,9 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
     Capture s c\<^sub>1 \<mapsto>[Nil,
       (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
     Capture s' c\<^sub>1'" *)
-  (* | capNil[intro]: "c\<^sub>1 \<mapsto>[Nil,\<alpha>] c\<^sub>1' \<Longrightarrow> Capture s c\<^sub>1 \<mapsto>[Nil,capBasic \<alpha> s s'] Capture s' c\<^sub>1'" *)
+  (* | capNil[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> Capture s c\<^sub>1 \<mapsto>[f r,capBasi
+
+c \<alpha>\<llangle>r\<rrangle> s s'] Capture s' c\<^sub>1'"  *)
 inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
 
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -71,9 +73,9 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
   cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) (* |
   capE[intro]:  "Capture s Nil \<leadsto> Nil" *)
-  | capE[intro]: "CaptureAll Nil \<leadsto> Nil"
-  | caps[intro]: "c \<leadsto> Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil"
-  | capl[intro]: "c \<mapsto>[r,\<alpha>] Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil" (* TODO: does not handle partial execution *)
+  (* | capE[intro]: "CaptureAll Nil \<leadsto> Nil" *)
+  (* | caps[intro]: "c \<leadsto> Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil" *)
+  (* | capl[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> CaptureAll c \<leadsto> CaptureAll c'" (* TODO: does not handle partial execution *) *)
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>

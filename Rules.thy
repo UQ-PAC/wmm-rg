@@ -35,7 +35,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
       {(m,m') |m m'. (merge m s, merge m' s) \<in> R},
       {(m,m') |m m'. (merge m s, merge m' s') \<in> G} 
       \<turnstile> {m |m. merge m s \<in> P} {Capture s c} {m |m. merge m s' \<in> Q}" *)
-  | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P"
+  (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
 
 subsection \<open>Properties\<close>
 

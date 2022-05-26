@@ -34,7 +34,7 @@ datatype ('a,'b) com =
   | Parallel "('a,'b) com" "('a,'b) com"  (infixr "||" 150)
   | Thread "('a,'b) com"
   (* | Capture 'b "('a,'b) com" *)
-  | CaptureAll "('a,'b) com"
+  (* | CaptureAll "('a,'b) com" *)
 
 
 text \<open>Ensure there is no parallelism within a program\<close>
@@ -47,7 +47,7 @@ fun local :: "('a,'b) com \<Rightarrow> bool"
     "local (c\<^sub>1 \<sqinter> c\<^sub>2) = (local c\<^sub>1 \<and> local c\<^sub>2)" |  
     "local (c*) = (local c)" |    
     (* "local (Capture _ c) = local c" | *)
-    "local (CaptureAll c) = local c" |
+    (* "local (CaptureAll c) = local c" | *)
     "local _ = True"
 
 
@@ -83,7 +83,7 @@ fun basics :: "('a,'b ) com \<Rightarrow> ('a,'b) basic set"
     "basics (Thread c) = basics c" |
     (* "basics (Capture s c) = uncapBasic s ` basics c" | *)
     (* "basics (Capture s c) = basics c" |  *)
-    "basics (CaptureAll c) = basics c" |
+    (* "basics (CaptureAll c) = basics c" | *)
     "basics _ = {}"
 
 text \<open>Shorthand for an environment step\<close>
