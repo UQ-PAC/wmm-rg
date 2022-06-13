@@ -65,6 +65,7 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
+
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
@@ -90,6 +91,9 @@ next
     using ooo(2)[OF m(2) i(2)] by blast
   hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
+next
+  case (cap c s r \<alpha> c')
+  then show ?case
 qed
 
 thm silentE
@@ -106,6 +110,9 @@ proof (induct arbitrary: c' rule: rules.induct)
 next
   case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) blast+
+next
+  case (capture R G s P c s' Q)
+  then show ?case sorry
 qed (cases rule: silentE, auto)+
 
 

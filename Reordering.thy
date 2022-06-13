@@ -12,7 +12,7 @@ From these definitions we can recursively define reordering and forwarding over 
 
 
 locale reordering =
-  fixes fwd :: "('a,'b) basic \<Rightarrow> 'a \<Rightarrow> ('a,'b) basic" ("_\<langle>_\<rangle>" [1000,0] 1000)
+  fixes fwd :: "('a,'b::state) basic \<Rightarrow> 'a \<Rightarrow> ('a,'b) basic" ("_\<langle>_\<rangle>" [1000,0] 1000)
   and re :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infix "\<hookleftarrow>" 100)
   assumes tag_fwd: "tag a = tag b \<Longrightarrow> tag a\<langle>c\<rangle> = tag b\<langle>c\<rangle>"
 
@@ -44,11 +44,31 @@ fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b
     "\<alpha>' < c\<^sub>1 \<cdot> c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
     "_ < _ <\<^sub>c _ = False"
 
+fun reorder_list :: "('a,'b) basic \<Rightarrow> ('a,'b) basic list \<Rightarrow> ('a,'b) basic \<Rightarrow> bool" 
+  ("_ < _ <<\<^sub>c _" [100,0,100] 100)
+  where
+    "\<alpha>' < [] <<\<^sub>c \<alpha> = (\<alpha>' = \<alpha>)" |
+    "\<alpha>' < (x#xs) <<\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < x <\<^sub>a \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < xs <<\<^sub>c \<alpha>)"
+
+fun list_to_com :: "('a,'b) basic list \<Rightarrow> ('a,'b) com" where
+"list_to_com [] = Nil" |
+"list_to_com (x#xs) = Basic x ;; list_to_com xs" 
+
+lemma "\<alpha>' < list_to_com bs <\<^sub>c \<alpha> = \<alpha>' < bs <<\<^sub>c \<alpha>"
+by (induct bs arbitrary: \<alpha>' \<alpha>, auto)
+
+
 text \<open>Relationship between program reordering and program forwarding\<close>
 lemma fwd_com [simp]:
   assumes "\<alpha>' < c <\<^sub>c \<alpha>"
   shows "\<alpha>\<llangle>c\<rrangle> = \<alpha>'"
   using assms by (induct c arbitrary: \<alpha>' \<alpha>) auto
+
+lemma fwd_com2 [simp]:
+  assumes "\<alpha>' < c <<\<^sub>c \<alpha>"
+  shows "\<alpha>\<llangle>list_to_com c\<rrangle> = \<alpha>'"
+  using assms by (induct c arbitrary: \<alpha>' \<alpha>) auto
+
 
 end
 

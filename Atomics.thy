@@ -26,6 +26,14 @@ definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [65,0,0,0,65] 65)
   where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> guar\<^sub>\<alpha> \<alpha> G \<and> stable R P \<and> stable R Q"
 
+lemma thr_atomic:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
+  shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
+using assms
+unfolding atomic_rule_def thr\<^sub>\<alpha>_def 
+by (simp add: thr_stable thr_wp thr_guar)
+
+
 subsection \<open>Derived Properties\<close>
 
 text \<open>Re-establish an atomic judgement over a stronger stable precondition\<close>
@@ -66,5 +74,46 @@ lemma atomic_falseI [intro]:
   assumes "guar\<^sub>\<alpha> \<beta> G"
   shows "R,G \<turnstile>\<^sub>A {} {\<beta>} {}"
   using assms unfolding atomic_rule_def by auto
+
+fun beh_at :: "('a,'b) basic \<Rightarrow> 'b \<Rightarrow> 'b set" where
+"beh_at \<alpha> \<sigma> = {\<sigma>' |\<sigma>'. (\<sigma>,\<sigma>') \<in> beh \<alpha>}"
+
+fun G_at :: "'b rel \<Rightarrow> 'b \<Rightarrow> 'b set" where
+"G_at G \<sigma> = {\<sigma>' |\<sigma>'. (\<sigma>,\<sigma>') \<in> G}"
+
+lemma guar\<^sub>\<alpha>_alt: "guar\<^sub>\<alpha> \<alpha> G = (\<forall>\<sigma>\<in>vc \<alpha>. beh_at \<alpha> \<sigma> \<subseteq> G_at G \<sigma>)"
+unfolding guar_def by auto
+
+lemma guar\<^sub>\<alpha>_alt2: "guar\<^sub>\<alpha> \<alpha> G = ({(m,m')|m m'. m \<in> vc \<alpha>} \<inter> beh \<alpha> \<subseteq> G)"
+unfolding guar_def
+by fast
+
+lemma vc_subset_uncap: "vc \<beta> \<subseteq> {push m s |m. m \<in> vc (capBasic s \<beta>)}"
+by auto (metis (full_types) popr_push push_intro)
+
+lemma beh_subset_uncap: "beh \<beta> \<subseteq> uncapGuar (beh (capBasic s \<beta>))"
+by auto (metis (full_types) popr_push push_intro)
+
+lemma "A \<subseteq> B \<and> C \<subseteq> B \<Longrightarrow> A \<inter> C \<subseteq> B"
+by auto
+
+lemma guar_capB_to_guar_uncapG:
+  "guar\<^sub>\<alpha> (capBasic s \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
+apply (simp only: guar\<^sub>\<alpha>_alt2)
+proof
+  assume 1: "{(m, m') |m m'. m \<in> vc (capBasic s \<beta>)} \<inter> beh (capBasic s \<beta>) \<subseteq> G"
+    (is "?V \<inter> ?B \<subseteq> G")
+  hence g3: "uncapGuar ?V \<inter> uncapGuar ?B \<subseteq> uncapGuar G"
+    using uncapGuar_mono[of "?V \<inter> ?B" G] uncapGuar_inter by fast
+  fix xx
+  assume 2: "xx \<in> {(m, m') |m m'. m \<in> vc \<beta>} \<inter> beh \<beta>"
+  obtain x x' where xx: "xx = (x,x')" by fastforce
+  hence 3: "(x,x') \<in> {(m, m') |m m'. m \<in> vc \<beta>} \<inter> beh \<beta>" using 2 by fast
+  hence "x \<in> {push m s |m. m \<in> vc (capBasic s \<beta>)}" using vc_subset_uncap by fast
+  hence g1: "(x,x') \<in> uncapGuar ?V" using 3 push_intro by fastforce
+  have g2: "(x,x') \<in> uncapGuar ?B" using 3 beh_subset_uncap by fast
+  thus "xx \<in> uncapGuar G" using g1 g2 g3 xx by fast
+qed
+
 
 end

@@ -29,12 +29,15 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                   R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                    R',G' \<turnstile> P' { c } Q'"  |
-  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" (* |
-  capture[intro]:
-    "R,G \<turnstile> P {c} Q \<Longrightarrow> 
-      {(m,m') |m m'. (merge m s, merge m' s) \<in> R},
-      {(m,m') |m m'. (merge m s, merge m' s') \<in> G} 
-      \<turnstile> {m |m. merge m s \<in> P} {Capture s c} {m |m. merge m s' \<in> Q}" *)
+  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)"
+(*   | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable (capbeh k R) (capvc k P) \<Longrightarrow>
+      capbeh k R,capbeh k G \<turnstile> capvc k P {Capture k c} capvc k Q" *)
+  (* | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow>
+    thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Capture op l l' c } thr\<^sub>P op l' Q" *)
+  | capture[intro]: 
+    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q
+     
+     \<Longrightarrow> R,G \<turnstile> P {Capture s c} Q"
   (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
 
 subsection \<open>Properties\<close>
@@ -79,7 +82,7 @@ lemma stable_preE:
   assumes "R,G \<turnstile> P {c} Q"
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
   using assms 
-proof (induct ) 
+proof (induct) 
   case (thread R G P c Q)
   then show ?case by (metis rules.thread)
 next 
@@ -113,25 +116,50 @@ next
   hence "stable R (\<Inter>s\<in>S. P\<^sub>s s)" by (auto simp: stable_def)
   moreover have "P \<subseteq> (\<Inter>s\<in>S. P\<^sub>s s)" using s by auto
   ultimately show ?case using s seqset.hyps(1) by blast
+next
+  case (capture R G s P c s' Q)
+  then obtain P' where P': 
+    "uncapPred s P \<subseteq> P'"
+    "stable (uncapRely R) P'"
+    "uncapRely R,uncapGuar G \<turnstile> P' {c} uncapPred s' Q" 
+    by blast
+  then obtain P'' where P'': "P' = uncapPred s P''" using uncap_exists by metis
+  hence "P \<subseteq> P''" using P' by (metis capPred_mono cap_uncapPred)
+  moreover have "stable R P''" using stable_uncap P' P'' by fast
+  moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast
+  ultimately show ?case by auto
 qed blast+
 
 lemma false_seqI [intro]:
   "\<forall>\<beta> \<in> set s. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {seq2com s} {}"
   by (induct s) auto
 
+
 (* why do we need these to satisfy the guarantee, and why do we need local c? *)
 lemma falseI:
   "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
-proof (induct c)
+proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
 next
   case (SeqChoice x)
   thus ?case by (intro ballI seqset false_seqI) auto
-(* next         
-  case (Capture x1 c)
-  then show ?case sorry *)
-qed auto
+next
+  case (Seq c1 c2)
+  hence "local c1" "local c2" 
+    "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
+  then show ?case by auto
+next
+  case (Ord c1 c2)
+  hence "local c1" "local c2" 
+    "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
+  then show ?case by auto
+next
+  case (Capture s c)
+  hence "\<forall>\<beta>\<in>basics c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
+    using guar_capB_to_guar_uncapG by fastforce
+  thus ?case using Capture(1,2) rules.capture by simp
+qed (auto)
 
 lemma seq_rot:
   "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;; c\<^sub>2 } M"

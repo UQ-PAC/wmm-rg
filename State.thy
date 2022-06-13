@@ -64,6 +64,10 @@ lemma stable_falseI [intro]:
   "stable R {}"
   by (auto simp: stable_def)
 
+lemma stable_wp: "stable R (wp UNIV (R\<^sup>*) P)"
+unfolding stable_def wp_def
+by (simp add: converse_rtrancl_into_rtrancl)
+
 section \<open>Guarantee Properties\<close>
 
 lemma guar_conseqI [intro]:
@@ -87,7 +91,7 @@ definition thr\<^sub>P :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b pred \<Rig
 
 text \<open>Collect all states where some local state satisfies Q\<close>
 definition thr\<^sub>Q :: "'b merge \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "thr\<^sub>Q op P \<equiv> {m. \<exists>l. op m l \<in> P}"
+  where "thr\<^sub>Q op Q \<equiv> {m. \<exists>l. op m l \<in> Q}"
 
 text \<open>Collect all transitions in R that preserve the local state\<close>
 definition thr\<^sub>R :: "'b merge \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred"
@@ -96,6 +100,10 @@ definition thr\<^sub>R :: "'b merge \<Rightarrow> 'b rpred \<Rightarrow> 'b rpre
 text \<open>Collect all transitions where their combinations with arbitrary local states satisfies G\<close>
 definition thr\<^sub>G :: "'b merge \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred"
   where "thr\<^sub>G op G \<equiv> {(m,m') |m m' l l'. (op m l,op m' l') \<in> G}"
+
+definition invthr\<^sub>G :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred" where
+  "invthr\<^sub>G op l l' G' \<equiv> {(op m l, op m' l') |m m'. (m,m') \<in> G'}"
+
 
 text \<open>Collect all states where all local states satisfy P\<close>
 definition thr\<^sub>A :: "'b merge \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
@@ -122,6 +130,10 @@ lemma thr_stable:
 lemma thr_stable':
   "stable R P \<Longrightarrow> stable (thr\<^sub>R op R) (thr\<^sub>A op P)"
   unfolding thr\<^sub>A_def thr\<^sub>R_def stable_def by auto
+
+lemma thr_stableQ:
+  "stable R P \<Longrightarrow> stable (thr\<^sub>R op R) (thr\<^sub>Q op P)"
+  unfolding thr\<^sub>Q_def thr\<^sub>R_def stable_def by auto
 
 lemma thr_wp:
   "P \<subseteq> wp v r M \<Longrightarrow> thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l v) (thr2glb op l l' r) (thr\<^sub>P op l' M)"

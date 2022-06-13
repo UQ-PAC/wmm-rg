@@ -33,6 +33,8 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
   ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
+  | cap[intro]: "c \<mapsto>[uncapCom s r,uncapBasic s \<alpha>] c' 
+    \<Longrightarrow> Capture s c \<mapsto>[r,\<alpha>] Capture s c'"
 (*   cap[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> 
     Capture s c\<^sub>1 \<mapsto>[Nil,
       (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
@@ -71,9 +73,10 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   parE2[intro]: "c || Nil \<leadsto> c" |
   thr[intro]:   "c \<leadsto> c' \<Longrightarrow> Thread c \<leadsto> Thread c'" |
   thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
-  cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) (* |
-  capE[intro]:  "Capture s Nil \<leadsto> Nil" *)
-  (* | capE[intro]: "CaptureAll Nil \<leadsto> Nil" *)
+  cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) 
+  | capS[intro]:  "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'"
+  (* | capNil[intro]:  "Capture _ _ k Nil \<leadsto> Nil" *)
+  | capE[intro]: "Capture k Nil \<leadsto> Nil"
   (* | caps[intro]: "c \<leadsto> Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil" *)
   (* | capl[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> CaptureAll c \<leadsto> CaptureAll c'" (* TODO: does not handle partial execution *) *)
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
@@ -155,10 +158,13 @@ lemma basics_silent:
 
 lemma basics_exec_prefix:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
-  using assms by induct auto
-  (* apply induct *)
-  (* apply auto[4] *)
-  (* apply auto+ *)
+  using assms
+proof (induct rule: lexecute.induct)
+  case (cap c s r \<alpha> c')
+  have "basics (Capture s c) = capBasic s ` basics c" by simp
+  then show ?case sorry
+qed auto
+
 
 end
 
