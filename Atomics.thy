@@ -97,22 +97,21 @@ by auto (metis (full_types) popr_push push_intro)
 lemma "A \<subseteq> B \<and> C \<subseteq> B \<Longrightarrow> A \<inter> C \<subseteq> B"
 by auto
 
+
 lemma guar_capB_to_guar_uncapG:
   "guar\<^sub>\<alpha> (capBasic s \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
 apply (simp only: guar\<^sub>\<alpha>_alt2)
-proof
+proof (rule subrelI)
   assume 1: "{(m, m') |m m'. m \<in> vc (capBasic s \<beta>)} \<inter> beh (capBasic s \<beta>) \<subseteq> G"
     (is "?V \<inter> ?B \<subseteq> G")
   hence g3: "uncapGuar ?V \<inter> uncapGuar ?B \<subseteq> uncapGuar G"
     using uncapGuar_mono[of "?V \<inter> ?B" G] uncapGuar_inter by fast
-  fix xx
-  assume 2: "xx \<in> {(m, m') |m m'. m \<in> vc \<beta>} \<inter> beh \<beta>"
-  obtain x x' where xx: "xx = (x,x')" by fastforce
-  hence 3: "(x,x') \<in> {(m, m') |m m'. m \<in> vc \<beta>} \<inter> beh \<beta>" using 2 by fast
+  fix x x'
+  assume 2: "(x,x') \<in> {(m, m') |m m'. m \<in> vc \<beta>} \<inter> beh \<beta>"
   hence "x \<in> {push m s |m. m \<in> vc (capBasic s \<beta>)}" using vc_subset_uncap by fast
-  hence g1: "(x,x') \<in> uncapGuar ?V" using 3 push_intro by fastforce
-  have g2: "(x,x') \<in> uncapGuar ?B" using 3 beh_subset_uncap by fast
-  thus "xx \<in> uncapGuar G" using g1 g2 g3 xx by fast
+  hence g1: "(x,x') \<in> uncapGuar ?V" using 2 push_intro by fastforce
+  have g2: "(x,x') \<in> uncapGuar ?B" using 2 beh_subset_uncap by fast
+  thus "(x,x') \<in> uncapGuar G" using g1 g2 g3 by fast
 qed
 
 

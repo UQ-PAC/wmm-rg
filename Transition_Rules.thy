@@ -93,10 +93,13 @@ next
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 next
   case (cap c s r \<alpha> c')
-  then show ?case
+  then show ?case sorry
 qed
 
-thm silentE
+
+lemma "R,G \<turnstile> P {Nil} Q \<Longrightarrow> wp UNIV (R\<^sup>*) P \<subseteq> Q"
+apply auto
+oops
 
 text \<open>Judgements are preserved across silent steps\<close>
 lemma rewrite_ruleI [intro]:
@@ -112,7 +115,24 @@ next
   thus ?case by (cases rule: silentE, auto) blast+
 next
   case (capture R G s P c s' Q)
-  then show ?case sorry
+  show ?case using capture(3)
+  apply (cases rule: silentE, auto)
+  apply (meson capture rules.capture)
+  proof -
+    assume "Capture s com.Nil \<leadsto> com.Nil" "c' = com.Nil" "c = com.Nil"
+    hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} uncapPred s' Q"
+      using capture(1) by fast
+    then obtain M where M:
+      "stable (uncapRely R) (uncapPred s M)"
+      "uncapPred s P \<subseteq> uncapPred s M"
+      "uncapPred s M \<subseteq> uncapPred s' Q"
+      using nilE uncapPred_intro by metis
+    hence 1: "stable R M" using stable_uncap by fast
+    hence 2: "P \<subseteq> M" "M \<subseteq> Q"
+      using M by (metis capPred_mono cap_uncapPred)+
+    have "R,G \<turnstile> M {Nil} Q" using 1 2 by auto
+    thus "R,G \<turnstile> P {Nil} Q" using 2(1) conseq by simp
+  qed
 qed (cases rule: silentE, auto)+
 
 

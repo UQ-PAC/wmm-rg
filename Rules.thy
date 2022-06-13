@@ -123,7 +123,7 @@ next
     "stable (uncapRely R) P'"
     "uncapRely R,uncapGuar G \<turnstile> P' {c} uncapPred s' Q" 
     by blast
-  then obtain P'' where P'': "P' = uncapPred s P''" using uncap_exists by metis
+  then obtain P'' where P'': "P' = uncapPred s P''" using uncapPred_intro by metis
   hence "P \<subseteq> P''" using P' by (metis capPred_mono cap_uncapPred)
   moreover have "stable R P''" using stable_uncap P' P'' by fast
   moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast

@@ -70,6 +70,11 @@ by fast
 fun uncapPred :: "('b::state) \<Rightarrow> 'b set \<Rightarrow> 'b set" where
 "uncapPred s P = {push m s |m. m \<in> P}"
 
+lemma uncapPred_intro:
+  "\<exists>P. P' = uncapPred s P"
+using push_intro popr_push
+by (simp, smt (verit, del_insts) mem_Collect_eq subsetI subset_antisym)
+
 fun capPred :: "('b::state) set \<Rightarrow> 'b set" where
 "capPred P = {popl m |m. m \<in> P}"
 
@@ -125,29 +130,13 @@ lemma uncapGuar_mono: "G \<subseteq> G' \<Longrightarrow> uncapGuar G \<subseteq
 by auto
 
 lemma uncapGuar_inter: "uncapGuar (G \<inter> G') = uncapGuar G \<inter> uncapGuar G'"
-by auto (metis (full_types) popr_push push_intro)+
+by auto (metis (full_types) popr_push push_intro)
 
 lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
 unfolding stable_def
 by (auto, metis popl_push)
 
-lemma image_of_some:
-  assumes "\<forall>m. \<exists>x. m = f x"
-  shows "P = f ` {SOME x. m = f x |m. m \<in> P}"
-proof
-  show "P \<subseteq> f ` {SOME x. m = f x |m. m \<in> P}"
-  using assms someI_ex by fast
-next
-  show "P \<supseteq> f ` {SOME x. m = f x |m. m \<in> P}"
-  using assms someI_ex
-  by (smt (verit, ccfv_SIG) image_Collect_subsetI)
-qed
 
-lemma uncap_exists: "\<exists>P'. P = uncapPred s P'"
-proof
-  show "P = uncapPred s {SOME x. m = push x s |m. m \<in> P}"
-    using image_of_some[of "\<lambda>x. push x s" P] push_intro by auto
-qed
 
 (* captures the effect of a command *)
 fun capCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
