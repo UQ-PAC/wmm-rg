@@ -117,10 +117,11 @@ next
 next
   case (capture R G s P c s' Q)
   show ?case using capture(3)
-  apply (cases rule: silentE, auto)
-  using capture apply fast
-  proof -
-    assume "Capture s com.Nil \<leadsto> com.Nil" "c' = com.Nil" "c = com.Nil"
+  proof (cases "Capture s c" c' rule: silentE)
+    case (19 c c' k)
+    thus ?thesis using capture(2) by fast
+  next
+    case (20 k)
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} uncapPred s' Q"
       using capture(1) by fast
     then obtain M where M:
@@ -130,11 +131,10 @@ next
       by (metis nilE uncapPred_intro)
     hence 1: "stable R M" using stable_uncap by fast
     hence 2: "P \<subseteq> M" "M \<subseteq> Q"
-      using M 
-      by (metis capPred_mono cap_uncapPred)+
+      using M by (metis capPred_mono cap_uncapPred)+
     have "R,G \<turnstile> M {Nil} Q" using 1 2 by auto
-    thus "R,G \<turnstile> P {Nil} Q" using 2(1) by (simp add: conseq)
-  qed
+    thus ?thesis using 2(1) 20(2) by (simp add: conseq)
+  qed auto
 qed (cases rule: silentE, auto)+
 
 
