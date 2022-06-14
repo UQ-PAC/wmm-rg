@@ -71,9 +71,14 @@ fun uncapPred :: "('b::state) \<Rightarrow> 'b set \<Rightarrow> 'b set" where
 "uncapPred s P = {push m s |m. m \<in> P}"
 
 lemma uncapPred_intro:
-  "\<exists>P. P' = uncapPred s P"
-using push_intro popr_push
-by (simp, smt (verit, del_insts) mem_Collect_eq subsetI subset_antisym)
+  "\<exists>P'. P = uncapPred s P'"
+proof 
+  have "m = push (SOME x. m = push x s) s" for m
+    using push_intro[of m s] someI_ex
+    by fast
+  thus "P = uncapPred s {SOME x. m = push x s |m. m \<in> P}"
+    by auto
+qed
 
 fun capPred :: "('b::state) set \<Rightarrow> 'b set" where
 "capPred P = {popl m |m. m \<in> P}"
