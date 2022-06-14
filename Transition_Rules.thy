@@ -93,7 +93,8 @@ next
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 next
   case (cap c s r \<alpha> c')
-  then show ?case sorry
+  then show ?case 
+  sorry
 qed
 
 
@@ -117,7 +118,7 @@ next
   case (capture R G s P c s' Q)
   show ?case using capture(3)
   apply (cases rule: silentE, auto)
-  apply (meson capture rules.capture)
+  using capture apply fast
   proof -
     assume "Capture s com.Nil \<leadsto> com.Nil" "c' = com.Nil" "c = com.Nil"
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} uncapPred s' Q"
@@ -126,12 +127,13 @@ next
       "stable (uncapRely R) (uncapPred s M)"
       "uncapPred s P \<subseteq> uncapPred s M"
       "uncapPred s M \<subseteq> uncapPred s' Q"
-      using nilE uncapPred_intro by metis
+      by (metis nilE uncapPred_intro)
     hence 1: "stable R M" using stable_uncap by fast
     hence 2: "P \<subseteq> M" "M \<subseteq> Q"
-      using M by (metis capPred_mono cap_uncapPred)+
+      using M 
+      by (metis capPred_mono cap_uncapPred)+
     have "R,G \<turnstile> M {Nil} Q" using 1 2 by auto
-    thus "R,G \<turnstile> P {Nil} Q" using 2(1) conseq by simp
+    thus "R,G \<turnstile> P {Nil} Q" using 2(1) by (simp add: conseq)
   qed
 qed (cases rule: silentE, auto)+
 

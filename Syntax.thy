@@ -116,8 +116,7 @@ lemma cap_uncapPred: "capPred (uncapPred s P) = P"
 by (auto, metis popl_push)
 
 lemma cap_uncapBasic: "capBasic s (uncapBasic s \<alpha>) = \<alpha>"
-using cap_uncapPred[of s "vc \<alpha>"]
-using cap_uncapBeh[of s "beh \<alpha>"]
+using cap_uncapPred[of s "vc \<alpha>"] cap_uncapBeh[of s "beh \<alpha>"]
 by simp
 
 lemma uncap_capGuar: "uncapGuar (capGuar G) = G"
@@ -198,6 +197,14 @@ fun basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Capture k c) = capBasic k ` basics c" |
     (* "basics (CaptureAll c) = basics c" | *)
     "basics _ = {}"
+
+fun seqonly :: "('a,'b) com \<Rightarrow> bool" where
+"seqonly Nil = True" |
+"seqonly (Basic _) = True" |
+"seqonly (Seq c1 c2) = (seqonly c1 \<and> seqonly c2)" |
+"seqonly (Ord c1 c2) = (seqonly c1 \<and> seqonly c2)" |
+"seqonly _ = False"
+
 
 (* lemma basics_thr\<^sub>c: "basics (thr\<^sub>c op l l' c) = thr\<^sub>\<alpha> op l l' ` basics c"
 by (induct c arbitrary: op l l') auto *)

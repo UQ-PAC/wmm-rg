@@ -156,15 +156,39 @@ lemma basics_silent:
   assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
   using assms basics_exec by (induct) auto   
 
+
+lemma seqonly_uncapCom [simp]: "seqonly (uncapCom s c) = seqonly c"
+by induct auto
+
+lemma seqonly_reorder_com [simp]: "\<alpha>' < c <\<^sub>c \<alpha> \<Longrightarrow> seqonly c"
+by (induct rule: reorder_com.induct) auto
+
+lemma seqonly_lexecute [simp]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> seqonly r"
+by (induct rule: lexecute.induct) auto
+
+lemma cap_basic_uncapCom:
+  assumes "seqonly r"
+  shows "capBasic s ` basics (uncapCom s r) = basics r"
+using assms
+proof (induct r)
+  case (Basic \<alpha>)
+  have "capBasic s ` {uncapBasic s \<alpha>} = {\<alpha>}"
+    by (metis cap_uncapBasic image_empty image_insert)
+  thus ?case by simp
+qed (auto simp add: image_Un)
+
 lemma basics_exec_prefix:
   assumes "lexecute c r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
   using assms
 proof (induct rule: lexecute.induct)
   case (cap c s r \<alpha> c')
-  have "basics (Capture s c) = capBasic s ` basics c" by simp
-  then show ?case sorry
+  hence "seqonly r"
+    using seqonly_lexecute seqonly_uncapCom by fast
+  hence "insert \<alpha> (basics r) \<subseteq> capBasic s ` basics c"
+    using cap.hyps(2) cap_basic_uncapCom cap_uncapBasic
+    by (metis image_eqI image_mono insert_subset)
+  thus ?case by simp
 qed auto
-
 
 end
 
