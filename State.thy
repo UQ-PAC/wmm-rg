@@ -19,11 +19,27 @@ section \<open>Definitions\<close>
 
 text \<open>Stability of a predicate across an environment step\<close>
 definition stable :: "('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
-  where "stable R P \<equiv> \<forall>m m'. m \<in> P \<longrightarrow> (m,m') \<in> R \<longrightarrow> m' \<in> P"
+  where "stable R P \<equiv> (R `` P \<subseteq> P)"
+
+lemma stableI: "stable R P = (\<forall>m m'. m \<in> P \<longrightarrow> (m,m') \<in> R \<longrightarrow> m' \<in> P)"
+unfolding stable_def
+by fast
 
 text \<open>Weakest precondition for a pre-condition and post-relation\<close>
 definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "wp pre post Q \<equiv> pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q)}"
+  where "wp pre post Q \<equiv> pre \<inter> - (post\<inverse> `` (-Q))"
+
+definition wp2 :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred" where
+"wp2 B Q = wp (Domain B) B Q"
+
+lemma "wp2 B Q = {m |m. (\<forall>m'. (m,m')\<in>B \<longrightarrow> m'\<in>Q) \<and> (\<exists>m'. (m,m')\<in>B)}"
+unfolding wp2_def wp_def
+by auto
+
+
+lemma "wp2 (Id_on v) (wp2 B Q) \<subseteq> wp v B Q"
+unfolding wp_def wp2_def by auto
+
 
 text \<open>Guarantee check for a pre-condition and post-relation\<close>
 definition guar :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool"
@@ -66,7 +82,8 @@ lemma stable_falseI [intro]:
 
 lemma stable_wp: "stable R (wp UNIV (R\<^sup>*) P)"
 unfolding stable_def wp_def
-by (simp add: converse_rtrancl_into_rtrancl)
+using rtrancl_converse converse_rtrancl_into_rtrancl
+by fast
 
 section \<open>Guarantee Properties\<close>
 
@@ -178,7 +195,8 @@ lemma aux\<^sub>G_self [intro]:
 lemma aux_stable [intro]:
   assumes "stable R P" 
   shows "stable (aux\<^sub>R r R) (aux\<^sub>P r P)"
-  unfolding stable_def aux\<^sub>R_def aux\<^sub>P_def
+  unfolding aux\<^sub>R_def aux\<^sub>P_def
+apply (simp only: stableI)
 proof (clarsimp, goal_cases)
   case (1 m n p)
   then obtain n' where a: "(p, n') \<in> r\<^sup>=" "(n, n') \<in> R" by auto

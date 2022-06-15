@@ -58,7 +58,7 @@ text \<open>Atomic judgements over the same instruction can be combined\<close>
 lemma actomic_conjI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P\<^sub>1 {\<alpha>} Q\<^sub>1" "R,G  \<turnstile>\<^sub>A P\<^sub>2 {\<alpha>} Q\<^sub>2"
   shows "R,G \<turnstile>\<^sub>A P\<^sub>1 \<inter> P\<^sub>2 {\<alpha>} Q\<^sub>1 \<inter> Q\<^sub>2"
-  using assms unfolding atomic_rule_def wp_def stable_def by fast
+  using assms unfolding atomic_rule_def wp_def stable_def by blast
 
 text \<open>Add an invariant across an atomic judgement\<close>
 lemma atomic_invI [intro]:
