@@ -26,6 +26,12 @@ definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [65,0,0,0,65] 65)
   where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> guar\<^sub>\<alpha> \<alpha> G \<and> stable R P \<and> stable R Q"
 
+lemma atomicI [intro]:
+  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" "stable R P" "stable R Q"
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
+using assms
+by (auto simp add: atomic_rule_def)
+
 lemma thr_atomic:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
   shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
@@ -94,14 +100,10 @@ by auto (metis (full_types) popr_push push_intro)
 lemma beh_subset_uncap: "beh \<beta> \<subseteq> uncapGuar (beh (capBasic s \<beta>))"
 by auto (metis (full_types) popr_push push_intro)
 
-lemma "A \<subseteq> B \<and> C \<subseteq> B \<Longrightarrow> A \<inter> C \<subseteq> B"
-by auto
-
-
 lemma guar_capB_to_guar_uncapG:
   "guar\<^sub>\<alpha> (capBasic s \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
 apply (simp only: guar\<^sub>\<alpha>_alt2)
-proof (rule subrelI)
+proof (intro subrelI)
   assume 1: "{(m, m') |m m'. m \<in> vc (capBasic s \<beta>)} \<inter> beh (capBasic s \<beta>) \<subseteq> G"
     (is "?V \<inter> ?B \<subseteq> G")
   hence g3: "uncapGuar ?V \<inter> uncapGuar ?B \<subseteq> uncapGuar G"
@@ -113,6 +115,31 @@ proof (rule subrelI)
   have g2: "(x,x') \<in> uncapGuar ?B" using 2 beh_subset_uncap by fast
   thus "(x,x') \<in> uncapGuar G" using g1 g2 g3 by fast
 qed
+
+term Id_on
+
+fun UNIV_on :: "'a set \<Rightarrow> ('a \<times> 'b) set" where
+"UNIV_on A = {(a,b) |a b. a \<in> A}"
+
+lemma "a\<in>A \<Longrightarrow> (a,b) \<in> UNIV_on A"
+by simp
+
+lemma cap_wp_capBasic:
+  "capPred (wp\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapPred s' Q)) = wp\<^sub>\<alpha> \<alpha> Q"
+unfolding wp_def
+proof -
+  have "capPred (vc (uncapBasic s \<alpha>)) = vc \<alpha>"
+    using cap_uncapPred by auto
+  have "vc (uncapBasic s \<alpha>) = uncapPred s (vc \<alpha>)"
+    by simp
+  (* is there or does there need to be a link between vc and beh? *)
+  (* what does it mean when an initial state does not appear in the behaviours? *)
+  have "capPred {m. \<forall>m'. (m, m') \<in> uncapBeh s (beh \<alpha>) \<longrightarrow> m' \<in> uncapPred s' Q}
+    = {m. \<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> Q}"
+    sorry
+  show ?thesis sorry
+qed
+
 
 
 end

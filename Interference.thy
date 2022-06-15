@@ -67,6 +67,29 @@ proof -
   thus ?thesis using assms reorder_trace.intros(3)[OF assms(2)] rif_def by force
 qed
 
+lemma atomic_uncap:
+  assumes "uncapRely R,uncapGuar G \<turnstile>\<^sub>A 
+    uncapPred s P {uncapBasic s \<alpha>} uncapPred s' Q"
+    (is "?ucR,?ucG \<turnstile>\<^sub>A ?ucP {?uca} ?ucQ")
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
+proof (intro atomicI)
+  have 1:
+    "?ucP \<subseteq> wp\<^sub>\<alpha> ?uca ?ucQ" "guar\<^sub>\<alpha> ?uca ?ucG"
+    "stable ?ucR ?ucP" "stable ?ucR ?ucQ"
+    using assms unfolding atomic_rule_def by auto
+  thus "stable R P" "stable R Q"
+    using stable_uncap by auto
+  show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q"
+  proof -
+    have "P \<subseteq> capPred (wp\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapPred s' Q))"
+      using 1 by (metis cap_uncapPred capPred_mono)
+    
+  qed
+  thm 1
+  show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" sorry 
+qed
+
+
 end
 
 end

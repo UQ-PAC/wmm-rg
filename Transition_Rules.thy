@@ -93,7 +93,15 @@ next
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 next
   case (cap c s r \<alpha> c')
-  then show ?case 
+  then obtain P' M s' where M: 
+    "uncapPred s P \<subseteq> uncapPred s P'"
+    "uncapRely R,uncapGuar G \<turnstile>\<^sub>A uncapPred s P' {(uncapBasic s \<alpha>)\<llangle>uncapCom s r\<rrangle>} M"
+    "uncapRely R,uncapGuar G \<turnstile> uncapPred s M {c'} uncapPred s' Q"
+       sorry
+  hence "R,G \<turnstile> M {Capture s c'} Q" by fast
+  moreover have "R,G \<turnstile>"
+  ultimately show ?case 
+  thm cap(2)[of "uncapRely R" "uncapGuar G" "uncapPred s P" "uncapPred s Q"]
   sorry
 qed
 
