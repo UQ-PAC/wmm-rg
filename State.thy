@@ -19,31 +19,36 @@ section \<open>Definitions\<close>
 
 text \<open>Stability of a predicate across an environment step\<close>
 definition stable :: "('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
-  where "stable R P \<equiv> (R `` P \<subseteq> P)"
+  where "stable R P \<equiv> (\<forall>m m'. m \<in> P \<longrightarrow> (m,m') \<in> R \<longrightarrow> m' \<in> P)"
 
-lemma stableI: "stable R P = (\<forall>m m'. m \<in> P \<longrightarrow> (m,m') \<in> R \<longrightarrow> m' \<in> P)"
+lemma stable_rel: "stable R P = (R `` P \<subseteq> P)"
 unfolding stable_def
 by fast
 
-text \<open>Weakest precondition for a pre-condition and post-relation\<close>
-definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "wp pre post Q \<equiv> pre \<inter> - (post\<inverse> `` (-Q))"
+definition wp' :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred" where
+"wp' post Q = Domain post \<inter> - (post\<inverse> `` (-Q))"
 
-definition wp2 :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred" where
-"wp2 B Q = wp (Domain B) B Q"
 
-lemma "wp2 B Q = {m |m. (\<forall>m'. (m,m')\<in>B \<longrightarrow> m'\<in>Q) \<and> (\<exists>m'. (m,m')\<in>B)}"
-unfolding wp2_def wp_def
+lemma "wp' B Q = {m |m. (\<forall>m'. (m,m')\<in>B \<longrightarrow> m'\<in>Q) \<and> (\<exists>m'. (m,m')\<in>B)}"
+unfolding wp'_def
 by auto
 
 
-lemma "wp2 (Id_on v) (wp2 B Q) \<subseteq> wp v B Q"
-unfolding wp_def wp2_def by auto
+text \<open>Weakest precondition for a pre-condition and post-relation\<close>
+definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
+  where "wp pre post Q \<equiv> pre \<inter> Domain post \<inter> - (post\<inverse> `` (-Q))"
+
+lemma "wp pre post Q = wp' (Id_on pre) (wp' post Q)"
+unfolding wp_def wp'_def by auto
 
 
 text \<open>Guarantee check for a pre-condition and post-relation\<close>
 definition guar :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool"
   where "guar pre post G \<equiv> {(m,m'). m \<in> pre \<and> (m,m') \<in> post} \<subseteq> G"
+
+lemma guar_rel: "guar pre post G = (Id_on pre O post \<subseteq> G)"
+unfolding guar_def
+by fast
 
 fun guar2 :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool" where
 "guar2 pre post G = (pre \<subseteq> {m. (\<forall>m'. ((m,m') \<in> post \<longrightarrow> (m,m') \<in> G))})"
@@ -154,7 +159,8 @@ lemma thr_stableQ:
 
 lemma thr_wp:
   "P \<subseteq> wp v r M \<Longrightarrow> thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l v) (thr2glb op l l' r) (thr\<^sub>P op l' M)"
-  unfolding wp_def thr2glb_def thr\<^sub>P_def by auto
+  unfolding wp_def thr2glb_def thr\<^sub>P_def
+  oops
 
 lemma thr_guar:
   "guar v r G \<Longrightarrow> guar (thr\<^sub>P op l v) (thr2glb op l l' r) (thr\<^sub>G op G)"
@@ -196,7 +202,7 @@ lemma aux_stable [intro]:
   assumes "stable R P" 
   shows "stable (aux\<^sub>R r R) (aux\<^sub>P r P)"
   unfolding aux\<^sub>R_def aux\<^sub>P_def
-apply (simp only: stableI)
+unfolding stable_def
 proof (clarsimp, goal_cases)
   case (1 m n p)
   then obtain n' where a: "(p, n') \<in> r\<^sup>=" "(n, n') \<in> R" by auto
@@ -210,11 +216,15 @@ lemma aux_wp [intro]:
   unfolding wp_def aux\<^sub>P_def
 proof (clarsimp, (intro conjI; clarsimp), goal_cases)
   case (1 n m')
-  then show ?case using assms by (auto simp: wp_def aux\<^sub>P_def)
+  then show ?case using assms unfolding wp_def by auto
 next
-  case (2 n m n')
+  case (2 n m')
+  hence "n \<in> Domain (r\<^sup>=)" by fast
+  then show ?case using assms sorry
+next
+  case (3 n m n')
   then show ?case using assms(1) unfolding aux\<^sub>R_def wp_def by blast
-qed
+oops
 
 lemma aux_guar [intro]:
   assumes "guar v b G" 
