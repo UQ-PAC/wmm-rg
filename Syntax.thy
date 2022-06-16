@@ -84,17 +84,17 @@ fun capPred :: "('b::state) set \<Rightarrow> 'b set" where
 "capPred P = {popl m |m. m \<in> P}"
 
 
-fun capBeh :: "('b::state) \<Rightarrow> 'b rel \<Rightarrow> 'b rel" where
-"capBeh s b = {(popl m,popl m') |m m'. (m,m') \<in> b}" 
+fun capBeh :: "('b::state) rel \<Rightarrow> 'b rel" where
+"capBeh b = {(popl m,popl m') |m m'. (m,m') \<in> b}" 
 
 fun uncapBeh :: "('b::state) \<Rightarrow> 'b rel \<Rightarrow> 'b rel" where
-"uncapBeh s b = {(push m s,push m' s) |m m'. (m,m') \<in> b}" 
+"uncapBeh s b = {(push m s,push m' s') |m m' s'. (m,m') \<in> b}" 
 
 
 (* captures and hides the local effects of a basic. 
 goes from local to global.  *)
-fun capBasic :: "('b::state) \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic" where
-"capBasic s \<alpha> = (tag \<alpha>, capPred (vc \<alpha>), capBeh s (beh \<alpha>))"
+fun capBasic :: "('a,'b::state) basic \<Rightarrow> ('a,'b) basic" where
+"capBasic \<alpha> = (tag \<alpha>, capPred (vc \<alpha>), capBeh (beh \<alpha>))"
 
 (* uncaptures and makes visible the effects of a basic. 
 goes from global to local context. *)
@@ -107,34 +107,55 @@ fun capRely :: "('b::state) rel \<Rightarrow> 'b rel" where
 fun uncapRely :: "('b::state) rel \<Rightarrow> 'b rel" where
 "uncapRely R = {(push m s, push m' s) |m m' s. (m,m') \<in> R}"
 
-
 fun uncapGuar :: "('b::state) rel \<Rightarrow> 'b rel" where
 "uncapGuar G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
 
 fun capGuar :: "('b::state) rel \<Rightarrow> 'b rel" where
 "capGuar G = {(popl m, popl m') |m m'. (m,m') \<in> G}"
 
-lemma cap_uncapBeh: "capBeh s (uncapBeh s b) = b"
+
+lemma cap_uncapBeh [simp]: "capBeh (uncapBeh s b) = b"
 by (auto, metis popl_push)
 
-lemma cap_uncapPred: "capPred (uncapPred s P) = P"
+lemma cap_uncapPred [simp]: "capPred (uncapPred s P) = P"
 by (auto, metis popl_push)
 
-lemma cap_uncapBasic: "capBasic s (uncapBasic s \<alpha>) = \<alpha>"
+lemma cap_uncapBasic [simp]: "capBasic (uncapBasic s \<alpha>) = \<alpha>"
 using cap_uncapPred[of s "vc \<alpha>"] cap_uncapBeh[of s "beh \<alpha>"]
 by simp
 
-lemma uncap_capGuar: "uncapGuar (capGuar G) = G"
+lemma uncap_capGuar [simp]: "uncapGuar (capGuar G) = G"
 by auto (metis (full_types) popr_push push_intro)+
 
-lemma capPred_mono: "P \<subseteq> P' \<Longrightarrow> capPred P \<subseteq> capPred P'"
+lemma cap_uncapGuar [simp]: "capGuar (uncapGuar G) = G"
+by auto (metis (full_types) popr_push push_intro)+
+
+
+lemma capPred_mono [simp]: "P \<subseteq> P' \<Longrightarrow> capPred P \<subseteq> capPred P'"
 by auto
 
-lemma uncapGuar_mono: "G \<subseteq> G' \<Longrightarrow> uncapGuar G \<subseteq> uncapGuar G'"
+lemma uncapGuar_mono [simp]: "(G \<subseteq> G') \<Longrightarrow> (uncapGuar G \<subseteq> uncapGuar G')"
+by auto
+lemma capGuar_mono [simp]: "G \<subseteq> G' \<Longrightarrow> capGuar G \<subseteq> capGuar G'"
 by auto
 
-lemma uncapGuar_inter: "uncapGuar (G \<inter> G') = uncapGuar G \<inter> uncapGuar G'"
+lemma uncapGuar_eq [simp]: "(uncapGuar G \<subseteq> uncapGuar G') = (G \<subseteq> G')"
+by (metis capGuar_mono cap_uncapGuar uncapGuar_mono)
+
+
+lemma capGuar_relcomp [simp]: "capGuar (G O G') = capGuar G O capGuar G'"
+by auto (metis (mono_tags) popr_push push_intro relcomp.simps)
+
+lemma uncapGuar_relcomp [simp]: "uncapGuar (G O G') = uncapGuar G O uncapGuar G'"
+by (auto, blast, metis popl_push relcomp.relcompI)
+
+
+lemma capPred_inter [simp]: "capPred (P \<inter> P') = capPred P \<inter> capPred P'"
+by auto (metis popl_push push_intro)
+
+lemma uncapGuar_inter [simp]: "uncapGuar (G \<inter> G') = uncapGuar G \<inter> uncapGuar G'"
 by auto (metis (full_types) popr_push push_intro)
+
 
 lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
 unfolding stable_def
@@ -144,7 +165,7 @@ by (auto, metis popl_push)
 
 (* captures the effect of a command *)
 fun capCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
-    "capCom k (Basic \<beta>) = Basic (capBasic k \<beta>)" |
+    "capCom k (Basic \<beta>) = Basic (capBasic \<beta>)" |
     "capCom k (Seq c\<^sub>1 c\<^sub>2) = Seq (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
     "capCom k (Ord c\<^sub>1 c\<^sub>2) = Ord  (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
     "capCom k (Choice c\<^sub>1 c\<^sub>2) = Choice  (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
@@ -199,7 +220,7 @@ fun basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Loop c) = basics c" |
     "basics (Thread c) = basics c" |
     (* "basics (Capture s c) = uncapBasic s ` basics c" | *)
-    "basics (Capture k c) = capBasic k ` basics c" |
+    "basics (Capture k c) = capBasic ` basics c" |
     (* "basics (CaptureAll c) = basics c" | *)
     "basics _ = {}"
 

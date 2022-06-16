@@ -72,21 +72,18 @@ lemma atomic_uncap:
     uncapPred s P {uncapBasic s \<alpha>} uncapPred s' Q"
     (is "?ucR,?ucG \<turnstile>\<^sub>A ?ucP {?uca} ?ucQ")
   shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-proof (intro atomicI)
-  have 1:
+unfolding atomic_rule_def
+proof (intro conjI)
+  have assms':
     "?ucP \<subseteq> wp\<^sub>\<alpha> ?uca ?ucQ" "guar\<^sub>\<alpha> ?uca ?ucG"
     "stable ?ucR ?ucP" "stable ?ucR ?ucQ"
     using assms unfolding atomic_rule_def by auto
   thus "stable R P" "stable R Q"
     using stable_uncap by auto
-  show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q"
-  proof -
-    have "P \<subseteq> capPred (wp\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapPred s' Q))"
-      using 1 by (metis cap_uncapPred capPred_mono)
-    
-  qed
-  thm 1
-  show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" sorry 
+  have "capPred ?ucP \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
+    using assms'(1) by (metis capPred_mono cap_wp_capBasic)
+  thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by fastforce
+  show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2)
 qed
 
 
