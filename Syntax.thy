@@ -138,7 +138,7 @@ by auto (metis (full_types) popr_push push_intro)
 
 lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
 unfolding stable_def
-by (auto, metis (full_types) popr_push push_intro)
+by (auto, metis popl_push)
 
 
 

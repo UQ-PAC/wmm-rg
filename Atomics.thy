@@ -18,7 +18,7 @@ abbreviation wp\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'b pred \<Rightar
 text \<open>Specification check, ensuring an instruction conforms to a relation\<close>
 abbreviation guar\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'b rpred \<Rightarrow> bool"
   where "guar\<^sub>\<alpha> \<alpha> G \<equiv> guar (vc \<alpha>) (beh \<alpha>) G"
-                       
+
 section \<open>Atomic Rule\<close>
 
 text \<open>Rule for an atomic operation\<close>
@@ -37,8 +37,7 @@ lemma thr_atomic:
   shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
 using assms
 unfolding atomic_rule_def thr\<^sub>\<alpha>_def 
-apply (auto simp add: thr_stable thr_wp thr_guar)
-oops
+by (simp add: thr_stable thr_wp thr_guar)
 
 
 subsection \<open>Derived Properties\<close>
@@ -59,7 +58,7 @@ text \<open>Atomic judgements over the same instruction can be combined\<close>
 lemma actomic_conjI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P\<^sub>1 {\<alpha>} Q\<^sub>1" "R,G  \<turnstile>\<^sub>A P\<^sub>2 {\<alpha>} Q\<^sub>2"
   shows "R,G \<turnstile>\<^sub>A P\<^sub>1 \<inter> P\<^sub>2 {\<alpha>} Q\<^sub>1 \<inter> Q\<^sub>2"
-  using assms unfolding atomic_rule_def wp'_def stable_def by blast
+  using assms unfolding atomic_rule_def wp_def stable_def by fast
 
 text \<open>Add an invariant across an atomic judgement\<close>
 lemma atomic_invI [intro]:
@@ -69,15 +68,12 @@ lemma atomic_invI [intro]:
   unfolding atomic_rule_def
 proof (safe, goal_cases)
   case (1 m)
-  hence
-    "m \<in> vc \<alpha>"
-    "Id_on (P \<inter> vc \<alpha>) O beh \<alpha> \<subseteq> R\<^sub>2"
-    using assms(1,3) by (auto simp: wp'_def guar_def atomic_rule_def)
-  hence "m \<in> wp\<^sub>\<alpha> \<alpha> I" using assms(2) 1 sledgehammer    
+  hence "{(m,m'). m \<in> P \<inter> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>} \<subseteq> R\<^sub>2\<^sup>=" "m \<in> vc \<alpha>"
+    using assms(1,3) by (auto simp: wp_def guar_def atomic_rule_def)
+  hence "m \<in> wp\<^sub>\<alpha> \<alpha> I" using assms(2) 1 by (auto simp: wp_def stable_def)
   moreover have "m \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
-  ultimately show ?
-case by (auto simp: wp'_def)
-qed (insert assms, auto simp: atomic_rule_def)
+  ultimately show ?case by (auto simp: wp_def)
+qed (insert assms, auto simp: atomic_rule_def wp_def)
 
 text \<open>Atomic rule for a false precondition\<close>
 lemma atomic_falseI [intro]:

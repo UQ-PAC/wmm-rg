@@ -113,7 +113,7 @@ next
     by metis
   then obtain P\<^sub>s where s: "\<forall>s\<in>S. P \<subseteq> P\<^sub>s s \<and> stable R (P\<^sub>s s) \<and> (R,G \<turnstile> P\<^sub>s s {seq2com s} Q)"
     by blast
-  hence "stable R (\<Inter>s\<in>S. P\<^sub>s s)" by (auto simp: stable_def) fast
+  hence "stable R (\<Inter>s\<in>S. P\<^sub>s s)" by (auto simp: stable_def)
   moreover have "P \<subseteq> (\<Inter>s\<in>S. P\<^sub>s s)" using s by auto
   ultimately show ?case using s seqset.hyps(1) by blast
 next
