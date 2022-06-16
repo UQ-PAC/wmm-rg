@@ -23,7 +23,8 @@ definition stable :: "('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
 
 text \<open>Weakest precondition for a pre-condition and post-relation\<close>
 definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
-  where "wp pre post Q \<equiv> pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q)}"
+  where "wp pre post Q \<equiv>
+    pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q) \<and> (\<exists>m'. (m,m') \<in> post)}"
 
 text \<open>Guarantee check for a pre-condition and post-relation\<close>
 definition guar :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool"
@@ -66,7 +67,7 @@ lemma stable_falseI [intro]:
 
 lemma stable_wp: "stable R (wp UNIV (R\<^sup>*) P)"
 unfolding stable_def wp_def
-by (simp add: converse_rtrancl_into_rtrancl)
+by (auto simp: converse_rtrancl_into_rtrancl)
 
 section \<open>Guarantee Properties\<close>
 
@@ -137,7 +138,10 @@ lemma thr_stableQ:
 
 lemma thr_wp:
   "P \<subseteq> wp v r M \<Longrightarrow> thr\<^sub>P op l P \<subseteq> wp (thr\<^sub>P op l v) (thr2glb op l l' r) (thr\<^sub>P op l' M)"
-  unfolding wp_def thr2glb_def thr\<^sub>P_def by auto
+  unfolding wp_def thr2glb_def thr\<^sub>P_def
+  apply auto
+  oops
+  
 
 lemma thr_guar:
   "guar v r G \<Longrightarrow> guar (thr\<^sub>P op l v) (thr2glb op l l' r) (thr\<^sub>G op G)"
@@ -194,9 +198,16 @@ proof (clarsimp, (intro conjI; clarsimp), goal_cases)
   case (1 n m')
   then show ?case using assms by (auto simp: wp_def aux\<^sub>P_def)
 next
-  case (2 n m n')
-  then show ?case using assms(1) unfolding aux\<^sub>R_def wp_def by blast
-qed
+  case (2 n m')
+  then show ?case using assms
+  proof (intro conjI, goal_cases)
+    case 1
+    then show ?case unfolding aux\<^sub>R_def wp_def by fast
+  next
+    case 2
+    then show ?case sorry
+  qed 
+oops
 
 lemma aux_guar [intro]:
   assumes "guar v b G" 

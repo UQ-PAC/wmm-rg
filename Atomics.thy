@@ -37,7 +37,8 @@ lemma thr_atomic:
   shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
 using assms
 unfolding atomic_rule_def thr\<^sub>\<alpha>_def 
-by (simp add: thr_stable thr_wp thr_guar)
+(* by (simp add: thr_stable thr_wp thr_guar) *)
+oops
 
 
 subsection \<open>Derived Properties\<close>
@@ -58,7 +59,7 @@ text \<open>Atomic judgements over the same instruction can be combined\<close>
 lemma actomic_conjI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P\<^sub>1 {\<alpha>} Q\<^sub>1" "R,G  \<turnstile>\<^sub>A P\<^sub>2 {\<alpha>} Q\<^sub>2"
   shows "R,G \<turnstile>\<^sub>A P\<^sub>1 \<inter> P\<^sub>2 {\<alpha>} Q\<^sub>1 \<inter> Q\<^sub>2"
-  using assms unfolding atomic_rule_def wp_def stable_def by fast
+  using assms unfolding atomic_rule_def wp_def stable_def by blast
 
 text \<open>Add an invariant across an atomic judgement\<close>
 lemma atomic_invI [intro]:
@@ -69,6 +70,7 @@ lemma atomic_invI [intro]:
 proof (safe, goal_cases)
   case (1 m)
   hence "{(m,m'). m \<in> P \<inter> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>} \<subseteq> R\<^sub>2\<^sup>=" "m \<in> vc \<alpha>"
+    "\<exists>m'. (m, m') \<in> beh \<alpha>"
     using assms(1,3) by (auto simp: wp_def guar_def atomic_rule_def)
   hence "m \<in> wp\<^sub>\<alpha> \<alpha> I" using assms(2) 1 by (auto simp: wp_def stable_def)
   moreover have "m \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
@@ -132,8 +134,6 @@ proof -
     using cap_uncapPred by auto
   have "vc (uncapBasic s \<alpha>) = uncapPred s (vc \<alpha>)"
     by simp
-  (* is there or does there need to be a link between vc and beh? *)
-  (* what does it mean when an initial state does not appear in the behaviours? *)
   have "capPred {m. \<forall>m'. (m, m') \<in> uncapBeh s (beh \<alpha>) \<longrightarrow> m' \<in> uncapPred s' Q}
     = {m. \<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> Q}"
     sorry
