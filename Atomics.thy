@@ -89,43 +89,41 @@ lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<al
 unfolding guar_def
 by fast
 
-lemma guar_uncapE:
-  "guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
+lemma guar_capE:
+  "guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
 unfolding guar\<^sub>\<alpha>_rel
 proof -
-  assume "Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>) \<subseteq> uncapGuar G"
-  hence "capGuar (Id_on (uncapPred s (vc \<alpha>))) O beh \<alpha> \<subseteq> G"
-    by simp (metis capGuar_relcomp capGuar_mono cap_uncapBeh cap_uncapGuar)
+  assume "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
+  hence "uncapGuar (Id_on (capPred (vc \<alpha>))) O beh \<alpha> \<subseteq> G"
+    by simp (metis uncapGuar_relcomp uncapGuar_mono uncap_capGuar)
   thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
-    using capPred_in_capGuar cap_uncapPred by blast
+    using Id_in_uncapGuar_capPred by fast
 qed
 
-lemma guar_uncapI:
-  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"
+lemma guar_capI:
+  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G)"
 unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
-  hence "uncapGuar (Id_on (vc \<alpha>)) O uncapGuar (beh \<alpha>) \<subseteq> uncapGuar G"
-    using uncapGuar_relcomp uncapGuar_mono by blast
-  (* uncap with specific 's' is always within general uncapGuar *)
-  moreover have "Id_on (uncapPred s (vc \<alpha>)) \<subseteq> uncapGuar (Id_on (vc \<alpha>))"
-    using uncapGuar_capPred by fastforce
-  moreover have "uncapBeh s (beh \<alpha>) \<subseteq> uncapGuar (beh \<alpha>)"
-    using uncapBeh_in_uncapGuar by auto
-  ultimately show
-    "Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>) \<subseteq> uncapGuar G"
+  hence "capGuar (Id_on (vc \<alpha>)) O capGuar (beh \<alpha>) \<subseteq> capGuar G"
+    using capGuar_relcomp capGuar_mono by blast
+  (* Id relation is always within capGuar which has all relations. *)
+  moreover have "Id_on (capPred (vc \<alpha>)) \<subseteq> capGuar (Id_on (vc \<alpha>))"
+    using capPred_in_capGuar by fastforce
+  ultimately show "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
     by auto
 qed
 
-lemma guar_capE:
-  "guar\<^sub>\<alpha> (capBasic \<beta>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<beta> G"
-using guar_uncapI
-by (metis cap_uncapBeh cap_uncapPred snd_conv snd_swap swap_simp uncapPred_intro uncap_capGuar)
+lemma guar_uncapE:
+  "guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
+using guar_capI 
+by force
 
-lemma guar_capI:
-  "guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> guar\<^sub>\<alpha> (capBasic \<beta>) (capGuar G)"
-using guar_uncapE
-by (metis cap_uncapBeh cap_uncapPred fst_conv snd_conv uncapPred_intro uncap_capGuar)
+lemma guar_uncapI:
+  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"
+using guar_capE cap_uncapGuar cap_uncapBasic
+by metis
+
 
 lemma cap_wp_capBasic:
   "capPred (wp\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapPred s' Q)) = wp\<^sub>\<alpha> \<alpha> Q"

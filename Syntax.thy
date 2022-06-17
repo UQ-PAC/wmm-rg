@@ -153,7 +153,7 @@ unfolding capGuar_def uncapGuar_def by auto
 lemma capGuar_mono [simp]: "G \<subseteq> G' \<Longrightarrow> capGuar G \<subseteq> capGuar G'"
 unfolding capGuar_def uncapGuar_def by auto
 
-lemma uncapGuar_capPred: "Id_on G \<subseteq> uncapGuar (Id_on (capPred G))"
+lemma Id_in_uncapGuar_capPred: "Id_on G \<subseteq> uncapGuar (Id_on (capPred G))"
 proof -
   have "G \<subseteq> {push m s |m s. m \<in> capPred G}"
     unfolding capPred_def by clarsimp (metis popl_push push_intro)
