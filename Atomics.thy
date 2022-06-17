@@ -100,11 +100,11 @@ proof (intro subrelI)
     using capGuar_relcomp capGuar_mono by blast
   fix m m'
   assume mm': "(m,m') \<in> Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>)"
-  hence "(m,m') \<in> capGuar (beh \<alpha>)" by auto
-  moreover have "(m,m) \<in> capGuar (Id_on (vc \<alpha>))" using mm' by auto
-  ultimately have 
-    "(m,m') \<in> capGuar (Id_on (vc \<alpha>)) O capGuar (beh \<alpha>)" by fast
-  thus "(m,m') \<in> capGuar G" using subset by fast
+  hence "(m,m) \<in> capGuar (Id_on (vc \<alpha>))" 
+    by (auto simp: capPred_in_capGuar)
+  moreover have "(m,m') \<in> capGuar (beh \<alpha>)"
+    using mm' by auto 
+  ultimately show "(m,m') \<in> capGuar G" using subset by auto
 qed
 
 lemma guar_uncapI:
@@ -118,11 +118,11 @@ proof (intro subrelI)
     using uncapGuar_relcomp uncapGuar_mono by blast
   fix m m'
   assume mm': "(m,m') \<in> Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>)"
-  hence "(m,m') \<in> uncapGuar (beh \<alpha>)" by auto
-  moreover have "(m,m) \<in> uncapGuar (Id_on (vc \<alpha>))" using mm' by auto
-  ultimately have 
-    "(m,m') \<in> uncapGuar (Id_on (vc \<alpha>)) O uncapGuar (beh \<alpha>)" by fast
-  thus "(m,m') \<in> uncapGuar G" using subset by fast
+  hence "(m,m') \<in> uncapGuar (beh \<alpha>)"
+    using uncapBeh_in_uncapGuar by auto
+  moreover have "(m,m) \<in> uncapGuar (Id_on (vc \<alpha>))" 
+    using mm' uncapGuar_capPred by fastforce
+  ultimately show "(m,m') \<in> uncapGuar G" using subset by fast
 qed
 
 lemma guar_uncapE:
@@ -136,11 +136,11 @@ proof (intro subrelI)
   assume "Id_on (vc (capBasic \<beta>)) O beh (capBasic \<beta>) \<subseteq> capGuar G"
     (is "?V O ?B \<subseteq> ?G")
   hence subset: "uncapGuar ?V O uncapGuar ?B \<subseteq> G"
-    by (metis uncapGuar_relcomp uncapGuar_mono uncap_capGuar)
+    using uncapGuar_relcomp uncapGuar_mono uncap_capGuar[of G] by blast
   fix m m'
   assume mm': "(m,m') \<in> Id_on (vc \<beta>) O beh \<beta>"
   have "Id_on (vc \<beta>) \<subseteq> uncapGuar ?V" using uncapGuar_capPred by force
-  moreover have "uncapGuar ?B = beh \<beta>" using uncap_capGuar by fastforce
+  moreover have "uncapGuar ?B = beh \<beta>" using uncap_capGuar by auto
   ultimately show "(m,m') \<in> G" using mm' subset by fast
 qed
 
@@ -150,10 +150,11 @@ proof -
   have
     "capPred {m. \<forall>m'. (m, m') \<in> beh (uncapBasic s \<alpha>) \<longrightarrow> m' \<in> uncapPred s' Q}
       = {m. \<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> Q}"
+      unfolding uncapPred_def uncapBeh_def capPred_def
     by auto (metis (full_types) popr_push push_intro)+
   moreover have "capPred (vc (uncapBasic s \<alpha>)) = vc \<alpha>" by force
-  moreover have
-    "capPred (Domain (beh (uncapBasic s \<alpha>))) = Domain (beh \<alpha>)" by force
+  moreover have "capPred (Domain (beh (uncapBasic s \<alpha>))) = Domain (beh \<alpha>)" 
+    unfolding capPred_def uncapBeh_def by force
   ultimately show ?thesis by (simp only: wp_rel_partial capPred_inter)
 qed
 

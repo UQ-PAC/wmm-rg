@@ -102,7 +102,7 @@ next
   moreover have "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" sorry
   ultimately show ?case using M(1)
     by (metis capPred_mono cap_uncapPred)
-qed
+oops
 
 
 
