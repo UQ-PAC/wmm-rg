@@ -83,7 +83,8 @@ proof (intro conjI)
   have "capPred ?ucP \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
     using assms'(1) by (metis capPred_mono cap_wp_capBasic)
   thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by fastforce
-  show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2)
+  show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2) guar_capI
+    by (metis cap_uncapBasic cap_uncapGuar)
 qed
 
 

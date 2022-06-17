@@ -168,11 +168,11 @@ by (induct rule: lexecute.induct) auto
 
 lemma cap_basic_uncapCom:
   assumes "seqonly r"
-  shows "capBasic s ` basics (uncapCom s r) = basics r"
+  shows "capBasic ` basics (uncapCom s r) = basics r"
 using assms
 proof (induct r)
   case (Basic \<alpha>)
-  have "capBasic s ` {uncapBasic s \<alpha>} = {\<alpha>}"
+  have "capBasic ` {uncapBasic s \<alpha>} = {\<alpha>}"
     by (metis cap_uncapBasic image_empty image_insert)
   thus ?case by simp
 qed (auto simp add: image_Un)
@@ -184,7 +184,7 @@ proof (induct rule: lexecute.induct)
   case (cap c s r \<alpha> c')
   hence "seqonly r"
     using seqonly_lexecute seqonly_uncapCom by fast
-  hence "insert \<alpha> (basics r) \<subseteq> capBasic s ` basics c"
+  hence "insert \<alpha> (basics r) \<subseteq> capBasic ` basics c"
     using cap.hyps(2) cap_basic_uncapCom cap_uncapBasic
     by (metis image_eqI image_mono insert_subset)
   thus ?case by simp

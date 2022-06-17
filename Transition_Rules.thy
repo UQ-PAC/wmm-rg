@@ -99,16 +99,12 @@ next
     "uncapRely R,uncapGuar G \<turnstile> uncapPred s M {c'} uncapPred s' Q"
        sorry
   hence "R,G \<turnstile> M {Capture s c'} Q" by fast
-  moreover have "R,G \<turnstile>"
-  ultimately show ?case 
-  thm cap(2)[of "uncapRely R" "uncapGuar G" "uncapPred s P" "uncapPred s Q"]
-  sorry
+  moreover have "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" sorry
+  ultimately show ?case using M(1)
+    by (metis capPred_mono cap_uncapPred)
 qed
 
 
-lemma "R,G \<turnstile> P {Nil} Q \<Longrightarrow> wp UNIV (R\<^sup>*) P \<subseteq> Q"
-apply auto
-oops
 
 text \<open>Judgements are preserved across silent steps\<close>
 lemma rewrite_ruleI [intro]:
@@ -139,7 +135,7 @@ next
       by (metis nilE uncapPred_intro)
     hence 1: "stable R M" using stable_uncap by fast
     hence 2: "P \<subseteq> M" "M \<subseteq> Q"
-      using M by (metis capPred_mono cap_uncapPred)+
+      using M(2,3) by (metis capPred_mono cap_uncapPred)+
     have "R,G \<turnstile> M {Nil} Q" using 1 2 by auto
     thus ?thesis using 2(1) 20(2) by (simp add: conseq)
   qed auto

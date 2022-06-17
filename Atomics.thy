@@ -124,7 +124,7 @@ proof -
     by presburger
 oops
 
-lemma guar_cap:
+lemma guar_capI:
   assumes "guar\<^sub>\<alpha> \<alpha> G"
   shows "guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G)"
 unfolding guar\<^sub>\<alpha>_rel
@@ -143,7 +143,7 @@ proof (intro subrelI)
   thus "(m,m') \<in> capGuar G" using subset by fast
 qed
 
-lemma guar_uncap:
+lemma guar_uncapI:
   assumes "guar\<^sub>\<alpha> \<alpha> G"
   shows "guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"
 unfolding guar\<^sub>\<alpha>_rel
