@@ -156,9 +156,11 @@ next
   then show ?case by auto
 next
   case (Capture s c)
+  have "guar\<^sub>\<alpha> (capBasic \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
+    if "\<beta> \<in> basics c" for \<beta> using guar_capE cap_uncapGuar by blast
   hence "\<forall>\<beta>\<in>basics c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
-    using guar_capB_to_guar_uncapG by fastforce
-  thus ?case using Capture(1,2) rules.capture by simp
+    using Capture(3) by simp
+  thus ?case using Capture(1,2) by (simp add: rules.capture)
 qed (auto)
 
 lemma seq_rot:

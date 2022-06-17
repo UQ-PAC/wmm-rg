@@ -74,8 +74,7 @@ lemma uncapPred_intro:
   "\<exists>P'. P = uncapPred s P'"
 proof 
   have "m = push (SOME x. m = push x s) s" for m
-    using push_intro[of m s] someI_ex
-    by fast
+    using push_intro[of m s] someI_ex by fast
   thus "P = uncapPred s {SOME x. m = push x s |m. m \<in> P}"
     by auto
 qed
@@ -124,6 +123,10 @@ lemma cap_uncapBasic [simp]: "capBasic (uncapBasic s \<alpha>) = \<alpha>"
 using cap_uncapPred[of s "vc \<alpha>"] cap_uncapBeh[of s "beh \<alpha>"]
 by simp
 
+(* does not hold; we cannot guarantee s was the original local state. *)
+lemma uncap_capBasic: "uncapBasic s (capBasic \<alpha>) = \<alpha>"
+oops
+
 lemma uncap_capGuar [simp]: "uncapGuar (capGuar G) = G"
 by auto (metis (full_types) popr_push push_intro)+
 
@@ -134,10 +137,16 @@ by auto (metis (full_types) popr_push push_intro)+
 lemma capPred_mono [simp]: "P \<subseteq> P' \<Longrightarrow> capPred P \<subseteq> capPred P'"
 by auto
 
-lemma uncapGuar_mono [simp]: "(G \<subseteq> G') \<Longrightarrow> (uncapGuar G \<subseteq> uncapGuar G')"
+lemma uncapGuar_mono [simp]: "G \<subseteq> G' \<Longrightarrow> (uncapGuar G \<subseteq> uncapGuar G')"
 by auto
 lemma capGuar_mono [simp]: "G \<subseteq> G' \<Longrightarrow> capGuar G \<subseteq> capGuar G'"
 by auto
+lemma uncapGuar_capPred: "Id_on G \<subseteq> uncapGuar (Id_on (capPred G))"
+proof -
+  have "G \<subseteq> {push m s |m s. m \<in> capPred G}"
+    by clarsimp (metis popl_push push_intro)
+  thus ?thesis using Id_on_eqI by clarsimp blast
+qed
 
 lemma uncapGuar_eq [simp]: "(uncapGuar G \<subseteq> uncapGuar G') = (G \<subseteq> G')"
 by (metis capGuar_mono cap_uncapGuar uncapGuar_mono)
