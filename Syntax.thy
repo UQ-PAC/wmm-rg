@@ -1,5 +1,5 @@
 theory Syntax
-  imports Main State
+  imports Main Push_State
 begin
 
 chapter \<open>While Language Syntax\<close>
@@ -17,6 +17,7 @@ abbreviation vc :: "('a,'b) basic \<Rightarrow> 'b set"
 
 abbreviation beh :: "('a,'b) basic \<Rightarrow> 'b rel"
   where "beh \<alpha> \<equiv> snd (snd \<alpha>)"
+
 
 text \<open>
 A While language with non-deterministic choice, iteration and parallel composition.
@@ -51,152 +52,49 @@ fun local :: "('a,'b) com \<Rightarrow> bool"
     "local _ = True"
 
 
-class state =
-  fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
-  fixes popl :: "'a \<Rightarrow> 'a"
-  fixes popr :: "'a \<Rightarrow> 'a"
-  assumes popl_push [simp]: "popl (push a b) = a"
-  assumes popr_push [simp]: "popr (push a b) = b"
-  assumes push_intro: "\<exists>m. m' = push m s"
+text \<open>Functions to support Capture operations.\<close>
 
-lemma push_intro_fun: 
-  "\<exists>f. m' = push (f m' s) s"
-using push_intro
-by fast
+abbreviation (input) uncapPred where
+"uncapPred s P \<equiv> pushpred s P"
 
+abbreviation (input) capPred where
+"capPred P \<equiv> poppred P"
 
-definition uncapPred :: "('b::state) \<Rightarrow> 'b set \<Rightarrow> 'b set" where
-"uncapPred s P = {push m s |m. m \<in> P}"
+abbreviation (input) capBeh where
+"capBeh B \<equiv> poprel B" 
 
-lemma uncapPred_intro:
-  "\<exists>P'. P = uncapPred s P'"
-proof 
-  have "m = push (SOME x. m = push x s) s" for m
-    using push_intro[of m s] someI_ex by fast
-  thus "P = uncapPred s {SOME x. m = push x s |m. m \<in> P}"
-    unfolding uncapPred_def by auto
-qed
+abbreviation (input) uncapBeh where
+"uncapBeh s B \<equiv> pushrel s B" 
 
-definition capPred :: "('b::state) set \<Rightarrow> 'b set" where
-"capPred P = {popl m |m. m \<in> P}"
+abbreviation (input) capRely where
+"capRely R \<equiv> poprel R"
 
+abbreviation (input) uncapRely where
+"uncapRely R \<equiv> pushrelSame R"
 
-definition capBeh :: "('b::state) rel \<Rightarrow> 'b rel" where
-"capBeh b = {(popl m,popl m') |m m'. (m,m') \<in> b}" 
+abbreviation (input) capGuar where
+"capGuar G \<equiv> poprel G"
 
-definition uncapBeh :: "('b::state) \<Rightarrow> 'b rel \<Rightarrow> 'b rel" where
-"uncapBeh s b = {(push m s,push m' s') |m m' s'. (m,m') \<in> b}" 
-
+abbreviation (input) uncapGuar where
+"uncapGuar G \<equiv> pushrelAll G"
 
 (* captures and hides the local effects of a basic. 
 goes from local to global.  *)
-abbreviation capBasic :: "('a,'b::state) basic \<Rightarrow> ('a,'b) basic" where
+abbreviation capBasic where
 "capBasic \<alpha> \<equiv> (tag \<alpha>, capPred (vc \<alpha>), capBeh (beh \<alpha>))"
 
 (* uncaptures and makes visible the effects of a basic. 
 goes from global to local context. *)
-abbreviation uncapBasic :: "('b::state) \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic" where
+abbreviation uncapBasic where
 "uncapBasic s \<alpha> \<equiv> (tag \<alpha>, uncapPred s (vc \<alpha>), uncapBeh s (beh \<alpha>))"
 
-definition capRely :: "('b::state) rel \<Rightarrow> 'b rel" where
-"capRely R = {(popl m, popl m') |m m'. (m,m') \<in> R}"
-
-definition uncapRely :: "('b::state) rel \<Rightarrow> 'b rel" where
-"uncapRely R = {(push m s, push m' s) |m m' s. (m,m') \<in> R}"
-
-definition uncapGuar :: "('b::state) rel \<Rightarrow> 'b rel" where
-"uncapGuar G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
-
-abbreviation (input) capGuar :: "('b::state) rel \<Rightarrow> 'b rel" where
-"capGuar G \<equiv> capBeh G"
-lemmas capGuar_def = capBeh_def
-
-lemma cap_uncapBeh [simp]: "capBeh (uncapBeh s b) = b"
-unfolding capBeh_def uncapBeh_def
-by (auto, metis popl_push)
-
-lemma cap_uncapPred [simp]: "capPred (uncapPred s P) = P"
-unfolding capPred_def uncapPred_def
-by (auto, metis popl_push)
 
 lemma cap_uncapBasic [simp]: "capBasic (uncapBasic s \<alpha>) = \<alpha>"
-using cap_uncapPred[of s "vc \<alpha>"] cap_uncapBeh[of s "beh \<alpha>"]
 by simp
 
-(* does not hold; we cannot guarantee s was the original local state. *)
+(* suspicious *)
 lemma uncap_capBasic: "uncapBasic s (capBasic \<alpha>) = \<alpha>"
-oops
-
-lemma uncap_capGuar [simp]: "uncapGuar (capGuar G) = G"
-unfolding capGuar_def uncapGuar_def
-by auto (metis (full_types) popr_push push_intro)+
-
-lemma cap_uncapGuar [simp]: "capGuar (uncapGuar G) = G"
-unfolding capGuar_def uncapGuar_def
-by auto (metis (full_types) popr_push push_intro)+
-
-lemma uncapBeh_in_uncapGuar: "uncapBeh s G \<subseteq> uncapGuar G"
-unfolding uncapBeh_def uncapGuar_def by fast
-
-(* lemma capBeh_in_capGuar: "capBeh G \<subseteq> capGuar G"
-unfolding capBeh_def capGuar_def by simp *)
-
-
-lemma capPred_mono [simp]: "P \<subseteq> P' \<Longrightarrow> capPred P \<subseteq> capPred P'"
-unfolding capPred_def uncapPred_def by auto
-
-lemma uncapGuar_mono [simp]: "G \<subseteq> G' \<Longrightarrow> (uncapGuar G \<subseteq> uncapGuar G')"
-unfolding capGuar_def uncapGuar_def by auto
-
-lemma capGuar_mono [simp]: "G \<subseteq> G' \<Longrightarrow> capGuar G \<subseteq> capGuar G'"
-unfolding capGuar_def uncapGuar_def by auto
-
-lemma Id_in_uncapGuar_capPred: "Id_on G \<subseteq> uncapGuar (Id_on (capPred G))"
-proof -
-  have "G \<subseteq> {push m s |m s. m \<in> capPred G}"
-    unfolding capPred_def by clarsimp (metis popl_push push_intro)
-  thus ?thesis using Id_on_eqI 
-    unfolding uncapGuar_def by clarsimp blast
-qed
-
-lemma capPred_eq_capGuar: "Id_on (capPred a) = capGuar (Id_on a)"
-unfolding capPred_def capGuar_def by auto
-
-lemma capPred_in_capGuar: "m \<in> capPred G \<Longrightarrow> (m,m) \<in> capGuar (Id_on G)"
-using capPred_eq_capGuar by fast
-
-lemma uncapGuar_eq [simp]: "(uncapGuar G \<subseteq> uncapGuar G') = (G \<subseteq> G')"
-by (metis capGuar_mono cap_uncapGuar uncapGuar_mono)
-
-
-lemma capGuar_relcomp [simp]: "capGuar (G O G') = capGuar G O capGuar G'"
-unfolding capGuar_def
-by auto (metis (mono_tags) popr_push push_intro relcomp.simps)
-
-lemma uncapGuar_relcomp [simp]: "uncapGuar (G O G') = uncapGuar G O uncapGuar G'"
-unfolding uncapGuar_def
-by (auto, blast, metis popl_push relcomp.relcompI)
-
-
-lemma capPred_inter [simp]: "capPred (P \<inter> P') = capPred P \<inter> capPred P'"
-unfolding capPred_def
-by auto (metis popl_push push_intro)
-
-lemma uncapGuar_inter [simp]: "uncapGuar (G \<inter> G') = uncapGuar G \<inter> uncapGuar G'"
-unfolding uncapGuar_def
-by auto (metis (full_types) popr_push push_intro)
-
-lemma capPred_empty [simp]: "capPred {} = {}"
-unfolding capPred_def by simp
-lemma uncapPred_empty [simp]: "uncapPred s {} = {}"
-unfolding uncapPred_def by simp
-
-
-lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
-unfolding stable_def uncapRely_def uncapPred_def
-by (auto, metis popl_push)
-
-
+by simp
 
 (* captures the effect of a command *)
 fun capCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
@@ -227,9 +125,9 @@ fun uncapCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com
     (* "basics (CaptureAll c) = basics c" | *)
 
 
-definition thr\<^sub>\<alpha> :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic" where
+(* definition thr\<^sub>\<alpha> :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic" where
 "thr\<^sub>\<alpha> op l l' \<alpha> \<equiv> (tag \<alpha>, thr\<^sub>P op l (vc \<alpha>), thr2glb op l l' (beh \<alpha>))"
-
+ *)
 (* fun thr\<^sub>c :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
 "thr\<^sub>c op l l' (Basic \<beta>) = Basic (thr\<^sub>\<alpha> op l l' \<beta>)" |
 "thr\<^sub>c op l l' (Seq c\<^sub>1 c\<^sub>2) = Seq (thr\<^sub>c op l l' c\<^sub>1) (thr\<^sub>c op l l' c\<^sub>2)" |

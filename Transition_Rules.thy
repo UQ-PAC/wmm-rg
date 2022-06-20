@@ -132,10 +132,10 @@ next
       "stable (uncapRely R) (uncapPred s M)"
       "uncapPred s P \<subseteq> uncapPred s M"
       "uncapPred s M \<subseteq> uncapPred s' Q"
-      by (metis nilE uncapPred_intro)
+      by (metis nilE pushpred_intro)
     hence 1: "stable R M" using stable_uncap by fast
     hence 2: "P \<subseteq> M" "M \<subseteq> Q"
-      using M(2,3) by (metis capPred_mono cap_uncapPred)+
+      using M(2,3) by (metis poppred_mono pop_pushpred)+
     have "R,G \<turnstile> M {Nil} Q" using 1 2 by auto
     thus ?thesis using 2(1) 20(2) by (simp add: conseq)
   qed auto

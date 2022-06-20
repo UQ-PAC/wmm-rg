@@ -123,8 +123,8 @@ next
     "stable (uncapRely R) P'"
     "uncapRely R,uncapGuar G \<turnstile> P' {c} uncapPred s' Q" 
     by blast
-  then obtain P'' where P'': "P' = uncapPred s P''" using uncapPred_intro by metis
-  hence "P \<subseteq> P''" using P' by (metis capPred_mono cap_uncapPred)
+  then obtain P'' where P'': "P' = uncapPred s P''" using pushpred_intro by metis
+  hence "P \<subseteq> P''" using P' by (metis poppred_mono pop_pushpred)
   moreover have "stable R P''" using stable_uncap P' P'' by fast
   moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast
   ultimately show ?case by auto
@@ -157,7 +157,7 @@ next
 next
   case (Capture s c)
   have "guar\<^sub>\<alpha> (capBasic \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
-    if "\<beta> \<in> basics c" for \<beta> using guar_capE cap_uncapGuar by blast
+    if "\<beta> \<in> basics c" for \<beta> using guar_capE pop_pushrelAll by blast
   thus ?case using Capture by (simp add: rules.capture)  
 qed (auto)
 

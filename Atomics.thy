@@ -32,6 +32,7 @@ lemma atomicI [intro]:
 using assms
 by (auto simp add: atomic_rule_def)
 
+(* 
 lemma thr_atomic:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
   shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
@@ -39,7 +40,7 @@ using assms
 unfolding atomic_rule_def thr\<^sub>\<alpha>_def 
 (* by (simp add: thr_stable thr_wp thr_guar) *)
 oops
-
+ *)
 
 subsection \<open>Derived Properties\<close>
 
@@ -84,6 +85,12 @@ lemma atomic_falseI [intro]:
   using assms unfolding atomic_rule_def by auto
 
 
+text \<open>Definitions and lemmas for capturing guarantee and stability properties.\<close>
+
+lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
+unfolding stable_def pushrelSame_def pushpred_def
+by (auto, metis popl_push)
+
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
 unfolding guar_def by fast
@@ -94,9 +101,9 @@ unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
   hence "uncapGuar (Id_on (capPred (vc \<alpha>))) O beh \<alpha> \<subseteq> G"
-    by simp (metis uncapGuar_relcomp uncapGuar_mono uncap_capGuar)
+    by simp (metis pushrelAll_relcomp pushrelAll_mono push_poprelAll)
   thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
-    using Id_in_uncapGuar_capPred by fast
+    using Id_in_pushrelAll_poppred by fast
 qed
 
 lemma guar_capI:
@@ -105,9 +112,9 @@ unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
   hence "capGuar (Id_on (vc \<alpha>)) O capGuar (beh \<alpha>) \<subseteq> capGuar G"
-    using capGuar_relcomp capGuar_mono by blast
+    using poprel_relcomp poprel_mono by blast
   moreover have "Id_on (capPred (vc \<alpha>)) \<subseteq> capGuar (Id_on (vc \<alpha>))"
-    using capPred_eq_capGuar by auto
+    using poppred_eq_poprel by auto
   ultimately show "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
     by auto
 qed
@@ -119,7 +126,7 @@ by fastforce
 
 lemma guar_uncapI:
   "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"
-using guar_capE cap_uncapGuar cap_uncapBasic
+using guar_capE pop_pushrelAll cap_uncapBasic
 by metis
 
 
@@ -129,12 +136,33 @@ proof -
   have
     "capPred {m. \<forall>m'. (m, m') \<in> beh (uncapBasic s \<alpha>) \<longrightarrow> m' \<in> uncapPred s' Q}
       = {m. \<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> Q}"
-      unfolding uncapPred_def uncapBeh_def capPred_def
-    by auto (metis (full_types) popr_push push_intro)+
+      unfolding pushpred_def pushrel_def poppred_def
+      by auto (metis popl_push push_intro)+
   moreover have "capPred (vc (uncapBasic s \<alpha>)) = vc \<alpha>" by force
-  moreover have "capPred (Domain (beh (uncapBasic s \<alpha>))) = Domain (beh \<alpha>)" 
-    unfolding capPred_def uncapBeh_def by force
-  ultimately show ?thesis by (simp only: wp_rel_partial capPred_inter)
+  moreover have "capPred (Domain (beh (uncapBasic s \<alpha>))) = Domain (beh \<alpha>)"
+    unfolding poppred_def pushrel_def poprel_def by force
+  ultimately show ?thesis by (simp only: wp_rel_partial poppred_inter)
+qed
+
+
+lemma atomic_uncap:
+  assumes "uncapRely R,uncapGuar G \<turnstile>\<^sub>A 
+    uncapPred s P {uncapBasic s \<alpha>} uncapPred s' Q"
+    (is "?ucR,?ucG \<turnstile>\<^sub>A ?ucP {?uca} ?ucQ")
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
+unfolding atomic_rule_def
+proof (intro conjI)
+  have assms':
+    "?ucP \<subseteq> wp\<^sub>\<alpha> ?uca ?ucQ" "guar\<^sub>\<alpha> ?uca ?ucG"
+    "stable ?ucR ?ucP" "stable ?ucR ?ucQ"
+    using assms unfolding atomic_rule_def by auto
+  thus "stable R P" "stable R Q"
+    using stable_uncap by auto
+  have "capPred ?ucP \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
+    using assms'(1) by (metis poppred_mono cap_wp_capBasic)
+  thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by fastforce
+  show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2) guar_capI
+    by (metis cap_uncapBasic pop_pushrelAll)
 qed
 
 end
