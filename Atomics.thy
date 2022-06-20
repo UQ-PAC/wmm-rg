@@ -86,8 +86,7 @@ lemma atomic_falseI [intro]:
 
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
-unfolding guar_def
-by fast
+unfolding guar_def by fast
 
 lemma guar_capE:
   "guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
@@ -107,9 +106,8 @@ proof -
   assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
   hence "capGuar (Id_on (vc \<alpha>)) O capGuar (beh \<alpha>) \<subseteq> capGuar G"
     using capGuar_relcomp capGuar_mono by blast
-  (* Id relation is always within capGuar which has all relations. *)
   moreover have "Id_on (capPred (vc \<alpha>)) \<subseteq> capGuar (Id_on (vc \<alpha>))"
-    using capPred_in_capGuar by fastforce
+    using capPred_eq_capGuar by auto
   ultimately show "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
     by auto
 qed
@@ -117,7 +115,7 @@ qed
 lemma guar_uncapE:
   "guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
 using guar_capI 
-by force
+by fastforce
 
 lemma guar_uncapI:
   "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"

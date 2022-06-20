@@ -52,9 +52,7 @@ fun local :: "('a,'b) com \<Rightarrow> bool"
 
 
 class state =
-  (* takes key, initial outer state, then returns inner state *)
   fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
-  (* takes key, initial outer state, final outer state, and returns final inner state. *)
   fixes popl :: "'a \<Rightarrow> 'a"
   fixes popr :: "'a \<Rightarrow> 'a"
   assumes popl_push [simp]: "popl (push a b) = a"
@@ -161,8 +159,11 @@ proof -
     unfolding uncapGuar_def by clarsimp blast
 qed
 
+lemma capPred_eq_capGuar: "Id_on (capPred a) = capGuar (Id_on a)"
+unfolding capPred_def capGuar_def by auto
+
 lemma capPred_in_capGuar: "m \<in> capPred G \<Longrightarrow> (m,m) \<in> capGuar (Id_on G)"
-unfolding capGuar_def capPred_def by auto
+using capPred_eq_capGuar by fast
 
 lemma uncapGuar_eq [simp]: "(uncapGuar G \<subseteq> uncapGuar G') = (G \<subseteq> G')"
 by (metis capGuar_mono cap_uncapGuar uncapGuar_mono)
