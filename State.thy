@@ -26,6 +26,12 @@ definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightar
   where "wp pre post Q \<equiv>
     pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q) \<and> (\<exists>m'. (m,m') \<in> post)}"
 
+text \<open>Equivalent definitions for stable and wp using relation operations.\<close>
+
+lemma stable_rel:
+  "stable R P = (R `` P \<subseteq> P)"
+unfolding stable_def by auto
+
 lemma wp_rel_partial:
   "wp pre post Q = pre \<inter> Domain post \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q)}"
 unfolding wp_def by auto

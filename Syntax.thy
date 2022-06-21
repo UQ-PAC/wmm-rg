@@ -93,10 +93,6 @@ abbreviation uncapBasic where
 lemma cap_uncapBasic [simp]: "capBasic (uncapBasic s \<alpha>) = \<alpha>"
 by simp
 
-(* suspicious *)
-lemma uncap_capBasic: "uncapBasic s (capBasic \<alpha>) = \<alpha>"
-by simp
-
 (* captures the effect of a command *)
 fun capCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
     "capCom k (Basic \<beta>) = Basic (capBasic \<beta>)" |

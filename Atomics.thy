@@ -91,13 +91,53 @@ lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stab
 unfolding stable_def pushrelSame_def pushpred_def
 by (auto, metis popl_push)
 
-lemma stable_cap: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
-unfolding stable_def pushrelSame_def pushpred_def
-by auto (metis popl_push push_intro)
+(* lemma stable_cap: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
+unfolding stable_rel
+proof 
+  fix x
+  assume assms: "R `` P \<subseteq> P" "x \<in> pushrelSame R `` pushpred s P"
+  
+  then obtain m0 where m0: "push m0 s \<in> pushpred s P" "(push m0 s,x) \<in> pushrelSame R"
+    unfolding pushpred_def pushrelSame_def by auto
+  then obtain m1 where "x = push m1 s" using assms sledgehammer
+  then obtain m0 where "p = push m0 s" "m0 \<in> P" unfolding pushpred_def by auto
+  then obtain m1 where "x = push m1 s" "(m0,m1) \<in> R" unfolding pushrelSame_def using p
+  using assms
+  sledgehamme
+  
+    
+  thus "x \<in> pushpred s P" sorry
+qed *)
 
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
 unfolding guar_def by fast
+
+lemma guar_uncapE:
+  "guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
+unfolding guar\<^sub>\<alpha>_rel
+proof -
+  assume assms: "Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>) \<subseteq> uncapGuar G"
+  have "capGuar (Id_on (uncapPred s (vc \<alpha>)) O uncapBeh s (beh \<alpha>)) = Id_on (vc \<alpha>) O beh \<alpha>"
+    by simp
+  thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
+    using poprel_mono[OF assms] by simp
+qed
+
+lemma guar_uncapI:
+  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"
+unfolding guar\<^sub>\<alpha>_rel
+proof -
+  assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
+  hence subset: "pushrel s (Id_on (vc \<alpha>) O beh \<alpha>) \<subseteq> pushrel s G"
+    by simp
+  have "pushrel s (Id_on (vc \<alpha>) O beh \<alpha>) = Id_on (pushpred s (vc \<alpha>)) O pushrel s (beh \<alpha>)"
+    by (rule pushrel_relcomp_id)
+  hence "Id_on (pushpred s (vc \<alpha>)) O pushrel s (beh \<alpha>) \<subseteq> pushrel s G" 
+    using subset by simp
+  thus "Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>) \<subseteq> uncapGuar G"
+    using pushrel_in_pushrelAll by auto
+qed
 
 lemma guar_capE:
   "guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
@@ -105,10 +145,10 @@ unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
   hence "uncapGuar (Id_on (capPred (vc \<alpha>))) O beh \<alpha> \<subseteq> G"
-    by simp (metis pushrelAll_relcomp pushrelAll_mono push_poprelAll)
+  sorry
   thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
     using Id_in_pushrelAll_poppred by fast
-qed
+oops
 
 lemma guar_capI:
   "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G)"
@@ -116,22 +156,13 @@ unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
   hence "capGuar (Id_on (vc \<alpha>)) O capGuar (beh \<alpha>) \<subseteq> capGuar G"
-    using poprel_relcomp poprel_mono by blast
-  moreover have "Id_on (capPred (vc \<alpha>)) \<subseteq> capGuar (Id_on (vc \<alpha>))"
+    using poprel_relcomp poprel_mono sorry
+  moreover have "Id_on (capPred (vc \<alpha>)) = capGuar (Id_on (vc \<alpha>))"
     using poppred_eq_poprel by auto
   ultimately show "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> capGuar G"
     by auto
-qed
+oops
 
-lemma guar_uncapE:
-  "guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
-using guar_capI 
-by fastforce
-
-lemma guar_uncapI:
-  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (uncapBasic s \<alpha>) (uncapGuar G)"
-using guar_capE pop_pushrelAll cap_uncapBasic
-by metis
 
 
 lemma cap_wp_capBasic:
@@ -141,11 +172,11 @@ proof -
     "capPred {m. \<forall>m'. (m, m') \<in> beh (uncapBasic s \<alpha>) \<longrightarrow> m' \<in> uncapPred s' Q}
       = {m. \<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> Q}"
       unfolding pushpred_def pushrel_def poppred_def
-      by auto (metis popl_push push_intro)+
+      apply auto sorry
   moreover have "capPred (vc (uncapBasic s \<alpha>)) = vc \<alpha>" by force
   moreover have "capPred (Domain (beh (uncapBasic s \<alpha>))) = Domain (beh \<alpha>)"
     unfolding poppred_def pushrel_def poprel_def by force
-  ultimately show ?thesis by (simp only: wp_rel_partial poppred_inter)
+  ultimately show ?thesis using wp_rel_partial poppred_inter
 qed
 
 
