@@ -91,6 +91,10 @@ lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stab
 unfolding stable_def pushrelSame_def pushpred_def
 by (auto, metis popl_push)
 
+lemma stable_cap: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
+unfolding stable_def pushrelSame_def pushpred_def
+by auto (metis popl_push push_intro)
+
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
 unfolding guar_def by fast
@@ -159,10 +163,11 @@ proof (intro conjI)
   thus "stable R P" "stable R Q"
     using stable_uncap by auto
   have "capPred ?ucP \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
-    using assms'(1) by (metis poppred_mono cap_wp_capBasic)
-  thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by fastforce
-  show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2) guar_capI
-    by (metis cap_uncapBasic pop_pushrelAll)
+    using assms'(1)
+    using cap_wp_capBasic poppred_mono by blast
+  thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by simp
+  show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2)
+    by (simp add: guar_uncapE)
 qed
 
 end

@@ -1,5 +1,5 @@
 theory State
-  imports Main Push_State
+  imports Main
 begin
 
 chapter \<open>Abstract State\<close>

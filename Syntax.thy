@@ -86,6 +86,7 @@ abbreviation capBasic where
 (* uncaptures and makes visible the effects of a basic. 
 goes from global to local context. *)
 abbreviation uncapBasic where
+(* "uncapBasic s \<alpha> \<equiv> (tag \<alpha>, uncapPred s (vc \<alpha>), uncapBeh s (beh \<alpha>))" *)
 "uncapBasic s \<alpha> \<equiv> (tag \<alpha>, uncapPred s (vc \<alpha>), uncapBeh s (beh \<alpha>))"
 
 

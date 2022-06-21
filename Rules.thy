@@ -77,6 +77,35 @@ lemma ordE [elim]:
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
   using assms by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
 
+lemma captureE [elim]:
+  assumes "R,G \<turnstile> P {Capture s c} Q"
+  shows "\<exists>s'. uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
+using assms
+proof (induct R G P "Capture s c" Q arbitrary: s c)
+  case (conseq R G P Q P' R' G' Q')
+  thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
+next
+  case (capture R G s P c s' Q)
+  thus ?case by fast
+next
+  case (inv R G P Q R' I)
+  then obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
+    by fast
+  have prems:
+    "stable (pushrelSame R') (pushpred s' I)"
+    "pushrelAll G \<subseteq> pushrelSame R'"
+    using s' inv by (simp_all add: stable_cap)
+  hence 
+    "stable (pushrelAll G) (pushpred s' I)"
+    by auto
+  have "pushpred s I = pushpred s' I" for s s' (* very suspicious *)
+    by (metis pop_pushpred push_poppred) 
+  moreover have
+    "pushrelSame (R \<inter> R'),pushrelAll G \<turnstile> pushpred s P \<inter> pushpred s' I {c} pushpred s' (Q \<inter> I)"
+    using s' prems by auto
+  ultimately show ?case by fastforce
+qed
+
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:
   assumes "R,G \<turnstile> P {c} Q"

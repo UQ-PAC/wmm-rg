@@ -80,6 +80,11 @@ lemma pop_pushrelAll [simp]: "poprel (pushrelAll G) = G"
 unfolding poprel_def pushrelAll_def
 by auto (metis popl_push)
 
+lemma pop_pushrelSame [simp]: "poprel (pushrelSame G) = G"
+unfolding poprel_def pushrelSame_def
+by auto (metis popl_push)
+
+text \<open>Pop a previously pushed predicate or relation.\<close>
 
 lemma pop_pushpred [simp]: "poppred (pushpred s P) = P"
 unfolding poppred_def pushpred_def by force
@@ -123,6 +128,10 @@ lemma pushrelAll_eq [simp]: "(pushrelAll G \<subseteq> pushrelAll G') = (G \<sub
 using poprel_mono pop_pushrelAll pushrelAll_mono
 by metis
 
+(* suspicious *)
+lemma pushrelAll_mono_pushrelSame [simp]: "G \<subseteq> G' \<Longrightarrow> pushrelAll G \<subseteq> pushrelSame G'"
+by (metis pop_pushrelSame push_poprelAll pushrelAll_mono)
+
 subsection \<open>Relation composition\<close>
 
 lemma poprel_relcomp [simp]: "poprel (G O G') = poprel G O poprel G'"
@@ -139,9 +148,9 @@ lemma pushpred_inter [simp]: "pushpred s (P \<inter> P') = pushpred s P \<inter>
 unfolding pushpred_def
 by auto (metis popl_push)
 
-lemma poppred_inter [simp]: "poppred (P \<inter> P') = poppred P \<inter> poppred P'"
+lemma poppred_inter [simp]: "poppred (P \<inter> P') \<subseteq> poppred P \<inter> poppred P'"
 unfolding poppred_def
-by auto (metis popl_push push_intro)
+by auto
 
 lemma pushrel_inter [simp]: "pushrel s (G \<inter> G') = pushrel s G \<inter> pushrel s G'"
 unfolding pushrel_def
