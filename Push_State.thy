@@ -20,6 +20,7 @@ class state =
   assumes push_popl [simp]: "\<exists>s. push (popl m) s = m"
   (* assumes popr_push [simp]: "popr (push a b) = b" *)
   (* assumes push_intro: "\<exists>m. m' = push m s" *)
+  assumes push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
 
 context state
 begin
@@ -49,6 +50,14 @@ definition pushrelSame :: "'a rel \<Rightarrow> 'a rel" where
 
 definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 "pushrelAll G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
+
+section \<open>Introduction rules for the definitions\<close>
+
+lemma in_pushpredI [intro]:
+  assumes "p \<in> P" "m = push p s"
+  shows "m \<in> pushpred s P"
+using assms
+unfolding pushpred_def by auto
 
 
 section \<open>Lemmas for push/pop on predicates/relations\<close>

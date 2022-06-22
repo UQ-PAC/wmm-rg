@@ -91,28 +91,32 @@ lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stab
 unfolding stable_def pushrelSame_def pushpred_def
 by (auto, metis popl_push)
 
+lemma stable_mix: "stable (pushrelSame R) M \<Longrightarrow> stable R (poppred M)"
+unfolding stable_def pushrelSame_def poppred_def
+by auto (metis popl_push push_popl)
+
 (* we can push a single state onto both parts of a R *)
-lemma "stable R P \<Longrightarrow> stable {(push m s, push m' s) | m m'. (m,m') \<in> R} (pushpred s P)"
+lemma stable_push1: "stable R P \<Longrightarrow> stable {(push m s, push m' s) | m m'. (m,m') \<in> R} (pushpred s P)"
 unfolding stable_def pushpred_def
 by auto (metis popl_push)
 
-(* lemma stable_cap: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
-unfolding stable_rel
-proof 
-  fix x
-  assume assms: "R `` P \<subseteq> P" "x \<in> pushrelSame R `` pushpred s P"
+lemma stable_push: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
+unfolding stable_def
+proof (intro allI impI)
+  assume "\<forall>m m'. m \<in> P \<longrightarrow> (m, m') \<in> R \<longrightarrow> m' \<in> P"
+  hence hyp: "m' \<in> P" if "m \<in> P" "(m,m') \<in> R" for m m' using that by simp
   
-  then obtain m0 where m0: "push m0 s \<in> pushpred s P" "(push m0 s,x) \<in> pushrelSame R"
-    unfolding pushpred_def pushrelSame_def by auto
-  then obtain m1 where "x = push m1 s" using assms sledgehammer
-  then obtain m0 where "p = push m0 s" "m0 \<in> P" unfolding pushpred_def by auto
-  then obtain m1 where "x = push m1 s" "(m0,m1) \<in> R" unfolding pushrelSame_def using p
-  using assms
-  sledgehamme
+  fix m m' assume mm': "m \<in> pushpred s P" "(m, m') \<in> pushrelSame R"
+  then obtain p where p: "m = push p s" "p \<in> P" 
+    unfolding pushpred_def by auto
   
-    
-  thus "x \<in> pushpred s P" sorry
-qed *)
+  obtain s' p0 p' where "m = push p0 s'" "m' = push p' s'" "(p0,p') \<in> R" 
+    using mm'(2) unfolding pushrelSame_def by auto
+  hence "m = push p s" "m' = push p' s" "(p,p') \<in> R"  "p \<in> P"
+    using p push_inj by auto
+  moreover hence "p' \<in> P" using hyp by simp
+  ultimately show "m' \<in> pushpred s P" by auto
+qed 
 
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
@@ -199,7 +203,7 @@ proof -
   moreover have "capPred (Domain (beh (uncapBasic s \<alpha>))) = Domain (beh \<alpha>)"
     unfolding poppred_def pushrel_def poprel_def by force
   ultimately show ?thesis using wp_rel_partial poppred_inter
-qed
+oops
 
 
 lemma atomic_uncap:
@@ -221,6 +225,6 @@ proof (intro conjI)
   thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by simp
   show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2)
     by (simp add: guar_uncapE)
-qed
+oops
 
 end

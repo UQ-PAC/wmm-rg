@@ -35,8 +35,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   (* | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow>
     thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Capture op l l' c } thr\<^sub>P op l' Q" *)
   | capture[intro]: 
-    "stable (R) (P)
-     \<Longrightarrow> uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q
+    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q
      \<Longrightarrow> R,G \<turnstile> P {Capture s c} Q"
   (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
 
@@ -119,8 +118,7 @@ next
   ultimately show ?case using s seqset.hyps(1) by blast
 next
   case (capture R G s P c s' Q)
-  thus ?case by auto
-(*   then obtain P' where P': 
+   then obtain P' where P': 
     "uncapPred s P \<subseteq> P'"
     "stable (uncapRely R) P'"
     "uncapRely R,uncapGuar G \<turnstile> P' {c} uncapPred s' Q" 
@@ -130,7 +128,7 @@ next
   hence "P \<subseteq> P''" using P' by (metis poppred_mono pop_pushpred)
   moreover have "stable R P''" using stable_uncap P' P'' by fast
   moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast
-  ultimately show ?case by auto *)
+  ultimately show ?case by auto
 qed blast+
 
 
@@ -149,15 +147,12 @@ next
   case (inv R G P Q R' I)
   then obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
     by fast
+  let ?R' = "{(push m s', push m' s') |m m'. (m,m') \<in> R'}"
   have prems:
     "stable (pushrelSame R') (pushpred s' I)"
-    "pushrelAll G \<subseteq> pushrelSame R'"
-    using s' inv by (simp_all add: stable_cap)
-  hence 
-    "stable (pushrelAll G) (pushpred s' I)"
-    by auto
+    using inv(3) stable_push by auto
   have "pushpred s I = pushpred s' I" for s s' (* very suspicious *)
-    by (metis pop_pushpred push_poppred) 
+    by sorry
   moreover have
     "pushrelSame (R \<inter> R'),pushrelAll G \<turnstile> pushpred s P \<inter> pushpred s' I {c} pushpred s' (Q \<inter> I)"
     using s' prems by auto

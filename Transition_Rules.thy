@@ -98,7 +98,7 @@ next
     "uncapRely R,uncapGuar G \<turnstile>\<^sub>A uncapPred s P' {(uncapBasic s \<alpha>)\<llangle>uncapCom s r\<rrangle>} M"
     "uncapRely R,uncapGuar G \<turnstile> uncapPred s M {c'} uncapPred s' Q"
        sorry
-  hence "R,G \<turnstile> M {Capture s c'} Q" by fast
+  hence "R,G \<turnstile> M {Capture s c'} Q" sorry
   moreover have "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" sorry
   ultimately show ?case using M(1)
     by (metis capPred_mono cap_uncapPred)
@@ -120,23 +120,21 @@ next
   thus ?case by (cases rule: silentE, auto) blast+
 next
   case (capture R G s P c s' Q)
-  show ?case using capture(3)
+  show ?case using capture
   proof (cases "Capture s c" c' rule: silentE)
     case (19 c c' k)
-    thus ?thesis using capture(2) by fast
+    thus ?thesis using capture by auto
   next
     case (20 k)
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} uncapPred s' Q"
       using capture(1) by fast
     then obtain M where M:
-      "stable (uncapRely R) (uncapPred s M)"
-      "uncapPred s P \<subseteq> uncapPred s M"
-      "uncapPred s M \<subseteq> uncapPred s' Q"
-      by (metis nilE pushpred_intro)
-    hence 1: "stable R M" using stable_uncap by fast
-    hence 2: "P \<subseteq> M" "M \<subseteq> Q"
-      using M(2,3) by (metis poppred_mono pop_pushpred)+
-    have "R,G \<turnstile> M {Nil} Q" using 1 2 by auto
+      "stable (uncapRely R) M" "uncapPred s P \<subseteq> M" "M \<subseteq> uncapPred s' Q"
+      by auto
+    hence 1: "stable R (poppred M)" by (simp only: stable_mix)
+    hence 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
+      using M(2,3) using pop_pushpred poppred_mono by metis+
+    have "R,G \<turnstile> poppred M {Nil} Q" using 1 2 by auto
     thus ?thesis using 2(1) 20(2) by (simp add: conseq)
   qed auto
 qed (cases rule: silentE, auto)+
