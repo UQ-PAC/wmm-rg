@@ -32,6 +32,12 @@ definition pushpred :: "'a \<Rightarrow> 'a set \<Rightarrow> 'a set" where
 definition poppred :: "'a set \<Rightarrow> 'a set" where
 "poppred P = {popl m |m. m \<in> P}"
 
+(* rarely used except in specific proof steps which require
+showing something is inside a pushrelAll or similar. *)
+(* definition pushpredAll :: "'a set \<Rightarrow> 'a set" where
+"pushpredAll P \<equiv> {push m s |m s. m \<in> P}" *)
+
+
 definition poprel :: "'a rel \<Rightarrow> 'a rel" where
 "poprel b = {(popl m,popl m') |m m'. (m,m') \<in> b}" 
 
@@ -93,6 +99,9 @@ unfolding pushpred_def by auto
 lemma poppred_mono [simp]: "P \<subseteq> P' \<Longrightarrow> poppred P \<subseteq> poppred P'"
 unfolding poppred_def by auto
 
+(* lemma pushpredAll_mono [simp]: "P \<subseteq> P' \<Longrightarrow> pushpredAll P \<subseteq> pushpredAll P'"
+unfolding pushpredAll_def by auto *)
+
 lemma poprel_mono [simp]: "G \<subseteq> G' \<Longrightarrow> poprel G \<subseteq> poprel G'"
 unfolding poprel_def pushrelAll_def by auto
 
@@ -144,6 +153,14 @@ by auto (metis Id_on_iff popl_push relcompI, force)
 lemma pushrel_relcomp_id: "pushrel s (Id_on P O P') = Id_on (pushpred s P) O pushrel s P'"
 unfolding pushrel_def pushpred_def
 by auto (metis Id_onI popl_push relcompI)
+
+(* lemma pushpredAll_supset: "P \<subseteq> pushpredAll (poppred P)"
+unfolding pushpredAll_def poppred_def 
+by clarsimp (metis push_popl) *)
+
+lemma pushrelAll_poprel_supset: "R \<subseteq> pushrelAll (poprel R)"
+unfolding pushrelAll_def poprel_def
+by clarsimp (metis push_popl)
 
 subsection \<open>Intersection\<close>
 

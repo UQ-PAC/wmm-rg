@@ -35,8 +35,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   (* | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow>
     thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Capture op l l' c } thr\<^sub>P op l' Q" *)
   | capture[intro]: 
-    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q
-     
+    "stable (R) (P)
+     \<Longrightarrow> uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q
      \<Longrightarrow> R,G \<turnstile> P {Capture s c} Q"
   (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
 
@@ -77,34 +77,6 @@ lemma ordE [elim]:
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
   using assms by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
 
-lemma captureE [elim]:
-  assumes "R,G \<turnstile> P {Capture s c} Q"
-  shows "\<exists>s'. uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
-using assms
-proof (induct R G P "Capture s c" Q arbitrary: s c)
-  case (conseq R G P Q P' R' G' Q')
-  thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
-next
-  case (capture R G s P c s' Q)
-  thus ?case by fast
-next
-  case (inv R G P Q R' I)
-  then obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
-    by fast
-  have prems:
-    "stable (pushrelSame R') (pushpred s' I)"
-    "pushrelAll G \<subseteq> pushrelSame R'"
-    using s' inv by (simp_all add: stable_cap)
-  hence 
-    "stable (pushrelAll G) (pushpred s' I)"
-    by auto
-  have "pushpred s I = pushpred s' I" for s s' (* very suspicious *)
-    by (metis pop_pushpred push_poppred) 
-  moreover have
-    "pushrelSame (R \<inter> R'),pushrelAll G \<turnstile> pushpred s P \<inter> pushpred s' I {c} pushpred s' (Q \<inter> I)"
-    using s' prems by auto
-  ultimately show ?case by fastforce
-qed
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:
@@ -147,7 +119,8 @@ next
   ultimately show ?case using s seqset.hyps(1) by blast
 next
   case (capture R G s P c s' Q)
-  then obtain P' where P': 
+  thus ?case by auto
+(*   then obtain P' where P': 
     "uncapPred s P \<subseteq> P'"
     "stable (uncapRely R) P'"
     "uncapRely R,uncapGuar G \<turnstile> P' {c} uncapPred s' Q" 
@@ -157,8 +130,41 @@ next
   hence "P \<subseteq> P''" using P' by (metis poppred_mono pop_pushpred)
   moreover have "stable R P''" using stable_uncap P' P'' by fast
   moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast
-  ultimately show ?case by auto
+  ultimately show ?case by auto *)
 qed blast+
+
+
+lemma captureE [elim]:
+  assumes "R,G \<turnstile> P {Capture s c} Q"
+  shows
+    "\<exists>s'. uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
+using assms
+proof (induct R G P "Capture s c" Q arbitrary: s c)
+  case (conseq R G P Q P' R' G' Q')
+  thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
+next
+  case (capture R G s P c s' Q)
+  thus ?case by fast
+next
+  case (inv R G P Q R' I)
+  then obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
+    by fast
+  have prems:
+    "stable (pushrelSame R') (pushpred s' I)"
+    "pushrelAll G \<subseteq> pushrelSame R'"
+    using s' inv by (simp_all add: stable_cap)
+  hence 
+    "stable (pushrelAll G) (pushpred s' I)"
+    by auto
+  have "pushpred s I = pushpred s' I" for s s' (* very suspicious *)
+    by (metis pop_pushpred push_poppred) 
+  moreover have
+    "pushrelSame (R \<inter> R'),pushrelAll G \<turnstile> pushpred s P \<inter> pushpred s' I {c} pushpred s' (Q \<inter> I)"
+    using s' prems by auto
+  ultimately show ?case by fastforce
+qed
+
+
 
 lemma false_seqI [intro]:
   "\<forall>\<beta> \<in> set s. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {seq2com s} {}"
@@ -187,9 +193,11 @@ next
 next
   case (Capture s c)
   have "guar\<^sub>\<alpha> (capBasic \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
-    if "\<beta> \<in> basics c" for \<beta> using pop_pushrelAll sorry
-  thus ?case using Capture by (simp add: rules.capture)  
+    if "\<beta> \<in> basics c" for \<beta> by (simp add: guar_mix)
+  thus ?case using Capture by (simp add: rules.capture stable_falseI) 
 qed (auto)
+
+
 
 lemma seq_rot:
   "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;; c\<^sub>2 } M"

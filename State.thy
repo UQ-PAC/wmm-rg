@@ -83,6 +83,15 @@ lemma stable_wp: "stable R (wp UNIV (R\<^sup>*) P)"
 unfolding stable_def wp_def
 by (auto simp: converse_rtrancl_into_rtrancl)
 
+lemma "P \<subseteq> (R\<^sup>*) `` P"
+unfolding wp_def
+by auto
+
+lemma "stable R ((R\<^sup>*) `` P)"
+unfolding stable_def
+by (meson Image_iff rtrancl.rtrancl_into_rtrancl)
+
+
 section \<open>Guarantee Properties\<close>
 
 lemma guar_conseqI [intro]:

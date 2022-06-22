@@ -91,6 +91,11 @@ lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stab
 unfolding stable_def pushrelSame_def pushpred_def
 by (auto, metis popl_push)
 
+(* we can push a single state onto both parts of a R *)
+lemma "stable R P \<Longrightarrow> stable {(push m s, push m' s) | m m'. (m,m') \<in> R} (pushpred s P)"
+unfolding stable_def pushpred_def
+by auto (metis popl_push)
+
 (* lemma stable_cap: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
 proof 
@@ -138,6 +143,23 @@ proof -
   thus "Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>) \<subseteq> uncapGuar G"
     using pushrel_in_pushrelAll by auto
 qed
+
+
+lemma guar_mix:
+  "guar\<^sub>\<alpha> (capBasic \<alpha>) G \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> (uncapGuar G)"
+unfolding guar\<^sub>\<alpha>_rel
+proof -
+  assume "Id_on (vc (capBasic \<alpha>)) O beh (capBasic \<alpha>) \<subseteq> G"
+  hence "Id_on (poppred (vc \<alpha>)) O poprel (beh \<alpha>) \<subseteq> G" by simp
+  hence "pushrelAll (Id_on (poppred (vc \<alpha>))) O pushrelAll (poprel (beh \<alpha>)) \<subseteq> pushrelAll G"       
+    by (metis pushrelAll_relcomp pushrelAll_mono)
+  moreover have "Id_on (vc \<alpha>) \<subseteq> pushrelAll (Id_on (poppred (vc \<alpha>)))"
+    by (simp add: Id_in_pushrelAll_poppred)
+  moreover have "beh \<alpha> \<subseteq> pushrelAll (poprel (beh \<alpha>))"
+    by (simp add: pushrelAll_poprel_supset)
+  ultimately show "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> pushrelAll G" by auto
+qed
+
 
 lemma guar_capE:
   "guar\<^sub>\<alpha> (capBasic \<alpha>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
