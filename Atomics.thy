@@ -98,26 +98,17 @@ by auto (metis popl_push push_popl)
 (* we can push a single state onto both parts of a R *)
 lemma stable_push1: "stable R P \<Longrightarrow> stable {(push m s, push m' s) | m m'. (m,m') \<in> R} (pushpred s P)"
 unfolding stable_def pushpred_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
 
-lemma stable_push: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
-unfolding stable_def
-proof (intro allI impI)
-  assume "\<forall>m m'. m \<in> P \<longrightarrow> (m, m') \<in> R \<longrightarrow> m' \<in> P"
-  hence hyp: "m' \<in> P" if "m \<in> P" "(m,m') \<in> R" for m m' using that by simp
-  
-  fix m m' assume mm': "m \<in> pushpred s P" "(m, m') \<in> pushrelSame R"
-  then obtain p where p: "m = push p s" "p \<in> P" 
-    unfolding pushpred_def by auto
-  
-  obtain s' p0 p' where "m = push p0 s'" "m' = push p' s'" "(p0,p') \<in> R" 
-    using mm'(2) unfolding pushrelSame_def by auto
-  hence "m = push p s" "m' = push p' s" "(p,p') \<in> R"  "p \<in> P"
-    using p push_inj by auto
-  moreover hence "p' \<in> P" using hyp by simp
-  ultimately show "m' \<in> pushpred s P" by auto
-qed 
+lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
+unfolding stable_rel
+using pushpred_relimage pushpred_mono
+by blast
 
+lemma stable_pushrelAll: "stable R P \<Longrightarrow> stable (pushrelAll R) (pushpredAll P)"
+unfolding stable_rel
+using pushpredAll_relimage pushpredAll_mono
+by blast
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
 unfolding guar_def by fast
@@ -128,7 +119,7 @@ unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume assms: "Id_on (vc (uncapBasic s \<alpha>)) O beh (uncapBasic s \<alpha>) \<subseteq> uncapGuar G"
   have "capGuar (Id_on (uncapPred s (vc \<alpha>)) O uncapBeh s (beh \<alpha>)) = Id_on (vc \<alpha>) O beh \<alpha>"
-    by simp
+    by (simp add: poprel_relcomp_pushpred)
   thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
     using poprel_mono[OF assms] by simp
 qed
@@ -221,7 +212,8 @@ proof (intro conjI)
     using stable_uncap by auto
   have "capPred ?ucP \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
     using assms'(1)
-    using cap_wp_capBasic poppred_mono by blast
+    (* using cap_wp_capBasic poppred_mono by blast *)
+    sorry
   thus "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" by simp
   show "guar\<^sub>\<alpha> \<alpha> G" using assms'(2)
     by (simp add: guar_uncapE)

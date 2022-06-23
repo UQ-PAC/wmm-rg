@@ -35,8 +35,8 @@ definition poppred :: "'a set \<Rightarrow> 'a set" where
 
 (* rarely used except in specific proof steps which require
 showing something is inside a pushrelAll or similar. *)
-(* definition pushpredAll :: "'a set \<Rightarrow> 'a set" where
-"pushpredAll P \<equiv> {push m s |m s. m \<in> P}" *)
+definition pushpredAll :: "'a set \<Rightarrow> 'a set" where
+"pushpredAll P \<equiv> {push m s |m s. m \<in> P}"
 
 
 definition poprel :: "'a rel \<Rightarrow> 'a rel" where
@@ -75,11 +75,11 @@ oops
 
 lemma pop_pushrelAll [simp]: "poprel (pushrelAll G) = G"
 unfolding poprel_def pushrelAll_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
 
 lemma pop_pushrelSame [simp]: "poprel (pushrelSame G) = G"
 unfolding poprel_def pushrelSame_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
 
 text \<open>Pop a previously pushed predicate or relation.\<close>
 
@@ -108,8 +108,8 @@ unfolding pushpred_def by auto
 lemma poppred_mono [simp]: "P \<subseteq> P' \<Longrightarrow> poppred P \<subseteq> poppred P'"
 unfolding poppred_def by auto
 
-(* lemma pushpredAll_mono [simp]: "P \<subseteq> P' \<Longrightarrow> pushpredAll P \<subseteq> pushpredAll P'"
-unfolding pushpredAll_def by auto *)
+lemma pushpredAll_mono [simp]: "P \<subseteq> P' \<Longrightarrow> pushpredAll P \<subseteq> pushpredAll P'"
+unfolding pushpredAll_def by auto
 
 lemma poprel_mono [simp]: "G \<subseteq> G' \<Longrightarrow> poprel G \<subseteq> poprel G'"
 unfolding poprel_def pushrelAll_def by auto
@@ -139,23 +139,23 @@ by (auto, blast, metis popl_push relcomp.relcompI)
 
 subsubsection \<open>Special cases for popping a relational composition of pushes\<close>
 
-lemma poprel_relcomp_pushrel1 [simp]: "poprel (pushrel s G O pushrelSame G') = G O G'"
+lemma poprel_relcomp_pushrel1: "poprel (pushrel s G O pushrelSame G') = G O G'"
 unfolding poprel_def pushrel_def pushrelSame_def
 by auto (metis popl_push relcomp.simps, force)
 
-lemma poprel_relcomp_pushrel2 [simp]: "poprel (pushrel s G O pushrelAll G') = G O G'"
+lemma poprel_relcomp_pushrel2: "poprel (pushrel s G O pushrelAll G') = G O G'"
 unfolding poprel_def pushrel_def pushrelAll_def
 by auto (metis popl_push relcomp.simps, force)
 
-lemma poprel_relcomp_pushrelSame [simp]: "poprel (pushrelSame G O pushrelSame G') = G O G'"
+lemma poprel_relcomp_pushrelSame: "poprel (pushrelSame G O pushrelSame G') = G O G'"
 unfolding poprel_def pushrelSame_def
 by auto (metis popl_push relcomp.simps, force)
 
-lemma poprel_relcomp_pushrelAll [simp]: "poprel (pushrelAll G O pushrelAll G') = G O G'"
+lemma poprel_relcomp_pushrelAll: "poprel (pushrelAll G O pushrelAll G') = G O G'"
 unfolding poprel_def pushrelAll_def
 by auto (metis popl_push relcomp.simps, force)
 
-lemma poprel_relcomp_pushpred [simp]: "poprel (Id_on (pushpred s P) O pushrel s P') = Id_on P O P'"
+lemma poprel_relcomp_pushpred: "poprel (Id_on (pushpred s P) O pushrel s P') = Id_on P O P'"
 unfolding poprel_def pushpred_def pushrel_def
 by auto (metis Id_on_iff popl_push relcompI, force)
 
@@ -163,39 +163,60 @@ lemma pushrel_relcomp_id: "pushrel s (Id_on P O P') = Id_on (pushpred s P) O pus
 unfolding pushrel_def pushpred_def
 by auto (metis Id_onI popl_push relcompI)
 
-(* lemma pushpredAll_supset: "P \<subseteq> pushpredAll (poppred P)"
+lemma pushpredAll_supset: "P \<subseteq> pushpredAll (poppred P)"
 unfolding pushpredAll_def poppred_def 
-by clarsimp (metis push_popl) *)
+by clarsimp (metis push_popl)
 
 lemma pushrelAll_poprel_supset: "R \<subseteq> pushrelAll (poprel R)"
 unfolding pushrelAll_def poprel_def
 by clarsimp (metis push_popl)
 
+lemma pushrel_in_pushrelAll: "pushrel s G \<subseteq> pushrelAll G"
+unfolding pushrel_def pushrelAll_def by fast
+
+lemma pushrelSame_in_pushrelAll: "pushrelSame G \<subseteq> pushrelAll G"
+unfolding pushrelSame_def pushrelAll_def by fast
+
 subsection \<open>Intersection\<close>
 
 lemma pushpred_inter [simp]: "pushpred s (P \<inter> P') = pushpred s P \<inter> pushpred s P'"
 unfolding pushpred_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
 
 lemma poppred_inter [simp]: "poppred (P \<inter> P') \<subseteq> poppred P \<inter> poppred P'"
 unfolding poppred_def
 by auto
 
-lemma poppred_inter2 [simp]: "poppred (pushpred s P \<inter> pushpred s P') = P \<inter> P'"
+lemma poppred_inter2: "poppred (pushpred s P \<inter> pushpred s P') = P \<inter> P'"
 unfolding poppred_def pushpred_def
-by auto (metis local.popl_push)+
+by (auto, (metis popl_push)+)
 
 lemma pushrel_inter [simp]: "pushrel s (G \<inter> G') = pushrel s G \<inter> pushrel s G'"
 unfolding pushrel_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
 
 lemma pushrelSame_inter [simp]: "pushrelSame (G \<inter> G') = pushrelSame G \<inter> pushrelSame G'"
 unfolding pushrelSame_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
 
 lemma pushrelAll_inter [simp]: "pushrelAll (G \<inter> G') = pushrelAll G \<inter> pushrelAll G'"
 unfolding pushrelAll_def
-by auto (metis popl_push)
+by (auto, metis popl_push)
+
+text \<open>Special case where we intersect a narrowed push with a more general push.\<close>
+lemma pushpred_inter_pushpredAll: "pushpred s P \<inter> pushpredAll P' = pushpred s (P \<inter> P')"
+unfolding pushpred_def pushpredAll_def
+by (auto, metis popl_push)
+
+subsection \<open>Image of relations\<close>
+
+lemma pushpred_relimage: "pushpred s (R `` P) = pushrelSame R `` pushpred s P"
+unfolding pushpred_def pushrelSame_def
+by (auto, insert push_inj, blast) 
+
+lemma pushpredAll_relimage: "pushpredAll (R `` P) = pushrelAll R `` pushpredAll P"
+unfolding pushpredAll_def pushrelAll_def
+by (auto, insert push_inj, blast+)
 
 subsection \<open>Empty set\<close>
 
@@ -218,18 +239,8 @@ unfolding pushrelSame_def by simp
 lemma pushrelAll_empty [simp]: "pushrelAll {} = {}"
 unfolding pushrelAll_def by simp
 
-subsection \<open>Other properties\<close>
 
-lemma pushrel_in_pushrelAll: "pushrel s G \<subseteq> pushrelAll G"
-unfolding pushrel_def pushrelAll_def by fast
-
-lemma pushpred_im_in_im_pushrel:
-  "pushpred s (R `` P) \<subseteq> pushrelSame R `` pushpred s P"
-unfolding pushrelSame_def pushpred_def 
-by fast
-
-
-text \<open>Correspondences between predicates and Id_on.\<close>
+subsection \<open>Correspondences between predicates and Id_on.\<close>
 
 lemma Id_in_pushrelAll_poppred: "Id_on G \<subseteq> pushrelAll (Id_on (poppred G))"
 proof -

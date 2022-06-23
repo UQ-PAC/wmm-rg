@@ -76,6 +76,44 @@ lemma ordE [elim]:
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
   using assms by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
 
+lemma captureE':
+  assumes "R,G \<turnstile> P {Capture s c} Q"
+  shows "\<exists>s'. uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
+using assms
+proof (induct R G P "Capture s c" Q arbitrary: s c)
+  case (conseq R G P Q P' R' G' Q')
+  thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
+next
+  case (capture R G s P c s' Q)
+  thus ?case by (intro exI)
+next
+  case (inv R G P Q R' I)
+  obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
+    using inv(2) by auto
+  moreover have "pushrelAll G \<subseteq> pushrelAll R'"
+    using inv by (intro pushrelAll_mono)
+  moreover have
+    "stable (pushrelAll R') (pushpredAll I)"
+    using inv by (intro stable_pushrelAll)
+  ultimately have 
+    "pushrelSame R \<inter> pushrelAll R',pushrelAll G
+      \<turnstile> pushpred s P \<inter> pushpredAll I {c} pushpred s' Q \<inter> pushpredAll I"
+    by (intro rules.inv)
+  hence 
+    "pushrelSame R \<inter> pushrelAll R',pushrelAll G
+      \<turnstile> pushpred s (P \<inter> I) {c} pushpred s' (Q \<inter> I)"
+    by (simp add: pushpred_inter_pushpredAll)
+  hence
+    "pushrelSame (R \<inter> R'),pushrelAll G 
+      \<turnstile> pushpred s (P \<inter> I) {c} pushpred s' (Q \<inter> I)"
+    using pushrelSame_in_pushrelAll by auto 
+  thus ?case by auto
+qed
+
+lemma captureE [elim]:
+  assumes "R,G \<turnstile> P {Capture s c} Q"
+  obtains s' where "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
+using assms captureE' by blast
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:
@@ -130,35 +168,6 @@ next
   moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast
   ultimately show ?case by auto
 qed blast+
-
-
-lemma captureE [elim]:
-  assumes "R,G \<turnstile> P {Capture s c} Q"
-  shows
-    "\<exists>s'. uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
-using assms
-proof (induct R G P "Capture s c" Q arbitrary: s c)
-  case (conseq R G P Q P' R' G' Q')
-  thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
-next
-  case (capture R G s P c s' Q)
-  thus ?case by fast
-next
-  case (inv R G P Q R' I)
-  then obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
-    by fast
-  let ?R' = "{(push m s', push m' s') |m m'. (m,m') \<in> R'}"
-  have prems:
-    "stable (pushrelSame R') (pushpred s' I)"
-    using inv(3) stable_push by auto
-  have "pushpred s I = pushpred s' I" for s s' (* very suspicious *)
-    by sorry
-  moreover have
-    "pushrelSame (R \<inter> R'),pushrelAll G \<turnstile> pushpred s P \<inter> pushpred s' I {c} pushpred s' (Q \<inter> I)"
-    using s' prems by auto
-  ultimately show ?case by fastforce
-qed
-
 
 
 lemma false_seqI [intro]:
