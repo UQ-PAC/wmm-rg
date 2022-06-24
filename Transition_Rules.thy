@@ -94,10 +94,10 @@ next
 next
   case (cap c s r \<alpha> c')
   then obtain P' M s' where M: 
-    "uncapPred s P \<subseteq> uncapPred s P'"
-    "uncapRely R,uncapGuar G \<turnstile>\<^sub>A uncapPred s P' {(uncapBasic s \<alpha>)\<llangle>uncapCom s r\<rrangle>} M"
+    "uncapPred s P \<subseteq> P'"
+    "uncapRely R,uncapGuar G \<turnstile>\<^sub>A P' {(uncapBasic s \<alpha>)\<llangle>uncapCom s r\<rrangle>} M"
     "uncapRely R,uncapGuar G \<turnstile> uncapPred s M {c'} uncapPred s' Q"
-       sorry
+       try0
   hence "R,G \<turnstile> M {Capture s c'} Q" sorry
   moreover have "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" sorry
   ultimately show ?case using M(1)

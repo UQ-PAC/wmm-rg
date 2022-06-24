@@ -85,6 +85,40 @@ lemma atomic_falseI [intro]:
   using assms unfolding atomic_rule_def by auto
 
 
+abbreviation (input) stabilise :: "'b rel \<Rightarrow> 'b set \<Rightarrow> 'b set" where
+"stabilise R P \<equiv> P \<union> R\<^sup>+ `` P"
+
+lemma stable_stabilise: "stable R (stabilise R P)"
+unfolding stable_rel
+by auto (metis ImageI Transitive_Closure.trancl_into_trancl)
+
+lemma stabilise_supset: "P \<subseteq> stabilise R P"
+by auto
+
+lemma stabilise_stable: "stable R P \<Longrightarrow> stabilise R P = P"
+unfolding stable_rel
+by (erule Image_closed_trancl')
+
+lemma stabilise_inter_P: "stabilise R (P1 \<inter> P2) \<subseteq> stabilise R P1 \<inter> stabilise R P2"
+by auto
+
+lemma stabilise_inter_R1: "stabilise (R1 \<inter> R2) P \<subseteq> stabilise R1 P"
+by safe (metis Int_lower1 rev_ImageI trancl_mono)
+
+lemma stabilise_inter_R2: "stabilise (R1 \<inter> R2) P \<subseteq> stabilise R2 P"
+by (metis stabilise_inter_R1 Int_commute)
+
+lemma stabilise_inter_R_P: "stabilise (R1 \<inter> R2) (P1 \<inter> P2) \<subseteq> stabilise R1 P1 \<inter> stabilise R2 P2"
+by safe (meson Image_iff inf_sup_ord(1,2) trancl_mono)+
+
+lemma stabilise_pushrel: "stabilise (pushrelSame R) (pushpred s P) = pushpred s (stabilise R P)"
+proof (intro antisym)
+
+qed
+
+
+
+
 text \<open>Definitions and lemmas for capturing guarantee and stability properties.\<close>
 
 lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
@@ -95,11 +129,6 @@ lemma stable_mix: "stable (pushrelSame R) M \<Longrightarrow> stable R (poppred 
 unfolding stable_def pushrelSame_def poppred_def
 by auto (metis popl_push push_popl)
 
-(* we can push a single state onto both parts of a R *)
-lemma stable_push1: "stable R P \<Longrightarrow> stable {(push m s, push m' s) | m m'. (m,m') \<in> R} (pushpred s P)"
-unfolding stable_def pushpred_def
-by (auto, metis popl_push)
-
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
 using pushpred_relimage pushpred_mono
@@ -109,6 +138,10 @@ lemma stable_pushrelAll: "stable R P \<Longrightarrow> stable (pushrelAll R) (pu
 unfolding stable_rel
 using pushpredAll_relimage pushpredAll_mono
 by blast
+
+
+
+
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
 unfolding guar_def by fast

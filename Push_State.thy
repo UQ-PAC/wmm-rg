@@ -53,12 +53,21 @@ definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 
 section \<open>Introduction rules for the definitions\<close>
 
-lemma in_pushpredI [intro]:
+lemma pushpred_inI [intro]:
   assumes "p \<in> P" "m = push p s"
   shows "m \<in> pushpred s P"
 using assms
 unfolding pushpred_def by auto
 
+lemma pushrelSame_inE [elim]:
+  assumes "(p,p') \<in> pushrelSame R"
+  obtains m m' s where "p = push m s" "p' = push m' s" "(m,m') \<in> R"
+using assms pushrelSame_def by auto
+
+lemma pushrelSame_inI [intro]:
+  assumes "p = push m s" "p' = push m' s" "(m,m') \<in> R"
+  shows "(p,p') \<in> pushrelSame R"
+using assms pushrelSame_def by auto
 
 section \<open>Lemmas for push/pop on predicates/relations\<close>
 
@@ -167,7 +176,7 @@ lemma pushpredAll_supset: "P \<subseteq> pushpredAll (poppred P)"
 unfolding pushpredAll_def poppred_def 
 by clarsimp (metis push_popl)
 
-lemma pushrelAll_poprel_supset: "R \<subseteq> pushrelAll (poprel R)"
+lemma pushrelAll_poprel_supset: "G \<subseteq> pushrelAll (poprel G)"
 unfolding pushrelAll_def poprel_def
 by clarsimp (metis push_popl)
 
@@ -257,7 +266,93 @@ unfolding poppred_def poprel_def by auto
 lemma poppred_in_poprel: "m \<in> poppred G \<Longrightarrow> (m,m) \<in> poprel (Id_on G)"
 using poppred_eq_poprel by fast
 
+subsection \<open>Other\<close>
+
+lemma pushrelSame_in_eq: "((push m s, push m' s) \<in> pushrelSame R) = ((m,m') \<in> R)"
+unfolding pushrelSame_def
+by (auto, metis local.popl_push)
+
+(* lemma "(pushrelSame R)\<^sup>* = pushrelSame (R\<^sup>* )"
+proof (intro antisym subrelI, goal_cases)
+  case (1 p p')
+  then obtain m m' s where mm': "p = push m s" "p' = push m' s"
+    apply (induct, auto)
+    by (metis push_popl, metis push_inj pushrelSame_inE)
+  show ?case using 1
+  proof (induct)
+    case base
+    have "(m,m) \<in> R\<^sup>*" by simp
+    then show ?case using mm' by (simp add: pushrelSame_in_eq)
+  next
+    case (step y z)
+    then show ?case unfolding pushrelSame_def apply auto
+    by (metis (no_types, lifting) local.push_inj rtrancl.rtrancl_into_rtrancl)
+  qed
+next
+  case (2 p p')
+  then obtain m m' s where mm': "p = push m s" "p' = push m' s" "(m,m') \<in> R\<^sup>*"
+    by (rule pushrelSame_inE)
+  with mm'(3) show ?case
+  proof (induct)
+    case base
+    then show ?case sorry
+  next
+    case (step y z)
+    then show ?case 
+  qed
+qed *)
 
 end
+
+text \<open>
+Image through transitive closure + reflexive on set is the original set.
+Used for stabilise proofs. Also note similarities with the linked lemma
+which applies to the builtin rtrancl.
+\<close>
+thm Transitive_Closure.Image_closed_trancl
+lemma Image_closed_trancl': 
+  assumes "R `` P \<subseteq> P"
+  shows "P \<union> R\<^sup>+ `` P = P"
+proof -
+  have "m' \<in> P" if "(m, m') \<in> R\<^sup>+" "m \<in> P" for m m'
+    using that assms by induct auto
+  thus ?thesis by auto
+qed
+
+lemma pushrelSame_trancl: "(pushrelSame R)\<^sup>+ = pushrelSame (R\<^sup>+)"
+proof (intro antisym subrelI, goal_cases)
+  case (1 p p')
+  then show ?case
+  proof (induct)
+    case (base p') thus ?case by auto
+  next
+    case (step p' p'')
+    obtain m m' s where "p = push m s" "p' = push m' s" "(m,m') \<in> R\<^sup>+"
+      using step by auto
+    moreover obtain m'2 m'' s2 where
+      "p' = push m'2 s2" "p'' = push m'' s2" "(m'2,m'') \<in> R"
+      using step by auto
+    ultimately have mm'':
+      "p = push m s" "p' = push m' s" "p'' = push m'' s"
+      "(m,m') \<in> R\<^sup>+" "(m',m'') \<in> R"
+      using push_inj by auto
+    hence "(m,m'') \<in> R\<^sup>+" by simp
+    thus ?case using mm'' by auto
+  qed
+next
+  case (2 p p'')
+  then obtain m m'' s where
+    "(m,m'') \<in> R\<^sup>+" "p = push m s" "p'' = push m'' s"
+    by auto
+  then show ?case 
+  proof (induct arbitrary: p p'' s)
+    case (base m'') then show ?case by auto
+  next
+    case (step m' m'')
+    hence "(push m s, push m' s) \<in> (pushrelSame R)\<^sup>+" 
+      "(push m' s, push m'' s) \<in> pushrelSame R" by auto
+    thus ?case using step(4,5) by simp
+  qed
+qed
 
 end

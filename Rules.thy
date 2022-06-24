@@ -113,7 +113,8 @@ qed
 lemma captureE [elim]:
   assumes "R,G \<turnstile> P {Capture s c} Q"
   obtains s' where "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
-using assms captureE' by blast
+by (rule exE[OF captureE'[OF assms]])
+
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:
@@ -161,21 +162,52 @@ next
     "stable (uncapRely R) P'"
     "uncapRely R,uncapGuar G \<turnstile> P' {c} uncapPred s' Q" 
     by blast
-  then obtain P'' where P'': "P' = uncapPred s P''" 
-    sorry
-  hence "P \<subseteq> P''" using P' by (metis poppred_mono pop_pushpred)
-  moreover have "stable R P''" using stable_uncap P' P'' by fast
-  moreover have "R,G \<turnstile> P'' {Capture s c} Q" using P'(3) P'' by fast
-  ultimately show ?case by auto
+  hence "P \<subseteq> poppred P'" using P' by (metis poppred_mono pop_pushpred)
+  moreover have "stable R (poppred P')" using P'(2) by (simp add: stable_mix)
+  moreover have "R,G \<turnstile> poppred P' {Capture s c} Q" using P'(3) sorry
+  ultimately show ?case sorry
 qed blast+
+
+text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
+lemma stable_preE':
+  assumes "R,G \<turnstile> P {c} Q"
+  shows "R,G \<turnstile> stabilise R P {c} Q"
+using assms
+proof (induct)
+  case (basic R G P \<alpha> Q)
+  thus ?case unfolding atomic_rule_def
+    by (simp add: basic rules.basic stabilise_stable)
+next
+  case (nil R P G)
+  thus ?case by (simp add: Image_closed_trancl rules.nil stable_rel)
+next
+  case (loop R P G c)
+  thus ?case by (simp add: Image_closed_trancl rules.loop stable_rel)
+next
+  case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
+  hence "R\<^sub>1 \<inter> R\<^sub>2, G\<^sub>1 \<union> G\<^sub>2 \<turnstile> stabilise R\<^sub>1 P\<^sub>1 \<inter> stabilise R\<^sub>2 P\<^sub>2 {c\<^sub>1 || c\<^sub>2} Q\<^sub>1 \<inter> Q\<^sub>2" 
+    by (intro rules.par)
+  thus ?case using stabilise_inter_R_P by (rule conseq, simp+)
+next
+  case (conseq R G P c Q P' R' G' Q')
+  thus ?case by (meson Image_mono rtrancl_mono rules.conseq)
+next
+  case (inv R G P c Q R' I)
+  hence "R \<inter> R',G \<turnstile> stabilise R P \<inter> I {c} Q \<inter> I" by (intro rules.inv)
+  hence "R \<inter> R',G \<turnstile> stabilise R P \<inter> stabilise R' I {c} Q \<inter> I"
+    using inv stabilise_stable[of R' I] by simp
+  thus ?case using stabilise_inter_R_P by (rule conseq, simp+)
+next
+  case (capture R G s P c s' Q)
+  then show ?case sorry
+qed auto
+
 
 
 lemma false_seqI [intro]:
   "\<forall>\<beta> \<in> set s. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {seq2com s} {}"
   by (induct s) auto
 
-
-(* why do we need these to satisfy the guarantee, and why do we need local c? *)
 lemma falseI:
   "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
@@ -186,19 +218,15 @@ next
   thus ?case by (intro ballI seqset false_seqI) auto
 next
   case (Seq c1 c2)
-  hence "local c1" "local c2" 
-    "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
+  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
   then show ?case by auto
 next
   case (Ord c1 c2)
-  hence "local c1" "local c2" 
-    "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
+  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
   then show ?case by auto
 next
   case (Capture s c)
-  have "guar\<^sub>\<alpha> (capBasic \<beta>) G \<Longrightarrow> guar\<^sub>\<alpha> \<beta> (uncapGuar G)"
-    if "\<beta> \<in> basics c" for \<beta> by (simp add: guar_mix)
-  thus ?case using Capture by (simp add: rules.capture stable_falseI) 
+  thus ?case by (intro capture, simp add: guar_mix)
 qed (auto)
 
 
