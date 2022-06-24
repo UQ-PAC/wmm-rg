@@ -88,6 +88,9 @@ lemma atomic_falseI [intro]:
 abbreviation (input) stabilise :: "'b rel \<Rightarrow> 'b set \<Rightarrow> 'b set" where
 "stabilise R P \<equiv> P \<union> R\<^sup>+ `` P"
 
+lemma "stabilise R P = (R\<^sup>*) `` P"
+by (simp add: Un_Image Un_commute rtrancl_trancl_reflcl)
+
 lemma stable_stabilise: "stable R (stabilise R P)"
 unfolding stable_rel
 by auto (metis ImageI Transitive_Closure.trancl_into_trancl)
@@ -108,15 +111,20 @@ by safe (metis Int_lower1 rev_ImageI trancl_mono)
 lemma stabilise_inter_R2: "stabilise (R1 \<inter> R2) P \<subseteq> stabilise R2 P"
 by (metis stabilise_inter_R1 Int_commute)
 
-lemma stabilise_inter_R_P: "stabilise (R1 \<inter> R2) (P1 \<inter> P2) \<subseteq> stabilise R1 P1 \<inter> stabilise R2 P2"
-by safe (meson Image_iff inf_sup_ord(1,2) trancl_mono)+
+lemma stabilise_inter_RP: "stabilise (R1 \<inter> R2) (P1 \<inter> P2) \<subseteq> stabilise R1 P1 \<inter> stabilise R2 P2"
+by (safe; meson Image_iff inf_sup_ord(1,2) trancl_mono)
+
+lemma stabilise_mono_P: "P \<subseteq> P' \<Longrightarrow> stabilise R P \<subseteq> stabilise R P'"
+by auto
+
+lemma stabilise_mono_R: "R \<subseteq> R' \<Longrightarrow> stabilise R P \<subseteq> stabilise R' P"
+by (metis inf.orderE stabilise_inter_R2)
+
+lemma stabilise_mono_RP: "R \<subseteq> R' \<Longrightarrow> P \<subseteq> P' \<Longrightarrow> stabilise R P \<subseteq> stabilise R' P'"
+by (metis stabilise_mono_P stabilise_mono_R subset_trans)
 
 lemma stabilise_pushrel: "stabilise (pushrelSame R) (pushpred s P) = pushpred s (stabilise R P)"
-proof (intro antisym)
-
-qed
-
-
+by (simp add: pushpred_relimage pushpred_union pushrelSame_trancl)
 
 
 text \<open>Definitions and lemmas for capturing guarantee and stability properties.\<close>
@@ -132,15 +140,12 @@ by auto (metis popl_push push_popl)
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
 using pushpred_relimage pushpred_mono
-by blast
+by metis
 
 lemma stable_pushrelAll: "stable R P \<Longrightarrow> stable (pushrelAll R) (pushpredAll P)"
 unfolding stable_rel
 using pushpredAll_relimage pushpredAll_mono
 by blast
-
-
-
 
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"

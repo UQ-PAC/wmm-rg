@@ -132,13 +132,13 @@ unfolding pushrelSame_def by auto
 lemma pushrelAll_mono [simp]: "G \<subseteq> G' \<Longrightarrow> pushrelAll G \<subseteq> pushrelAll G'"
 unfolding pushrelAll_def by auto
 
-lemma pushrelAll_eq [simp]: "(pushrelAll G \<subseteq> pushrelAll G') = (G \<subseteq> G')"
+lemma pushrelAll_eq: "(pushrelAll G \<subseteq> pushrelAll G') = (G \<subseteq> G')"
 using poprel_mono pop_pushrelAll pushrelAll_mono
 by metis
 
 subsection \<open>Relation composition\<close>
 
-lemma poprel_relcomp [simp]: "poprel (G O G') \<subseteq> poprel G O poprel G'"
+lemma poprel_relcomp: "poprel (G O G') \<subseteq> poprel G O poprel G'"
 unfolding poprel_def
 by auto
 
@@ -172,7 +172,7 @@ lemma pushrel_relcomp_id: "pushrel s (Id_on P O P') = Id_on (pushpred s P) O pus
 unfolding pushrel_def pushpred_def
 by auto (metis Id_onI popl_push relcompI)
 
-lemma pushpredAll_supset: "P \<subseteq> pushpredAll (poppred P)"
+lemma pushpredAll_poppred_supset: "P \<subseteq> pushpredAll (poppred P)"
 unfolding pushpredAll_def poppred_def 
 by clarsimp (metis push_popl)
 
@@ -217,6 +217,11 @@ lemma pushpred_inter_pushpredAll: "pushpred s P \<inter> pushpredAll P' = pushpr
 unfolding pushpred_def pushpredAll_def
 by (auto, metis popl_push)
 
+subsection \<open>Union\<close>
+
+lemma pushpred_union: "pushpred s (P \<union> P') = pushpred s P \<union> pushpred s P'"
+unfolding pushpred_def by auto
+
 subsection \<open>Image of relations\<close>
 
 lemma pushpred_relimage: "pushpred s (R `` P) = pushrelSame R `` pushpred s P"
@@ -252,13 +257,9 @@ unfolding pushrelAll_def by simp
 subsection \<open>Correspondences between predicates and Id_on.\<close>
 
 lemma Id_in_pushrelAll_poppred: "Id_on G \<subseteq> pushrelAll (Id_on (poppred G))"
-proof -
-  have "G \<subseteq> {push m s |m s. m \<in> poppred G}"
-    unfolding poppred_def 
-    by clarsimp (metis local.push_popl)
-  thus ?thesis using Id_on_eqI 
-    unfolding pushrelAll_def by clarsimp blast
-qed
+using pushpredAll_poppred_supset subsetD
+unfolding pushrelAll_def pushpredAll_def
+by fast
 
 lemma poppred_eq_poprel: "Id_on (poppred a) = poprel (Id_on a)"
 unfolding poppred_def poprel_def by auto
@@ -327,17 +328,16 @@ proof (intro antisym subrelI, goal_cases)
     case (base p') thus ?case by auto
   next
     case (step p' p'')
-    obtain m m' s where "p = push m s" "p' = push m' s" "(m,m') \<in> R\<^sup>+"
+    obtain m m' s where mm': 
+      "p = push m s" "p' = push m' s" "(m,m') \<in> R\<^sup>+"
       using step by auto
-    moreover obtain m'2 m'' s2 where
+    obtain m'2 m'' s2 where
       "p' = push m'2 s2" "p'' = push m'' s2" "(m'2,m'') \<in> R"
       using step by auto
-    ultimately have mm'':
-      "p = push m s" "p' = push m' s" "p'' = push m'' s"
-      "(m,m') \<in> R\<^sup>+" "(m',m'') \<in> R"
-      using push_inj by auto
-    hence "(m,m'') \<in> R\<^sup>+" by simp
-    thus ?case using mm'' by auto
+    hence m'': "p'' = push m'' s" "(m',m'') \<in> R"
+      using mm' push_inj by auto
+    hence "(m,m'') \<in> R\<^sup>+" using mm' by simp
+    thus ?case using mm' m'' by auto
   qed
 next
   case (2 p p'')
@@ -346,7 +346,7 @@ next
     by auto
   then show ?case 
   proof (induct arbitrary: p p'' s)
-    case (base m'') then show ?case by auto
+    case (base m'') thus ?case by auto
   next
     case (step m' m'')
     hence "(push m s, push m' s) \<in> (pushrelSame R)\<^sup>+" 
