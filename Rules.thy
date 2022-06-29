@@ -115,7 +115,6 @@ lemma captureE [elim]:
   obtains s' where "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
 by (rule exE[OF captureE'[OF assms]])
 
-
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
 lemma stable_preE':
   assumes "R,G \<turnstile> P {c} Q"
@@ -123,8 +122,7 @@ lemma stable_preE':
 using assms
 proof (induct)
   case (basic R G P \<alpha> Q)
-  thus ?case unfolding atomic_rule_def
-    by (simp add: basic rules.basic stabilise_stable)
+  thus ?case using stabilise_atomic by (intro rules.basic, simp)
 next
   case (nil R P G)
   thus ?case by (simp add: rules.nil stabilise_stable)
@@ -154,8 +152,9 @@ text \<open>It is always possible to rephrase a judgement in terms of a stable p
 lemma stable_preE:
   assumes "R,G \<turnstile> P {c} Q"
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
-using stable_preE'[OF assms] stable_stabilise stabilise_supset
-by auto
+using assms stabilise_supset stable_stabilise stable_preE'
+by metis
+
 
 
 lemma false_seqI [intro]:

@@ -92,16 +92,42 @@ next
   hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
   then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 next
-  case (cap c s r \<alpha> c')
-  then obtain P' M s' where M: 
-    "uncapPred s P \<subseteq> P'"
-    "uncapRely R,uncapGuar G \<turnstile>\<^sub>A P' {(uncapBasic s \<alpha>)\<llangle>uncapCom s r\<rrangle>} M"
-    "uncapRely R,uncapGuar G \<turnstile> uncapPred s M {c'} uncapPred s' Q"
-       try0
-  hence "R,G \<turnstile> M {Capture s c'} Q" sorry
-  moreover have "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" sorry
-  ultimately show ?case using M(1)
-    by (metis capPred_mono cap_uncapPred)
+  (* translate hypotheses to invoke the inductive hypothesis. *)
+  (* then translate the inductive result into the final form. *)
+  case (cap c s r s' \<alpha> c')
+  (* elimination rule for "Capture s c" *)
+  then obtain sx where
+    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
+    by auto
+  (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
+  moreover have
+    "inter\<^sub>c (uncapRely R) (uncapGuar G) (Capture s r) (pushbasic s s' \<alpha>)" sorry
+  ultimately obtain push_P' push_M where push_P': 
+    "pushpred s P \<subseteq> push_P'"
+    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(pushbasic s s' \<alpha>)\<llangle>Capture s r\<rrangle>} push_M"
+    "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
+    using cap(2) by simp
+  
+  (* this is a bold assumption on how pushbasic interacts with forwarding. *)
+  hence atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} push_M" sorry
+  have "push_P' = pushpred s (poppred push_P')"
+    using atomic wp_of_push_poppable unfolding atomic_rule_def by blast
+  obtain M where M:
+    "M \<subseteq> push_M"
+    "M = pushpred s' (poppred M)" 
+    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
+    using atomic atomic_of_push by force
+  hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
+    using push_P'(3) by auto
+  
+  (* TODO: maybe we can have a lemma which says that given a judgement over a pushed basic,
+     its precondition must have been pushed. *)
+  hence "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
+  moreover have "P \<subseteq> poppred push_P'"
+    using poppred_mono[OF push_P'(1)] by simp
+  (* TODO: this requires popping the statement in push_P'(2). *)
+  moreover have "R,G \<turnstile>\<^sub>A poppred push_P' {\<alpha>\<llangle>r\<rrangle>} poppred M" sorry
+  ultimately show ?case by auto
 oops
 
 

@@ -80,46 +80,45 @@ abbreviation (input) uncapGuar where
 
 (* captures and hides the local effects of a basic. 
 goes from local to global.  *)
-abbreviation capBasic where
-"capBasic \<alpha> \<equiv> (tag \<alpha>, capPred (vc \<alpha>), capBeh (beh \<alpha>))"
+abbreviation popbasic where
+"popbasic \<alpha> \<equiv> (tag \<alpha>, capPred (vc \<alpha>), capBeh (beh \<alpha>))"
 
 (* uncaptures and makes visible the effects of a basic. 
 goes from global to local context. *)
-abbreviation uncapBasic where
-(* "uncapBasic s \<alpha> \<equiv> (tag \<alpha>, uncapPred s (vc \<alpha>), uncapBeh s (beh \<alpha>))" *)
-"uncapBasic s \<alpha> \<equiv> (tag \<alpha>, uncapPred s (vc \<alpha>), uncapBeh s (beh \<alpha>))"
+abbreviation pushbasic where
+"pushbasic s s' \<alpha> \<equiv> (tag \<alpha>, pushpred s (vc \<alpha>), pushrel s s' (beh \<alpha>))"
 
 
-lemma cap_uncapBasic [simp]: "capBasic (uncapBasic s \<alpha>) = \<alpha>"
+lemma cap_pushbasic [simp]: "popbasic (pushbasic s s' \<alpha>) = \<alpha>"
 by simp
 
 (* captures the effect of a command *)
-fun capCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
-    "capCom k (Basic \<beta>) = Basic (capBasic \<beta>)" |
-    "capCom k (Seq c\<^sub>1 c\<^sub>2) = Seq (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
-    "capCom k (Ord c\<^sub>1 c\<^sub>2) = Ord  (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
-    "capCom k (Choice c\<^sub>1 c\<^sub>2) = Choice  (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
-    "capCom k (SeqChoice S) = SeqChoice (map (uncapBasic k) ` S)" |
-    "capCom k (Parallel c\<^sub>1 c\<^sub>2) = Parallel (capCom k c\<^sub>1) (capCom k c\<^sub>2)" |
-    "capCom k (Loop c) = Loop (capCom k c)" |
-    "capCom k (Thread c) = Thread (capCom k c)" |
-    (* "capCom k (Capture s c) = uncapBasic s ` capCom k c" | *)
-    "capCom k (Capture k' c) = Capture k (capCom k' c)" |
-    "capCom _ Nil = Nil"
+fun popcom :: "('a,'b::state) com \<Rightarrow> ('a,'b) com" where
+    "popcom (Basic \<beta>) = Basic (popbasic \<beta>)" |
+    "popcom (Seq c\<^sub>1 c\<^sub>2) = Seq (popcom c\<^sub>1) (popcom c\<^sub>2)" |
+    "popcom (Ord c\<^sub>1 c\<^sub>2) = Ord  (popcom c\<^sub>1) (popcom c\<^sub>2)" |
+    "popcom (Choice c\<^sub>1 c\<^sub>2) = Choice  (popcom c\<^sub>1) (popcom c\<^sub>2)" |
+    "popcom (SeqChoice S) = SeqChoice (map (popbasic) ` S)" |
+    "popcom (Parallel c\<^sub>1 c\<^sub>2) = Parallel (popcom c\<^sub>1) (popcom c\<^sub>2)" |
+    "popcom (Loop c) = Loop (popcom c)" |
+    "popcom (Thread c) = Thread (popcom c)" |
+    (* "popcom k (Capture s c) = pushbasic s ` popcom k c" | *)
+    "popcom (Capture k' c) = c" |
+    "popcom Nil = Nil"
 
-fun uncapCom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
-    "uncapCom k (Basic \<beta>) = Basic (uncapBasic k \<beta>)" |
-    "uncapCom k (Seq c\<^sub>1 c\<^sub>2) = Seq (uncapCom k c\<^sub>1) (uncapCom k c\<^sub>2)" |
-    "uncapCom k (Ord c\<^sub>1 c\<^sub>2) = Ord  (uncapCom k c\<^sub>1) (uncapCom k c\<^sub>2)" |
-    "uncapCom k (Choice c\<^sub>1 c\<^sub>2) = Choice  (uncapCom k c\<^sub>1) (uncapCom k c\<^sub>2)" |
-    "uncapCom k (SeqChoice S) = SeqChoice (map (uncapBasic k) ` S)" |
-    "uncapCom k (Parallel c\<^sub>1 c\<^sub>2) = Parallel (uncapCom k c\<^sub>1) (uncapCom k c\<^sub>2)" |
-    "uncapCom k (Loop c) = Loop (uncapCom k c)" |
-    "uncapCom k (Thread c) = Thread (uncapCom k c)" |
-    (* "capCom k (Capture s c) = uncapBasic s ` capCom k c" | *)
-    "uncapCom k (Capture k' c) = Capture k' (uncapCom k' c)" |
-    "uncapCom _ Nil = Nil"
-    (* "basics (CaptureAll c) = basics c" | *)
+(* fun pushcom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
+    "pushcom k (Basic \<beta>) = Basic (pushbasic k \<beta>)" |
+    "pushcom k (Seq c\<^sub>1 c\<^sub>2) = Seq (pushcom k c\<^sub>1) (pushcom k c\<^sub>2)" |
+    "pushcom k (Ord c\<^sub>1 c\<^sub>2) = Ord  (pushcom k c\<^sub>1) (pushcom k c\<^sub>2)" |
+    "pushcom k (Choice c\<^sub>1 c\<^sub>2) = Choice  (pushcom k c\<^sub>1) (pushcom k c\<^sub>2)" |
+    "pushcom k (SeqChoice S) = SeqChoice (map (pushbasic k) ` S)" |
+    "pushcom k (Parallel c\<^sub>1 c\<^sub>2) = Parallel (pushcom k c\<^sub>1) (pushcom k c\<^sub>2)" |
+    "pushcom k (Loop c) = Loop (pushcom k c)" |
+    "pushcom k (Thread c) = Thread (pushcom k c)" |
+    (* "popcom k (Capture s c) = pushbasic s ` popcom k c" | *)
+    "pushcom k (Capture k' c) = Capture k' (pushcom k' c)" |
+    "pushcom _ Nil = Nil"
+    (* "basics (CaptureAll c) = basics c" | *) *)
 
 
 (* definition thr\<^sub>\<alpha> :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) basic" where
@@ -149,17 +148,10 @@ fun basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Parallel c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Loop c) = basics c" |
     "basics (Thread c) = basics c" |
-    (* "basics (Capture s c) = uncapBasic s ` basics c" | *)
-    "basics (Capture k c) = capBasic ` basics c" |
+    (* "basics (Capture s c) = pushbasic s ` basics c" | *)
+    "basics (Capture k c) = popbasic ` basics c" |
     (* "basics (CaptureAll c) = basics c" | *)
     "basics _ = {}"
-
-fun seqonly :: "('a,'b) com \<Rightarrow> bool" where
-"seqonly Nil = True" |
-"seqonly (Basic _) = True" |
-"seqonly (Seq c1 c2) = (seqonly c1 \<and> seqonly c2)" |
-"seqonly (Ord c1 c2) = (seqonly c1 \<and> seqonly c2)" |
-"seqonly _ = False"
 
 
 (* lemma basics_thr\<^sub>c: "basics (thr\<^sub>c op l l' c) = thr\<^sub>\<alpha> op l l' ` basics c"
