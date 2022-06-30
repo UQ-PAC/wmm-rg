@@ -39,6 +39,11 @@ definition pushpredAll :: "'a set \<Rightarrow> 'a set" where
 "pushpredAll P \<equiv> {push m s |m s. m \<in> P}"
 
 
+(*
+TODO: we would like a version of poprel which specifies explicitly what
+the initial and final local states ought to be. something like:
+poprel' s s' R = {(m,m') |m m'. (push m s, push m' s') \<in> R}.
+ *)
 definition poprel :: "'a rel \<Rightarrow> 'a rel" where
 "poprel b = {(popl m,popl m') |m m'. (m,m') \<in> b}" 
 

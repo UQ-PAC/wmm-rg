@@ -33,6 +33,7 @@ fun fwd_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) ba
     "\<alpha>\<llangle>c\<^sub>1 ;; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>c\<^sub>1 \<cdot> c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>_\<rrangle> = \<alpha>"
+(* TODO: we should define \<alpha>\<llangle>Capture s r\<rrangle> = unpush s \<alpha>\<llangle>r\<rrangle> or similar with a specific s. *)
 
 text \<open>Recursively define reordering of an instruction earlier than a program\<close>
 fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"

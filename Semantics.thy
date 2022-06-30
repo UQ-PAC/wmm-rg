@@ -40,6 +40,10 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
     Capture s' c\<^sub>1'" *)
   (* | capNil[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> Capture s c\<^sub>1 \<mapsto>[f r,capBasic \<alpha>\<llangle>r\<rrangle> s s'] Capture s' c\<^sub>1'"  *)
 inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
+(* 
+TODO: replace the [r,\<alpha>] with a triple [\<alpha>',r,\<alpha>] which will allow the r to hold
+"Capture s r". then, the \<alpha>' is the one which describes the effects which are
+visible from that local execution step. *)
 
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
@@ -169,8 +173,8 @@ by induct auto *)
 lemma seqonly_reorder_com [simp]: "\<alpha>' < c <\<^sub>c \<alpha> \<Longrightarrow> seqonly c"
 by (induct rule: reorder_com.induct) auto
 
-lemma seqonly_lexecute [simp]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> seqonly r"
-by (induct rule: lexecute.induct) auto
+(* lemma seqonly_lexecute [simp]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> seqonly r"
+by (induct rule: lexecute.induct) auto *)
 
 (* lemma popbasic_pushcom:
   assumes "seqonly r"

@@ -267,12 +267,18 @@ oops
 text \<open>If P satisfies the wp of a pushbasic, then it must have had 's' pushed onto it.\<close>
 lemma wp_pushbasic_poppable:
   assumes "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) Q"
-  shows "P = pushpred s (poppred P)"
+  shows "poppable s P"
 proof -
   have "P \<subseteq> Domain (pushrel s s' (beh \<alpha>))" using assms unfolding wp_rel by simp
   hence "P \<subseteq> pushpred s (Domain (beh \<alpha>))" by (simp add: domain_pushrel)
   thus ?thesis by (rule pushpred_poppable)
 qed
+
+lemma atomic_poppable:
+  assumes "R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q"
+  shows "poppable s P"
+using assms unfolding atomic_rule_def
+by (intro wp_pushbasic_poppable) auto
 
 text \<open>We can replace an atomic judgement with its strongest postcondition.\<close>
 lemma atomic_spI:
@@ -300,29 +306,27 @@ proof (intro conjI)
   thus "stabilise R (sp \<alpha> P) \<subseteq> Q" using A(4) stabilise_min[of _ Q] by simp
 qed
 
-lemma atomic_pushbasic_sp_poppable:
-  assumes "pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q"
+lemma poppable_stabilise_sp:
+  assumes "poppable s P"
   shows "poppable s' (stabilise (pushrelSame R) (sp (pushbasic s s' \<alpha>) P))"
 proof -
-  let ?Q' = "stabilise (pushrelSame R) (sp (pushbasic s s' \<alpha>) P)"
-
-  have "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) Q"
-    using assms unfolding atomic_rule_def by auto
-  hence "P = pushpred s (poppred P)"
-    by (rule wp_pushbasic_poppable)
-  hence "sp (pushbasic s s' \<alpha>) P = sp (pushbasic s s' \<alpha>) (pushpred s (poppred P))" by simp
+  define Q' where "Q' = stabilise (pushrelSame R) (sp (pushbasic s s' \<alpha>) P)"
+ 
+  have "sp (pushbasic s s' \<alpha>) P = sp (pushbasic s s' \<alpha>) (pushpred s (poppred P))" 
+    using assms by simp
   also have "... = pushpred s' (sp \<alpha> (poppred P))" 
     using sp_pushbasic by fastforce
     
-  finally have "?Q' = pushpred s' (stabilise R (sp \<alpha> (poppred P)))"
-    using stabilise_pushrel by fastforce
-  thus "poppable s' ?Q'" by simp
+  finally have "Q' = pushpred s' (stabilise R (sp \<alpha> (poppred P)))"
+    using stabilise_pushrel unfolding Q'_def by fastforce
+  thus "poppable s' Q'" by simp
 qed
 
 lemma atomic_pushbasic_postE:
   assumes "pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q"
   obtains Q' where "Q' \<subseteq> Q" "poppable s' Q'" "pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q'"
-using atomic_spI[OF assms] atomic_pushbasic_sp_poppable[OF assms]
-by simp
+using assms atomic_spI poppable_stabilise_sp[OF atomic_poppable]
+by metis
+
 
 end

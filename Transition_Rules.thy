@@ -97,20 +97,21 @@ next
   case (cap c r s s' \<alpha> c')
   (* elimination rule for "Capture s c" *)
   then obtain sx where
-    s: "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
+    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
     by auto
   (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
   moreover have
-    e: "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (pushbasic s s' \<alpha>)" using cap(4) sorry
+    "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (pushbasic s s' \<alpha>)" using cap(4) sorry
   ultimately obtain push_P' push_M where push_P': 
     "pushpred s P \<subseteq> push_P'"
     "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(pushbasic s s' \<alpha>)\<llangle>r\<rrangle>} push_M"
     "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
-    using cap(2)[OF s e] by blast
+    using cap(2) by meson
   
   (* this is a bold assumption on how pushbasic interacts with forwarding. *)
   have atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} push_M"
     using push_P'(2) sorry
+
   obtain M where M:
     "M \<subseteq> push_M"
     "M = pushpred s' (poppred M)" 
@@ -118,8 +119,8 @@ next
     using atomic_pushbasic_postE[OF atomic] by auto
   hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
     using push_P'(3) by auto
-  
   hence "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
+
   moreover have "P \<subseteq> poppred push_P'"
     using poppred_mono[OF push_P'(1)] by simp
   (* TODO: this requires popping the statement in push_P'(2). *)
