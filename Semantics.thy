@@ -33,7 +33,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'
   ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
-  | cap[intro]: "c \<mapsto>[Capture s r,pushbasic s s' \<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[r,\<alpha>] Capture s' c'"
+  | cap[intro]: "c \<mapsto>[r,pushbasic s s' \<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[Capture s r,\<alpha>] Capture s' c'"
 (*   cap[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> 
     Capture s c\<^sub>1 \<mapsto>[Nil,
       (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
@@ -197,61 +197,6 @@ proof (induct rule: lexecute.induct)
   ultimately show ?case by simp
 qed auto *)
 
-text \<open>If P satisfies the wp of a pushbasic, then it must have had 's' pushed onto it.\<close>
-lemma wp_of_push_poppable:
-  assumes "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) Q"
-  shows "P = pushpred s (poppred P)" 
-using assms
-unfolding wp_rel
-proof -
-  have dom: "Domain (beh (pushbasic s s' \<alpha>)) = pushpred s (Domain (beh \<alpha>))"
-    unfolding pushpred_def pushrel_def by auto
-  assume assms': "P \<subseteq> vc (pushbasic s s' \<alpha>) \<inter> Domain (beh (pushbasic s s' \<alpha>)) \<inter> - (beh (pushbasic s s' \<alpha>))\<inverse> `` (- Q)"
-  hence "P \<subseteq> pushpred s (Domain (beh \<alpha>))" using dom by simp
-  thus ?thesis by (rule pushpred_poppred_id)
-qed
-
-lemma atomic_of_push:
-  assumes "pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q"
-  shows "\<exists>Q'. Q' \<subseteq> Q \<and> Q' = pushpred s' (poppred Q') \<and> pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q'"
-unfolding atomic_rule_def
-proof (intro exI conjI)
-  have assms':
-    "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) Q"
-
-    "P \<subseteq> vc (pushbasic s s' \<alpha>)"
-    "P \<subseteq> Domain (beh (pushbasic s s' \<alpha>))"
-    "P \<subseteq> - (beh (pushbasic s s' \<alpha>))\<inverse> `` (- Q)"
-
-    "guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) G"
-    "stable (pushrelSame R) P"
-    "stable (pushrelSame R) Q"
-    using assms unfolding atomic_rule_def wp_rel by auto
-  thus "stable (pushrelSame R) P" "guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) G" by simp+
-
-  let ?Q' = "stabilise (pushrelSame R) (sp (pushbasic s s' \<alpha>) P)"
-  show "stable (pushrelSame R) ?Q'" by (rule stable_stabilise)
-
-  have "P = pushpred s (poppred P)" using assms' by (simp add: wp_of_push_poppable)
-  hence "sp (pushbasic s s' \<alpha>) P = sp (pushbasic s s' \<alpha>) (pushpred s (poppred P))" by simp
-  also have "... = pushpred s' (sp \<alpha> (poppred P))" 
-    using sp_pushbasic by fast
-  finally have sp: "sp (pushbasic s s' \<alpha>) P = pushpred s' (sp \<alpha> (poppred P))" by simp
-
-  hence "sp (pushbasic s s' \<alpha>) P = pushpred s' (poppred (sp (pushbasic s s' \<alpha>) P))"
-    using pushpred_poppred_id by simp
-  hence "?Q' = pushpred s' (stabilise R (sp \<alpha> (poppred P)))"
-    using stabilise_pushrel sp by metis
-  thus "?Q' = pushpred s' (poppred ?Q')" by simp
-
-  have "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) (sp (pushbasic s s' \<alpha>) P)"
-    using assms'(2,3) by (intro wp_sp, auto)
-  thus "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) ?Q'"
-    using stabilise_supset[of "sp (pushbasic s s' \<alpha>) P"] wp\<^sub>\<alpha>_mono by fast
-
-  have "sp (pushbasic s s' \<alpha>) P \<subseteq> Q" using assms'(1) sp_mono sp_wp by fast
-  thus "?Q' \<subseteq> Q" using assms'(7) stabilise_min[of _ Q] by simp
-qed
 
 end
 

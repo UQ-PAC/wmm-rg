@@ -51,6 +51,9 @@ definition pushrelSame :: "'a rel \<Rightarrow> 'a rel" where
 definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 "pushrelAll G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
 
+abbreviation poppable :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
+"poppable s P \<equiv> (P = pushpred s (poppred P))"
+
 section \<open>Introduction rules for the definitions\<close>
 
 lemma pushpred_inI [intro]:
@@ -197,7 +200,7 @@ proof (rule subrelI)
 oops
 
 text \<open>If P is contained in a pushed set, popping then pushing again is the identity.\<close>
-lemma pushpred_poppred_id: "P \<subseteq> pushpred s P' \<Longrightarrow> P = pushpred s (poppred P)"
+lemma pushpred_poppable: "P \<subseteq> pushpred s P' \<Longrightarrow> P = pushpred s (poppred P)"
 unfolding pushpred_def poppred_def
 by force
 
@@ -287,6 +290,10 @@ subsection \<open>Other\<close>
 lemma pushrelSame_in_eq: "((push m s, push m' s) \<in> pushrelSame R) = ((m,m') \<in> R)"
 unfolding pushrelSame_def
 by (auto, metis local.popl_push)
+
+lemma domain_pushrel: "Domain (pushrel s s' R) = pushpred s (Domain R)"
+unfolding pushrel_def pushpred_def
+by auto
 
 (* lemma "(pushrelSame R)\<^sup>* = pushrelSame (R\<^sup>* )"
 proof (intro antisym subrelI, goal_cases)

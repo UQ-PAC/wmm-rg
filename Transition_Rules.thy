@@ -67,7 +67,7 @@ section \<open>Transition Rules\<close>
 
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
-lemma lexecute_ruleI [intro]:
+lemma lexecute_ruleI [intro]:                
   assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
   shows "\<exists>P' M. P \<subseteq> P' \<and> R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M \<and> R,G \<turnstile> M {c'} Q"
   using assms(2,1,3)
@@ -94,39 +94,36 @@ next
 next
   (* translate hypotheses to invoke the inductive hypothesis. *)
   (* then translate the inductive result into the final form. *)
-  case (cap c s r s' \<alpha> c')
+  case (cap c r s s' \<alpha> c')
   (* elimination rule for "Capture s c" *)
   then obtain sx where
-    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
+    s: "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
     by auto
   (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
   moreover have
-    "inter\<^sub>c (uncapRely R) (uncapGuar G) (Capture s r) (pushbasic s s' \<alpha>)" sorry
+    e: "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (pushbasic s s' \<alpha>)" using cap(4) sorry
   ultimately obtain push_P' push_M where push_P': 
     "pushpred s P \<subseteq> push_P'"
-    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(pushbasic s s' \<alpha>)\<llangle>Capture s r\<rrangle>} push_M"
+    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(pushbasic s s' \<alpha>)\<llangle>r\<rrangle>} push_M"
     "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
-    using cap(2) by simp
+    using cap(2)[OF s e] by blast
   
   (* this is a bold assumption on how pushbasic interacts with forwarding. *)
-  hence atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} push_M" sorry
-  have "push_P' = pushpred s (poppred push_P')"
-    using atomic wp_of_push_poppable unfolding atomic_rule_def by blast
+  have atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} push_M"
+    using push_P'(2) sorry
   obtain M where M:
     "M \<subseteq> push_M"
     "M = pushpred s' (poppred M)" 
     "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
-    using atomic atomic_of_push by force
+    using atomic_pushbasic_postE[OF atomic] by auto
   hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
     using push_P'(3) by auto
   
-  (* TODO: maybe we can have a lemma which says that given a judgement over a pushed basic,
-     its precondition must have been pushed. *)
   hence "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
   moreover have "P \<subseteq> poppred push_P'"
     using poppred_mono[OF push_P'(1)] by simp
   (* TODO: this requires popping the statement in push_P'(2). *)
-  moreover have "R,G \<turnstile>\<^sub>A poppred push_P' {\<alpha>\<llangle>r\<rrangle>} poppred M" sorry
+  moreover have "R,G \<turnstile>\<^sub>A poppred push_P' {\<alpha>\<llangle>Capture s r\<rrangle>} poppred M" using atomic  sorry
   ultimately show ?case by auto
 oops
 
