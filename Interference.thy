@@ -45,7 +45,7 @@ inductive reorder_trace
   where 
     "reorder_trace [] c" |
     "c \<leadsto> c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace t c" |
-    "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace ((r,\<alpha>)#t) c"
+    "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace ((r,\<alpha>)#t) c"
 
 text \<open>Ensure all reorderings enforce the necessary interference property\<close>
 definition rif
@@ -61,7 +61,7 @@ lemma inter_silentI [intro]:
 
 text \<open>Interference check is preserved across an execution step and prevents interference\<close>
 lemma indep_stepI [intro]:
-  assumes "rif R G c" "c \<mapsto>[r,\<alpha>] c'"
+  assumes "rif R G c" "c \<mapsto>[\<alpha>',r,\<alpha>] c'"
   shows "rif R G c' \<and> inter\<^sub>c R G r \<alpha>"
 proof -
   have "reorder_trace [(r, \<alpha>)] c" using assms reorder_trace.intros by simp
