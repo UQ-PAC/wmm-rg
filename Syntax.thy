@@ -80,20 +80,19 @@ abbreviation (input) uncapGuar where
 
 (* captures and hides the local effects of a basic. 
 goes from local to global.  *)
+abbreviation popbasic' where
+"popbasic' s s' \<alpha> \<equiv> (tag \<alpha>, poppred' s (vc \<alpha>), poprel' s s' (beh \<alpha>))"
+
 abbreviation popbasic where
-"popbasic \<alpha> \<equiv> (tag \<alpha>, capPred (vc \<alpha>), capBeh (beh \<alpha>))"
+"popbasic \<alpha> \<equiv> (tag \<alpha>, poppred (vc \<alpha>), poprel (beh \<alpha>))"
 
 (* uncaptures and makes visible the effects of a basic. 
 goes from global to local context. *)
 abbreviation pushbasic where
 "pushbasic s s' \<alpha> \<equiv> (tag \<alpha>, pushpred s (vc \<alpha>), pushrel s s' (beh \<alpha>))"
 
-
-lemma cap_pushbasic [simp]: "popbasic (pushbasic s s' \<alpha>) = \<alpha>"
-by simp
-
 (* captures the effect of a command *)
-fun popcom :: "('a,'b::state) com \<Rightarrow> ('a,'b) com" where
+(* fun popcom :: "('a,'b::state) com \<Rightarrow> ('a,'b) com" where
     "popcom (Basic \<beta>) = Basic (popbasic \<beta>)" |
     "popcom (Seq c\<^sub>1 c\<^sub>2) = Seq (popcom c\<^sub>1) (popcom c\<^sub>2)" |
     "popcom (Ord c\<^sub>1 c\<^sub>2) = Ord  (popcom c\<^sub>1) (popcom c\<^sub>2)" |
@@ -104,7 +103,7 @@ fun popcom :: "('a,'b::state) com \<Rightarrow> ('a,'b) com" where
     "popcom (Thread c) = Thread (popcom c)" |
     (* "popcom k (Capture s c) = pushbasic s ` popcom k c" | *)
     "popcom (Capture k' c) = c" |
-    "popcom Nil = Nil"
+    "popcom Nil = Nil" *)
 
 (* fun pushcom :: "('b::state) \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) com" where
     "pushcom k (Basic \<beta>) = Basic (pushbasic k \<beta>)" |

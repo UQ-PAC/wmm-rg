@@ -26,29 +26,30 @@ Semantics that collects reordering effects.
 Given c \<mapsto>[r,\<alpha>'] c', this corresponds to c \<mapsto>\<alpha><r> c', such that
 r should be the program \<alpha>' has to reorder with in c to execute and 
 \<alpha> should be \<alpha>' forwarded across r.\<close>
-inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
-  ("_ \<mapsto>[_,_] _" [71,0,0,71] 70)
+inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+  ("_ \<mapsto>[_,_,_] _" [71,0,0,0,71] 70)
   where
-  act[intro]: "Basic \<alpha> \<mapsto>[Nil,\<alpha>] Nil" |
-  ino[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
-  ord[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
-  ooo[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
-  | cap[intro]: "c \<mapsto>[r,pushbasic s s' \<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[Capture s r,\<alpha>] Capture s' c'"
+  act[intro]: "Basic \<alpha> \<mapsto>[\<alpha>,Nil,\<alpha>] Nil" |
+  ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
+  ord[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
+  ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[\<alpha>'',c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
+  | cap[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic' s s' \<alpha>',Capture s r,\<alpha>] Capture s' c'"
 (*   cap[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> 
     Capture s c\<^sub>1 \<mapsto>[Nil,
       (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
     Capture s' c\<^sub>1'" *)
   (* | capNil[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> Capture s c\<^sub>1 \<mapsto>[f r,capBasic \<alpha>\<llangle>r\<rrangle> s s'] Capture s' c\<^sub>1'"  *)
-inductive_cases lexecuteE[elim]: "c \<mapsto>[p,\<alpha>] c'"
+inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p,\<alpha>] c'"
 (* 
 TODO: replace the [r,\<alpha>] with a triple [\<alpha>',r,\<alpha>] which will allow the r to hold
 "Capture s r". then, the \<alpha>' is the one which describes the effects which are
 visible from that local execution step. *)
 
+
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
   where
-  thr[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> Thread c \<mapsto>[beh \<alpha>\<llangle>r\<rrangle>] Thread c'" |
+  thr[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Thread c \<mapsto>[beh \<alpha>'] Thread c'" |
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
@@ -84,12 +85,12 @@ inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>
 lemma execute_neq:
-  assumes "c \<mapsto>[r,\<alpha>'] c'"
+  assumes "c \<mapsto>[\<alpha>'',r,\<alpha>'] c'"
   shows "c \<noteq> c'"
   using assms by (induct) auto
 
 lemma [simp]:
-  "c \<mapsto>[r,\<alpha>'] c = False"
+  "c \<mapsto>[\<alpha>'',r,\<alpha>'] c = False"
   using execute_neq by blast
 
 lemma gexecute_neq:
@@ -107,7 +108,7 @@ lemma [intro]:
 
 text \<open>An execution step will not introduce parallelism\<close>
 lemma local_execute:
-  "c \<mapsto>[r,\<alpha>'] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
+  "c \<mapsto>[\<alpha>'',r,\<alpha>'] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
   by (induct rule: lexecute.induct) auto
 
 text \<open>A silent step will not introduce parallelism\<close>
@@ -150,7 +151,7 @@ lemma [simp]:
   by (induct s) auto
 
 lemma basics_exec:
-  assumes "c \<mapsto>[r,\<alpha>] c'" shows "basics c \<supseteq> basics c'"
+  assumes "c \<mapsto>[\<alpha>'',r,\<alpha>] c'" shows "basics c \<supseteq> basics c'"
   using assms by induct auto
 
 lemma basics_silent:

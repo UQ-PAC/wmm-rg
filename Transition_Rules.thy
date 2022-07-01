@@ -68,55 +68,55 @@ section \<open>Transition Rules\<close>
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
-  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
+  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
   shows "\<exists>P' M. P \<subseteq> P' \<and> R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M \<and> R,G \<turnstile> M {c'} Q"
   using assms(2,1,3)
 proof (induct arbitrary: P R G Q)
   case (act \<alpha>)
   then show ?case by clarsimp (meson atomic_rule_def nil rules.conseq order_refl)
 next
-  case (ino c\<^sub>1 c \<alpha>' c\<^sub>1' c\<^sub>2)
+  case (ino c\<^sub>1 \<alpha>' r \<alpha> c\<^sub>1' c\<^sub>2)
   then obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" by auto
   then show ?case using ino(2)[OF m(1) ino(4)] m(2) by blast
 next
-  case (ord c\<^sub>1 c \<alpha> c\<^sub>1' c\<^sub>2)
+  case (ord c\<^sub>1 \<alpha>' r \<alpha> c\<^sub>1' c\<^sub>2)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" 
     using ord by fast
   then show ?case using ord(2)[OF m(1) ord(4)] m(2) by blast
 next
-  case (ooo c\<^sub>2 c \<alpha> c\<^sub>2' \<alpha>' c\<^sub>1)
-  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" using ooo(4) by blast
-  have i: "inter\<^sub>c R G c\<^sub>1 (\<alpha>\<llangle>c\<rrangle>)" "inter\<^sub>c R G c \<alpha>" using ooo by auto
-  obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M" "R,G \<turnstile> M {c\<^sub>2'} Q"
-    using ooo(2)[OF m(2) i(2)] by blast
-  hence m'': "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) by blast
-  then show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
+  case (ooo c\<^sub>1 \<alpha>' r \<alpha> c\<^sub>1' \<alpha>'' c\<^sub>2)
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>2} M'" "R,G \<turnstile> M' {c\<^sub>1} Q" using ooo(4) by (rule seqE)
+  have i: "inter\<^sub>c R G c\<^sub>2 (\<alpha>\<llangle>r\<rrangle>)" "inter\<^sub>c R G r \<alpha>" using ooo(5) by auto
+  obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
+    using ooo(2)[OF m(2) i(2)] by auto
+  have m'': "R,G \<turnstile> P {c\<^sub>2} P'" using m(1) m'(1) by auto
+  show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
 next
   (* translate hypotheses to invoke the inductive hypothesis. *)
   (* then translate the inductive result into the final form. *)
-  case (cap c r s s' \<alpha> c')
+  case (cap c \<alpha>' r \<alpha> c' s s')
   (* elimination rule for "Capture s c" *)
   then obtain sx where
     "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
     by auto
   (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
   moreover have
-    "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (pushbasic s s' \<alpha>)" using cap(4) sorry
+    "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (\<alpha>)" using cap(4) sorry
   ultimately obtain push_P' push_M where push_P': 
     "pushpred s P \<subseteq> push_P'"
-    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(pushbasic s s' \<alpha>)\<llangle>r\<rrangle>} push_M"
+    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(\<alpha>)\<llangle>r\<rrangle>} push_M"
     "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
     using cap(2) by meson
   
   (* this is a bold assumption on how pushbasic interacts with forwarding. *)
-  have atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} push_M"
-    using push_P'(2) sorry
+  have atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {\<alpha>\<llangle>r\<rrangle>} push_M"
+    using push_P'(2) by simp
 
   obtain M where M:
     "M \<subseteq> push_M"
     "M = pushpred s' (poppred M)" 
     "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
-    using atomic_pushbasic_postE[OF atomic] by auto
+    using atomic_pushbasic_postE[OF atomic] by uto
   hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
     using push_P'(3) by auto
   hence "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
@@ -206,10 +206,10 @@ next
   thus ?case using rules.inv p(2,3) inv(3,4) by blast
 next
   case (thread R G P c Q)
-  then obtain r \<alpha> c'' where e: "g = beh \<alpha>\<llangle>r\<rrangle>" "c \<mapsto>[r,\<alpha>] c''" "c' = Thread c''" by auto
-  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
+  then obtain r \<alpha> \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r,\<alpha>] c''" "c' = Thread c''" by auto
+  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
     using thread lexecute_ruleI indep_stepI[OF thread(3) e(2)] by metis
-  thus ?case using e unfolding atomic_rule_def by blast
+  thus ?case using e unfolding atomic_rule_def by auto
 qed auto
 
 end

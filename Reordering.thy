@@ -32,6 +32,7 @@ fun fwd_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) ba
     "\<alpha>\<llangle>Basic \<beta>\<rrangle> = \<alpha>\<langle>tag \<beta>\<rangle>" |            
     "\<alpha>\<llangle>c\<^sub>1 ;; c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
     "\<alpha>\<llangle>c\<^sub>1 \<cdot> c\<^sub>2\<rrangle> = \<alpha>\<llangle>c\<^sub>2\<rrangle>\<llangle>c\<^sub>1\<rrangle>" |
+    (* "\<alpha>\<llangle>Capture s c\<rrangle> = popbasic' s s' \<alpha>\<llangle>c\<rrangle>" | *)
     "\<alpha>\<llangle>_\<rrangle> = \<alpha>"
 (* TODO: we should define \<alpha>\<llangle>Capture s r\<rrangle> = unpush s \<alpha>\<llangle>r\<rrangle> or similar with a specific s. *)
 

@@ -15,10 +15,10 @@ scoped state.
 class state =
   fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
   fixes popl :: "'a \<Rightarrow> 'a"
-  (* fixes popr :: "'a \<Rightarrow> 'a" *)
+  fixes popr :: "'a \<Rightarrow> 'a"
   assumes popl_push [simp]: "popl (push a b) = a"
-  assumes push_popl [simp]: "\<exists>s. push (popl m) s = m"
-  (* assumes popr_push [simp]: "popr (push a b) = b" *)
+  assumes push_popl: "\<exists>s. push (popl m) s = m"
+  assumes popr_push [simp]: "popr (push a b) = b"
   (* assumes push_intro: "\<exists>m. m' = push m s" *)
   assumes push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
 
@@ -33,19 +33,21 @@ definition pushpred :: "'a \<Rightarrow> 'a set \<Rightarrow> 'a set" where
 definition poppred :: "'a set \<Rightarrow> 'a set" where
 "poppred P = {popl m |m. m \<in> P}"
 
+definition poppred' :: "'a \<Rightarrow> 'a set \<Rightarrow> 'a set" where
+"poppred' s P = {m |m. push m s \<in> P}"
+
 (* rarely used except in specific proof steps which require
 showing something is inside a pushrelAll or similar. *)
 definition pushpredAll :: "'a set \<Rightarrow> 'a set" where
 "pushpredAll P \<equiv> {push m s |m s. m \<in> P}"
 
 
-(*
-TODO: we would like a version of poprel which specifies explicitly what
-the initial and final local states ought to be. something like:
-poprel' s s' R = {(m,m') |m m'. (push m s, push m' s') \<in> R}.
- *)
 definition poprel :: "'a rel \<Rightarrow> 'a rel" where
 "poprel b = {(popl m,popl m') |m m'. (m,m') \<in> b}" 
+
+definition poprel' :: "'a \<Rightarrow> 'a \<Rightarrow> 'a rel \<Rightarrow> 'a rel" where
+"poprel' s s' R = {(m,m') |m m'. (push m s,push m' s') \<in> R}" 
+
 
 definition pushrel :: "'a \<Rightarrow> 'a \<Rightarrow> 'a rel \<Rightarrow> 'a rel" where
 "pushrel s s' b = {(push m s,push m' s') |m m'. (m,m') \<in> b}" 
@@ -59,7 +61,7 @@ definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 abbreviation poppable :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
 "poppable s P \<equiv> (P = pushpred s (poppred P))"
 
-section \<open>Introduction rules for the definitions\<close>
+section \<open>Introduction/elimination rules for the definitions\<close>
 
 lemma pushpred_inI [intro]:
   assumes "p \<in> P" "m = push p s"
@@ -78,6 +80,14 @@ lemma pushrelSame_inI [intro]:
 using assms pushrelSame_def by auto
 
 section \<open>Lemmas for push/pop on predicates/relations\<close>
+
+lemma poppred'_subset: "poppred' s P \<subseteq> poppred P"
+unfolding poppred'_def poppred_def
+by force
+
+lemma poprel'_subset: "poprel' s s' R \<subseteq> poprel R"
+unfolding poprel_def poprel'_def
+by force
 
 subsection \<open>Introduction of pushes\<close>
 
@@ -125,11 +135,18 @@ unfolding pushpred_def by auto
 lemma poppred_mono [simp]: "P \<subseteq> P' \<Longrightarrow> poppred P \<subseteq> poppred P'"
 unfolding poppred_def by auto
 
+lemma poppred'_mono: "P \<subseteq> P' \<Longrightarrow> poppred' s P \<subseteq> poppred' s P'"
+unfolding poppred'_def by auto
+
 lemma pushpredAll_mono [simp]: "P \<subseteq> P' \<Longrightarrow> pushpredAll P \<subseteq> pushpredAll P'"
 unfolding pushpredAll_def by auto
 
 lemma poprel_mono [simp]: "G \<subseteq> G' \<Longrightarrow> poprel G \<subseteq> poprel G'"
 unfolding poprel_def pushrelAll_def by auto
+
+lemma poprel'_mono [simp]: "G \<subseteq> G' \<Longrightarrow> poprel' s s' G \<subseteq> poprel' s s' G'"
+unfolding poprel'_def pushrelAll_def by auto
+
 
 lemma pushrel_mono [simp]: "G \<subseteq> G' \<Longrightarrow> pushrel s s' G \<subseteq> pushrel s s' G'"
 unfolding pushrel_def by auto
