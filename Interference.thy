@@ -36,6 +36,7 @@ fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) com 
     "inter\<^sub>c R G (c\<^sub>1 ;; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (Ord c\<^sub>1 c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (Nil) \<alpha> = True" | 
+    "inter\<^sub>c R G (Capture s' (Capture s r)) \<alpha> = inter\<^sub>c (pushrelSame R) (pushrelAll G) r \<alpha>" |
     "inter\<^sub>c R G _ \<alpha> = False"
 (* reordering through a Capture should be possible if its global effects do not invalid reasoning. *)
 
@@ -67,19 +68,6 @@ proof -
   have "reorder_trace [(r, \<alpha>)] c" using assms reorder_trace.intros by simp
   hence "inter\<^sub>c R G r \<alpha>" using assms by (auto simp: rif_def)
   thus ?thesis using assms reorder_trace.intros(3)[OF assms(2)] rif_def by force
-qed
-
-
-lemma 
-  assumes "inter\<^sub>\<alpha> R G \<beta> \<alpha>"
-  shows "inter\<^sub>\<alpha> (capRely R) (capGuar G) (popbasic \<beta>) (popbasic \<alpha>)"
-using assms
-unfolding inter\<^sub>\<alpha>_def
-proof (intro allI impI exI, goal_cases, intro conjI)
-  case (1 P M Q)
-  fix M'
-  show "poprel R,poprel G \<turnstile>\<^sub>A P {(popbasic \<alpha>)\<langle>tag (popbasic \<beta>)\<rangle>} M'"
-    "poprel R,poprel G \<turnstile>\<^sub>A M' {popbasic \<beta>} Q" sorry
 qed
 
 

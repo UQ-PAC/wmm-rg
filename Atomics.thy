@@ -328,5 +328,26 @@ lemma atomic_pushbasic_postE:
 using assms atomic_spI poppable_stabilise_sp[OF atomic_poppable]
 by metis
 
+lemma poppred_wp_subset: "poppred (wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) (pushpred s' Q)) \<subseteq> wp\<^sub>\<alpha> \<alpha> Q"
+unfolding wp_def poppred_def pushpred_def pushrel_def
+by auto (metis popl_push)+
+
+
+lemma atomic_pushbasic: 
+  assumes "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A pushpred s P {pushbasic s s' \<alpha>} pushpred s' Q"
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
+unfolding atomic_rule_def
+proof (intro conjI)
+  have a:
+    "pushpred s P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) (pushpred s' Q)"
+    "guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) (pushrelAll G)"
+    "stable (pushrelSame R) (pushpred s P)"
+    "stable (pushrelSame R) (pushpred s' Q)"
+    using assms unfolding atomic_rule_def by auto
+    
+  show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using poppred_mono[OF a(1)] poppred_wp_subset by fastforce
+  show "guar\<^sub>\<alpha> \<alpha> G" using guar_uncapE[OF a(2)] by simp
+  show "stable R P" "stable R Q" using a(3,4) stable_uncap by auto
+qed
 
 end

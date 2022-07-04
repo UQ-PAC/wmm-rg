@@ -20,6 +20,10 @@ begin
 section \<open>Program Transition Definitions\<close>
 
 
+(* this is a hack to keep bookkeeping information for which states were popped from a Capture
+transition. *)
+abbreviation Capture2 where
+"Capture2 s s' c \<equiv> Capture s' (Capture s c)"
 
 text \<open>
 Semantics that collects reordering effects.
@@ -32,8 +36,8 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   act[intro]: "Basic \<alpha> \<mapsto>[\<alpha>,Nil,\<alpha>] Nil" |
   ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
-  ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 ;; r <\<^sub>c \<alpha> \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[\<alpha>'',c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
-  | cap[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic' s s' \<alpha>',Capture s r,\<alpha>] Capture s' c'"
+  ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>c \<alpha>' \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[\<alpha>'',c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
+  | cap[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic' s s' \<alpha>',Capture2 s s' r,\<alpha>] Capture s' c'"
 (*   cap[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> 
     Capture s c\<^sub>1 \<mapsto>[Nil,
       (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
@@ -44,6 +48,10 @@ inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p,\<alpha>] c'"
 TODO: replace the [r,\<alpha>] with a triple [\<alpha>',r,\<alpha>] which will allow the r to hold
 "Capture s r". then, the \<alpha>' is the one which describes the effects which are
 visible from that local execution step. *)
+
+
+lemma lexecute_triple: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> \<alpha>' = \<alpha>\<llangle>r\<rrangle>"
+by (induct rule: lexecute.induct) auto
 
 
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"

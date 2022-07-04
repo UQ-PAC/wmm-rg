@@ -20,10 +20,13 @@ class state =
   assumes push_popl: "\<exists>s. push (popl m) s = m"
   assumes popr_push [simp]: "popr (push a b) = b"
   (* assumes push_intro: "\<exists>m. m' = push m s" *)
-  assumes push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
 
 context state
 begin
+
+lemma push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
+by (metis popl_push popr_push)
+
 
 section \<open>Operations on predicates and relations\<close>
 
@@ -117,10 +120,6 @@ lemma pop_pushrel [simp]: "poprel (pushrel s s' R) = R"
 unfolding poprel_def pushrel_def by force
 
 text \<open>These push after pop lemmas are *suspicious*...\<close>
-
-lemma push_poppred [simp]: "pushpred s (poppred P) = P"
-unfolding poppred_def pushpred_def 
-oops
 
 lemma push_poprel [simp]: "pushrel s s' (poprel R) = R"
 unfolding poprel_def pushrel_def
@@ -398,5 +397,23 @@ next
     thus ?case using step(4,5) by simp
   qed
 qed
+
+text \<open>TRICKY! Extracting local states from a given state.\<close>
+
+lemma push_popl_one: "\<exists>!s. push (popl m) s = m"
+using push_popl push_inj
+by metis
+
+definition local_states where
+"local_states P \<equiv> {s |s m. m \<in> P \<and> push (popl m) s = m}"
+
+lemma "P \<subseteq> (\<Union>s \<in> local_states P. pushpred s (poppred' s P))"
+unfolding local_states_def pushpred_def poppred'_def
+by auto (metis push_popl)
+
+lemma push_poppred_subset: "pushpred s (poppred' s P) \<subseteq> P"
+unfolding pushpred_def poppred'_def
+by auto
+
 
 end

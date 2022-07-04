@@ -91,6 +91,12 @@ goes from global to local context. *)
 abbreviation pushbasic where
 "pushbasic s s' \<alpha> \<equiv> (tag \<alpha>, pushpred s (vc \<alpha>), pushrel s s' (beh \<alpha>))"
 
+(* lemma "pushbasic s s' (popbasic' s s' \<alpha>) = \<alpha>"
+unfolding pushpred_def poppred'_def pushrel_def poprel'_def
+apply auto
+using push_inj
+sledgehammer *)
+
 (* captures the effect of a command *)
 (* fun popcom :: "('a,'b::state) com \<Rightarrow> ('a,'b) com" where
     "popcom (Basic \<beta>) = Basic (popbasic \<beta>)" |
@@ -163,5 +169,6 @@ abbreviation Env :: "'b rel \<Rightarrow> ('a,'b) com"
 text \<open>Convert a sequence to a command\<close>
 fun seq2com :: "('a,'b) seq \<Rightarrow> ('a,'b) com"
   where "seq2com [] = Nil" | "seq2com (\<alpha>#t) = Basic \<alpha> \<cdot> seq2com t"
+
 
 end

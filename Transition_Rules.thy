@@ -17,13 +17,17 @@ text \<open>
   interference property.
 \<close>
 lemma reorder_prog:
-  assumes "R,G \<turnstile> P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c R G c \<alpha>"
+  assumes "R,G \<turnstile> P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c R G c \<alpha>" "\<alpha>' < c <\<^sub>c \<alpha>" 
   obtains M' P' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M'" "R,G \<turnstile> M' {c} Q"
   using assms
-proof (induct c arbitrary: R G P M Q \<alpha>)
+proof (induct c arbitrary: R G P M Q \<alpha> \<alpha>')
   case Nil
-  hence "P \<subseteq> M" by blast
-  then show ?case using Nil by (auto simp: atomic_rule_def)
+  hence "stabilise R P \<subseteq> M" using stable_preE'[OF Nil(2)] by blast
+  then show ?case using Nil using atomic_rule_def stable_stabilise
+  by (metis atomic_pre fwd_com.simps(1) nil)
+next
+  case (Capture s' c')
+  then show ?case by auto (* false *)
 next
   case (Basic \<beta>)
   obtain P' N' where \<beta>: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} N'" "N' \<subseteq> M" using Basic by auto
@@ -37,12 +41,13 @@ next
   case (Seq c\<^sub>1 c\<^sub>2)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Seq(4) by fast
   have i: "inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle>" "inter\<^sub>c R G c\<^sub>2 \<alpha>" using Seq by auto
+  have r: "\<alpha>\<llangle>c\<^sub>2\<rrangle> < c\<^sub>2 <\<^sub>c \<alpha>" "\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<llangle>c\<^sub>2\<rrangle>" using Seq(7) by auto
   show ?case
-  proof (rule Seq(2)[OF _ m(2) Seq(5) i(2)], goal_cases outer)
+  proof (rule Seq(2)[OF _ m(2) Seq(5) i(2) r(1)], goal_cases outer)
     case (outer P' N')
     hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
     show ?case 
-    proof (rule Seq(1)[OF _ c1 outer(2) i(1)], goal_cases inner)
+    proof (rule Seq(1)[OF _ c1 outer(2) i(1) r(2)], goal_cases inner)
       case (inner P'' M'')
       then show ?case using Seq(3) outer by auto
     qed
@@ -51,19 +56,21 @@ next
   case (Ord c\<^sub>1 c\<^sub>2)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Ord(4) by fast
   have i: "inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle>" "inter\<^sub>c R G c\<^sub>2 \<alpha>" using Ord by auto
+  have r: "\<alpha>\<llangle>c\<^sub>2\<rrangle> < c\<^sub>2 <\<^sub>c \<alpha>" "\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<llangle>c\<^sub>2\<rrangle>" using Ord(7) by auto
   show ?case
-  proof (rule Ord(2)[OF _ m(2) Ord(5) i(2)], goal_cases outer)
+  proof (rule Ord(2)[OF _ m(2) Ord(5) i(2) r(1)], goal_cases outer)
     case (outer P' N')
     hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
     show ?case 
-    proof (rule Ord(1)[OF _ c1 outer(2) i(1)], goal_cases inner)
+    proof (rule Ord(1)[OF _ c1 outer(2) i(1) r(2)], goal_cases inner)
       case (inner P'' M'')
       then show ?case using Ord(3) outer by auto
     qed
   qed
-qed auto
+qed auto 
 
 section \<open>Transition Rules\<close>
+
 
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
@@ -85,47 +92,46 @@ next
   then show ?case using ord(2)[OF m(1) ord(4)] m(2) by blast
 next
   case (ooo c\<^sub>1 \<alpha>' r \<alpha> c\<^sub>1' \<alpha>'' c\<^sub>2)
+  hence a: "\<alpha>\<llangle>r\<rrangle> = \<alpha>'" using lexecute_triple by simp
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>2} M'" "R,G \<turnstile> M' {c\<^sub>1} Q" using ooo(4) by (rule seqE)
   have i: "inter\<^sub>c R G c\<^sub>2 (\<alpha>\<llangle>r\<rrangle>)" "inter\<^sub>c R G r \<alpha>" using ooo(5) by auto
   obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
     using ooo(2)[OF m(2) i(2)] by auto
   have m'': "R,G \<turnstile> P {c\<^sub>2} P'" using m(1) m'(1) by auto
-  show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) by simp (metis rules.seq)
+  show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) ooo(3) a by simp (metis rules.seq)
 next
   (* translate hypotheses to invoke the inductive hypothesis. *)
   (* then translate the inductive result into the final form. *)
   case (cap c \<alpha>' r \<alpha> c' s s')
   (* elimination rule for "Capture s c" *)
   then obtain sx where
-    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred sx Q" 
+    "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred sx Q" 
     by auto
   (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
   moreover have
-    "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (\<alpha>)" using cap(4) sorry
+    "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (\<alpha>)" using cap(4) by simp
   ultimately obtain push_P' push_M where push_P': 
     "pushpred s P \<subseteq> push_P'"
     "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(\<alpha>)\<llangle>r\<rrangle>} push_M"
     "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
     using cap(2) by meson
-  
-  (* this is a bold assumption on how pushbasic interacts with forwarding. *)
-  have atomic: "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {\<alpha>\<llangle>r\<rrangle>} push_M"
-    using push_P'(2) by simp
+  note atomic = push_P'(2)
 
   obtain M where M:
     "M \<subseteq> push_M"
-    "M = pushpred s' (poppred M)" 
+    "poppable s' M" 
     "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
-    using atomic_pushbasic_postE[OF atomic] by uto
+    using atomic_pushbasic_postE by uto
   hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
     using push_P'(3) by auto
-  hence "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
+  hence rest: "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
 
-  moreover have "P \<subseteq> poppred push_P'"
+  have "R,G \<turnstile>\<^sub>A poppred push_P' {popbasic' s s' \<alpha>\<llangle>r\<rrangle>} poppred M" using atomic sorry
+  hence head: "R,G \<turnstile>\<^sub>A poppred push_P' {\<alpha>\<llangle>Capture s' (Capture s r)\<rrangle>} poppred M" by simp
+
+  have "P \<subseteq> poppred push_P'"
     using poppred_mono[OF push_P'(1)] by simp
-  (* TODO: this requires popping the statement in push_P'(2). *)
-  moreover have "R,G \<turnstile>\<^sub>A poppred push_P' {\<alpha>\<llangle>Capture s r\<rrangle>} poppred M" using atomic  sorry
-  ultimately show ?case by auto
+  thus ?case using rest head by auto
 oops
 
 
