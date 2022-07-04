@@ -49,20 +49,26 @@ lemma nilE [elim!]:
 
 lemma basicE [elim!]:
   assumes "R,G \<turnstile> P {Basic \<beta>} Q"
-  obtains P' Q' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} Q'" "Q' \<subseteq> Q"
+  obtains Q' where "R,G \<turnstile>\<^sub>A stabilise R P {\<beta>} Q'" "Q' \<subseteq> Q"
   using assms 
 proof (induct R G P "Basic \<beta> :: ('a,'b) com" Q arbitrary: \<beta>)
-  case (basic R G P Q)
-  then show ?case by auto
+  case (basic R G P \<alpha> Q)
+  then show ?case using stabilise_atomic by fast
 next
   case (conseq R G P Q P' R' G' Q')
-  then show ?case using order.trans atomic_conseqI by metis
+  show ?case
+  proof (rule conseq(2), goal_cases)
+    case (1 Q')
+    thus ?case using conseq
+    by (meson atomic_conseqI atomic_pre dual_order.trans stabilise_mono_RP stable_stabilise)
+  qed
 next
   case (inv R G P Q R' I)
   show ?case 
   proof (rule inv(2), goal_cases)
-    case (1 P' Q')
-    thus ?case using inv(3,4) inv(5)[of "P' \<inter> I" "Q' \<inter> I"] atomic_invI by blast
+    case (1 Q')
+    thus ?case using inv(3,4) inv(5)[of "Q' \<inter> I"] atomic_invI
+    by (smt (verit, best) Int_greatest atomic_pre dual_order.eq_iff dual_order.trans le_infE stabilise_inter_RP stabilise_stable stable_stabilise)
   qed
 qed
 

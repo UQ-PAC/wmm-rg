@@ -18,7 +18,7 @@ text \<open>
 \<close>
 lemma reorder_prog:
   assumes "R,G \<turnstile> P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c R G c \<alpha>" "\<alpha>' < c <\<^sub>c \<alpha>" 
-  obtains M' P' where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>c\<rrangle>} M'" "R,G \<turnstile> M' {c} Q"
+  obtains M' where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>c\<rrangle>} M'" "R,G \<turnstile> M' {c} Q"
   using assms
 proof (induct c arbitrary: R G P M Q \<alpha> \<alpha>')
   case Nil
@@ -30,11 +30,11 @@ next
   then show ?case by auto (* false *)
 next
   case (Basic \<beta>)
-  obtain P' N' where \<beta>: "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<beta>} N'" "N' \<subseteq> M" using Basic by auto
+  obtain N' where \<beta>: "R,G \<turnstile>\<^sub>A stabilise R P {\<beta>} N'" "N' \<subseteq> M" using Basic by auto
   have m': "R,G \<turnstile>\<^sub>A N' {\<alpha>} Q"
-    using atomic_pre[OF Basic(3)] \<beta>(2,3) Basic(3) by (auto simp: atomic_rule_def)
-  obtain M' where m'': "R,G \<turnstile>\<^sub>A P' {\<alpha>\<langle>tag \<beta>\<rangle>} M'" "R,G \<turnstile>\<^sub>A M' {\<beta>} Q"
-    using \<beta>(2) m'(1) Basic by (auto simp: inter\<^sub>\<alpha>_def) metis
+    using atomic_pre[OF Basic(3)] \<beta>(1,2) Basic(3) by (auto simp: atomic_rule_def)
+  obtain M' where m'': "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<langle>tag \<beta>\<rangle>} M'" "R,G \<turnstile>\<^sub>A M' {\<beta>} Q"
+    using \<beta>(1) m'(1) Basic by (auto simp: inter\<^sub>\<alpha>_def) metis
   have "R,G \<turnstile> M' {Basic \<beta>} Q" by (rule rules.basic[OF m''(2)])
   then show ?case using Basic(1) \<beta>(1) m''(1) by auto
 next
@@ -44,11 +44,11 @@ next
   have r: "\<alpha>\<llangle>c\<^sub>2\<rrangle> < c\<^sub>2 <\<^sub>c \<alpha>" "\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<llangle>c\<^sub>2\<rrangle>" using Seq(7) by auto
   show ?case
   proof (rule Seq(2)[OF _ m(2) Seq(5) i(2) r(1)], goal_cases outer)
-    case (outer P' N')
-    hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
+    case (outer N')
+    hence c1: "R,G \<turnstile> P {c\<^sub>1} stabilise R M'" using m(1) conseq stabilise_supset[of M'] by auto
     show ?case 
-    proof (rule Seq(1)[OF _ c1 outer(2) i(1) r(2)], goal_cases inner)
-      case (inner P'' M'')
+    proof (rule Seq(1)[OF _ c1 outer(1) i(1) r(2)], goal_cases inner)
+      case (inner M'')
       then show ?case using Seq(3) outer by auto
     qed
   qed
@@ -59,15 +59,18 @@ next
   have r: "\<alpha>\<llangle>c\<^sub>2\<rrangle> < c\<^sub>2 <\<^sub>c \<alpha>" "\<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<llangle>c\<^sub>2\<rrangle>" using Ord(7) by auto
   show ?case
   proof (rule Ord(2)[OF _ m(2) Ord(5) i(2) r(1)], goal_cases outer)
-    case (outer P' N')
-    hence c1: "R,G \<turnstile> P {c\<^sub>1} P'" using m(1) conseq by auto
+    case (outer N')
+    hence c1: "R,G \<turnstile> P {c\<^sub>1} stabilise R M'"
+      using m(1) conseq stabilise_supset[of M'] by auto
     show ?case 
-    proof (rule Ord(1)[OF _ c1 outer(2) i(1) r(2)], goal_cases inner)
-      case (inner P'' M'')
+    proof (rule Ord(1)[OF _ c1 outer(1) i(1) r(2)], goal_cases inner)
+      case (inner M'')
       then show ?case using Ord(3) outer by auto
     qed
   qed
 qed auto 
+
+
 
 section \<open>Transition Rules\<close>
 
@@ -76,7 +79,7 @@ section \<open>Transition Rules\<close>
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
   assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r,\<alpha>] c'"  "inter\<^sub>c R G r \<alpha>"
-  shows "\<exists>P' M. P \<subseteq> P' \<and> R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M \<and> R,G \<turnstile> M {c'} Q"
+  shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>r\<rrangle>} M \<and> R,G \<turnstile> M {c'} Q"
   using assms(2,1,3)
 proof (induct arbitrary: P R G Q)
   case (act \<alpha>)
@@ -95,10 +98,10 @@ next
   hence a: "\<alpha>\<llangle>r\<rrangle> = \<alpha>'" using lexecute_triple by simp
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>2} M'" "R,G \<turnstile> M' {c\<^sub>1} Q" using ooo(4) by (rule seqE)
   have i: "inter\<^sub>c R G c\<^sub>2 (\<alpha>\<llangle>r\<rrangle>)" "inter\<^sub>c R G r \<alpha>" using ooo(5) by auto
-  obtain P' M where m': "M' \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
+  obtain M where m': "R,G \<turnstile>\<^sub>A stabilise R M' {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
     using ooo(2)[OF m(2) i(2)] by auto
-  have m'': "R,G \<turnstile> P {c\<^sub>2} P'" using m(1) m'(1) by auto
-  show ?case using reorder_prog[OF m'' m'(2)] i(1) m'(3) ooo(3) a by simp (metis rules.seq)
+  have m'': "R,G \<turnstile> P {c\<^sub>2} stabilise R M'" using m(1) stabilise_supset[of M' R] by auto
+  show ?case using reorder_prog[OF m'' m'(1)] i(1) m'(2) ooo(3) a by simp (metis rules.seq)
 next
   (* translate hypotheses to invoke the inductive hypothesis. *)
   (* then translate the inductive result into the final form. *)
@@ -110,28 +113,25 @@ next
   (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
   moreover have
     "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (\<alpha>)" using cap(4) by simp
-  ultimately obtain push_P' push_M where push_P': 
-    "pushpred s P \<subseteq> push_P'"
-    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {(\<alpha>)\<llangle>r\<rrangle>} push_M"
+  ultimately obtain  push_M where push_P': 
+    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A pushpred s (stabilise R P) {(\<alpha>)\<llangle>r\<rrangle>} push_M"
     "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
-    using cap(2) by meson
-  note atomic = push_P'(2)
+    using cap(2) stabilise_pushrel by metis
+  note atomic = push_P'(1)
 
   obtain M where M:
     "M \<subseteq> push_M"
     "poppable s' M" 
-    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A push_P' {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
+    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A stabilise (pushrelSame R) (pushpred s P) {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
     using atomic_pushbasic_postE by uto
   hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
-    using push_P'(3) by auto
+    using push_P'(2) by auto               
   hence rest: "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
 
-  have "R,G \<turnstile>\<^sub>A poppred push_P' {popbasic' s s' \<alpha>\<llangle>r\<rrangle>} poppred M" using atomic sorry
-  hence head: "R,G \<turnstile>\<^sub>A poppred push_P' {\<alpha>\<llangle>Capture s' (Capture s r)\<rrangle>} poppred M" by simp
+  have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic' s s' \<alpha>\<llangle>r\<rrangle>} poppred M" using atomic sorry
+  hence head: "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>Capture s' (Capture s r)\<rrangle>} poppred M" by simp
 
-  have "P \<subseteq> poppred push_P'"
-    using poppred_mono[OF push_P'(1)] by simp
-  thus ?case using rest head by auto
+  show ?case using rest head by auto
 oops
 
 
