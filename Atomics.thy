@@ -306,6 +306,7 @@ proof (intro conjI)
   thus "stabilise R (sp \<alpha> P) \<subseteq> Q" using A(4) stabilise_min[of _ Q] by simp
 qed
 
+
 lemma poppable_stabilise_sp:
   assumes "poppable s P"
   shows "poppable s' (stabilise (pushrelSame R) (sp (pushbasic s s' \<alpha>) P))"

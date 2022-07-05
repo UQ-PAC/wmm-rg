@@ -72,6 +72,12 @@ lemma pushpred_inI [intro]:
 using assms
 unfolding pushpred_def by auto
 
+lemma pushpred_inE:
+  assumes "m \<in> pushpred s P"
+  obtains p s where "p \<in> P" "m = push p s"
+using assms
+unfolding pushpred_def by auto
+
 lemma pushrelSame_inE [elim]:
   assumes "(p,p') \<in> pushrelSame R"
   obtains m m' s where "p = push m s" "p' = push m' s" "(m,m') \<in> R"
@@ -81,6 +87,34 @@ lemma pushrelSame_inI [intro]:
   assumes "p = push m s" "p' = push m' s" "(m,m') \<in> R"
   shows "(p,p') \<in> pushrelSame R"
 using assms pushrelSame_def by auto
+
+lemma poppable_inE:
+  assumes "p \<in> P" "poppable s P"
+  obtains m where "p = push m s"
+using assms unfolding poppred_def pushpred_def by auto
+
+text \<open>TRICKY! Extracting local states from a given state.\<close>
+text \<open>Obtains the set of states which were pushed onto a given set.\<close>
+definition pushed where
+"pushed P \<equiv> {s |s m. m \<in> P \<and> push (popl m) s = m}"
+
+lemma pushed_inE [elim]:
+  assumes "s \<in> pushed P"
+  obtains p where "p \<in> P" "push (popl p) s = p"
+using assms unfolding pushed_def by auto 
+
+lemma pushed_set_supset: "P \<subseteq> (\<Union>s \<in> pushed P. pushpred s (poppred' s P))"
+unfolding pushed_def pushpred_def poppred'_def
+by auto (metis push_popl)
+
+lemma push_poppred_subset: "pushpred s (poppred' s P) \<subseteq> P"
+unfolding pushpred_def poppred'_def
+by auto
+
+lemma pushed_empty: "pushed P = {} \<Longrightarrow> P = {}"
+unfolding pushed_def 
+using push_popl by fastforce
+
 
 section \<open>Lemmas for push/pop on predicates/relations\<close>
 
@@ -292,6 +326,9 @@ unfolding pushrelSame_def by simp
 lemma pushrelAll_empty [simp]: "pushrelAll {} = {}"
 unfolding pushrelAll_def by simp
 
+lemma poppable_empty [simp]: "poppable s {}"
+by simp
+
 
 subsection \<open>Correspondences between predicates and Id_on.\<close>
 
@@ -398,22 +435,43 @@ next
   qed
 qed
 
-text \<open>TRICKY! Extracting local states from a given state.\<close>
-
 lemma push_popl_one: "\<exists>!s. push (popl m) s = m"
 using push_popl push_inj
 by metis
 
-definition local_states where
-"local_states P \<equiv> {s |s m. m \<in> P \<and> push (popl m) s = m}"
 
-lemma "P \<subseteq> (\<Union>s \<in> local_states P. pushpred s (poppred' s P))"
-unfolding local_states_def pushpred_def poppred'_def
-by auto (metis push_popl)
+lemma "poppable s P \<Longrightarrow> pushed P \<subseteq> {s}"
+proof
+  assume poppable: "poppable s P"
+  fix x assume "x \<in> pushed P"
+  then obtain p where p: "p \<in> P" "p = push (popl p) x" by auto
+  then obtain m where m: "p = push m s" using poppable poppable_inE by blast
+  have "x = s" using p m push_inj by metis
+  thus "x \<in> {s}" by simp
+qed
 
-lemma push_poppred_subset: "pushpred s (poppred' s P) \<subseteq> P"
-unfolding pushpred_def poppred'_def
-by auto
-
+lemma "pushed P \<subseteq> {s} \<Longrightarrow> poppable s P"
+proof -
+  assume "pushed P \<subseteq> {s}"
+  then consider "pushed P = {}" | "pushed P = {s}" by auto
+  thus ?thesis
+  proof (cases)
+    case 1
+    thus ?thesis using pushed_empty[of P] by simp
+  next
+    case 2
+    then show ?thesis
+    proof (intro antisym, goal_cases)
+      case 1
+      then have "P \<subseteq> pushpred s (poppred' s P)"
+        using pushed_set_supset by force
+      then show ?case using pushpred_mono[OF poppred'_subset] by fast
+    next
+      case 2
+      then show ?case unfolding pushed_def pushpred_def poppred_def
+        by clarsimp (metis (mono_tags, lifting) mem_Collect_eq push_popl singleton_iff)
+    qed  
+  qed
+qed
 
 end

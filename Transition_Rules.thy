@@ -23,7 +23,7 @@ lemma reorder_prog:
 proof (induct c arbitrary: R G P M Q \<alpha> \<alpha>')
   case Nil
   hence "stabilise R P \<subseteq> M" using stable_preE'[OF Nil(2)] by blast
-  then show ?case using Nil using atomic_rule_def stable_stabilise
+  then show ?case using Nil using atomic_rule_def stable_stabilise 
   by (metis atomic_pre fwd_com.simps(1) nil)
 next
   case (Capture s' c')
@@ -102,7 +102,7 @@ next
     using ooo(2)[OF m(2) i(2)] by auto
   have m'': "R,G \<turnstile> P {c\<^sub>2} stabilise R M'" using m(1) stabilise_supset[of M' R] by auto
   show ?case using reorder_prog[OF m'' m'(1)] i(1) m'(2) ooo(3) a by simp (metis rules.seq)
-next
+(* next
   (* translate hypotheses to invoke the inductive hypothesis. *)
   (* then translate the inductive result into the final form. *)
   case (cap c \<alpha>' r \<alpha> c' s s')
@@ -113,26 +113,42 @@ next
   (* TODO: for this, we need to translate the inter R G r \<alpha> into the uncap version. *)
   moreover have
     "inter\<^sub>c (uncapRely R) (uncapGuar G) (r) (\<alpha>)" using cap(4) by simp
-  ultimately obtain  push_M where push_P': 
+
+  ultimately obtain push_M where push_M: 
     "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A pushpred s (stabilise R P) {(\<alpha>)\<llangle>r\<rrangle>} push_M"
     "pushrelSame R,pushrelAll G \<turnstile> push_M {c'} pushpred sx Q"
-    using cap(2) stabilise_pushrel by metis
-  note atomic = push_P'(1)
+    using cap(2) by (metis stabilise_pushrel)
+  (* TODO: break push_M above into "pushpred _ M", but it is not guaranteed that there
+  exists a single local post-state satisfying this. *)
 
+  (* possibly partition push_M into something like:
+     push_M = pushpred s1 M1 \<union> pushpred s2 M2 \<union> \<dots> *)
+
+  (* hence "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A
+    pushpred s (stabilise R P)
+    {\<alpha>\<llangle>r\<rrangle>}
+    stabilise (pushrelSame R) (sp \<alpha>\<llangle>r\<rrangle> (pushpred s (stabilise R P)))"
+
+    "stabilise (pushrelSame R) (sp \<alpha>\<llangle>r\<rrangle> (pushpred s (stabilise R P))) \<subseteq> push_M"
+    by - (intro atomic_spI, simp)+ *)
+    
+  note atomic = push_M(1)
+
+  (* it would be nice if this held but it almost certainly does not. *)
   obtain M where M:
     "M \<subseteq> push_M"
     "poppable s' M" 
-    "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A stabilise (pushrelSame R) (pushpred s P) {pushbasic s s' \<alpha>\<llangle>r\<rrangle>} M"
-    using atomic_pushbasic_postE by uto
+    using atomic_pushbasic_postE by aut
   hence "pushrelSame R,pushrelAll G \<turnstile> pushpred s' (poppred M) {c'} pushpred sx Q"
-    using push_P'(2) by auto               
-  hence rest: "R,G \<turnstile> poppred M {Capture s' c'} Q" by auto
+    using push_M(2) by auto
+  hence rest: "R,G \<turnstile> poppred M {Capture s' c'} Q" by fast
 
+  (* TODO: this step pops the statement in "atomic". again it almost certainly doesn't hold. *)
   have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic' s s' \<alpha>\<llangle>r\<rrangle>} poppred M" using atomic sorry
-  hence head: "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>Capture s' (Capture s r)\<rrangle>} poppred M" by simp
+  hence head: "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>Capture2 s s' r\<rrangle>} poppred M" by simp
 
-  show ?case using rest head by auto
-oops
+  show ?case using rest head by auto *)
+qed
 
 
 
@@ -155,7 +171,14 @@ next
     case (19 c c' k)
     thus ?thesis using capture by auto
   next
-    case (20 k)
+    case (20 c \<alpha>' r \<alpha> c'' s s')
+    hence False using capture   sorry
+    fix M
+    have "R,G \<turnstile> P {Basic (popbasic' s s' \<alpha>')} M" sorry
+    moreover have "R,G \<turnstile> M {Capture s' c''} Q" sorry
+    ultimately show ?thesis unfolding 20(2) by (intro ord)
+  next
+    case (21 k)
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} uncapPred s' Q"
       using capture(1) by fast
     then obtain M where M:
@@ -165,7 +188,7 @@ next
     hence 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
       using M(2,3) using pop_pushpred poppred_mono by metis+
     have "R,G \<turnstile> poppred M {Nil} Q" using 1 2 by auto
-    thus ?thesis using 2(1) 20(2) by (simp add: conseq)
+    thus ?thesis using 2(1) 21(2) by (simp add: conseq)
   qed auto
 qed (cases rule: silentE, auto)+
 

@@ -37,7 +37,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;; c\<^sub>2 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' ;; c\<^sub>2" |
   ord[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> c\<^sub>1 \<cdot> c\<^sub>2 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<cdot> c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r,\<alpha>] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>c \<alpha>' \<Longrightarrow> c\<^sub>2 ;; c\<^sub>1 \<mapsto>[\<alpha>'',c\<^sub>2 ;; r ,\<alpha>] c\<^sub>2 ;; c\<^sub>1'"
-  | cap[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic' s s' \<alpha>',Capture2 s s' r,\<alpha>] Capture s' c'"
+  (* | cap[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic' s s' \<alpha>',Capture2 s s' r,\<alpha>] Capture s' c'" *)
 (*   cap[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> 
     Capture s c\<^sub>1 \<mapsto>[Nil,
       (tag \<alpha>\<llangle>r\<rrangle>, {m. merge m s \<in> vc \<alpha>\<llangle>r\<rrangle>}, {(m,m'). (merge m s, merge m' s') \<in> beh \<alpha>\<llangle>r\<rrangle>})] 
@@ -45,7 +45,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   (* | capNil[intro]: "c\<^sub>1 \<mapsto>[r,\<alpha>] c\<^sub>1' \<Longrightarrow> Capture s c\<^sub>1 \<mapsto>[f r,capBasic \<alpha>\<llangle>r\<rrangle> s s'] Capture s' c\<^sub>1'"  *)
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p,\<alpha>] c'"
 (* 
-TODO: replace the [r,\<alpha>] with a triple [\<alpha>',r,\<alpha>] which will allow the r to hold
+DONE: replace the [r,\<alpha>] with a triple [\<alpha>',r,\<alpha>] which will allow the r to hold
 "Capture s r". then, the \<alpha>' is the one which describes the effects which are
 visible from that local execution step. *)
 
@@ -85,6 +85,7 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
   cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) 
   | capS[intro]:  "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'"
+  | capStep[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<leadsto> Basic (popbasic' s s' \<alpha>') \<cdot> (Capture s' c')"
   (* | capNil[intro]:  "Capture _ _ k Nil \<leadsto> Nil" *)
   | capE[intro]: "Capture k Nil \<leadsto> Nil"
   (* | caps[intro]: "c \<leadsto> Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil" *)
@@ -162,9 +163,9 @@ lemma basics_exec:
   assumes "c \<mapsto>[\<alpha>'',r,\<alpha>] c'" shows "basics c \<supseteq> basics c'"
   using assms by induct auto
 
-lemma basics_silent:
+(* lemma basics_silent:
   assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
-  using assms basics_exec by (induct) auto   
+  using assms basics_exec by (induct) auto    *)
 
 
 fun seqonly :: "('a,'b) com \<Rightarrow> bool" where

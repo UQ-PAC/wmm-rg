@@ -35,7 +35,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   (* | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow>
     thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Capture op l l' c } thr\<^sub>P op l' Q" *)
   | capture[intro]: 
-    "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q
+    "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpred s' Q
      \<Longrightarrow> R,G \<turnstile> P {Capture s c} Q"
   (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
 
