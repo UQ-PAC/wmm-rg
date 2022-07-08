@@ -36,10 +36,8 @@ fun inter\<^sub>c :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) com 
     "inter\<^sub>c R G (c\<^sub>1 ;; c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (Ord c\<^sub>1 c\<^sub>2) \<alpha> = (inter\<^sub>c R G c\<^sub>1 \<alpha>\<llangle>c\<^sub>2\<rrangle> \<and> inter\<^sub>c R G c\<^sub>2 \<alpha>)" |
     "inter\<^sub>c R G (Nil) \<alpha> = True" | 
-    "inter\<^sub>c R G (Capture s' (Capture s r)) \<alpha> = inter\<^sub>c (pushrelSame R) (pushrelAll G) r \<alpha>" |
     "inter\<^sub>c R G _ \<alpha> = False"
 (* reordering through a Capture should be possible if its global effects do not invalid reasoning. *)
-
 
 text \<open>Compute possible reorderings of the program using the instrumented semantics\<close>
 inductive reorder_trace

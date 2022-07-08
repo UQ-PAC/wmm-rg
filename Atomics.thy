@@ -75,7 +75,6 @@ lemma atomic_invI [intro]:
 proof (safe, goal_cases)
   case (1 m)
   hence "{(m,m'). m \<in> P \<inter> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>} \<subseteq> R\<^sub>2\<^sup>=" "m \<in> vc \<alpha>"
-    "\<exists>m'. (m, m') \<in> beh \<alpha>"
     using assms(1,3) by (auto simp: wp_def guar_def atomic_rule_def)
   hence "m \<in> wp\<^sub>\<alpha> \<alpha> I" using assms(2) 1 by (auto simp: wp_def stable_def)
   moreover have "m \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
@@ -155,7 +154,7 @@ text \<open>Manually computing the strongest postcondition which might hold.\<cl
 definition sp :: "('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> 'b pred" where
   "sp \<alpha> P \<equiv> beh \<alpha> `` (P)"
 
-lemma wp_sp: "P \<subseteq> vc \<alpha> \<Longrightarrow> P \<subseteq> Domain (beh \<alpha>) \<Longrightarrow> P \<subseteq> wp\<^sub>\<alpha> \<alpha> (sp \<alpha> P)"
+lemma wp_sp: "P \<subseteq> vc \<alpha> \<Longrightarrow> P \<subseteq> wp\<^sub>\<alpha> \<alpha> (sp \<alpha> P)"
 unfolding sp_def wp_def
 by auto
 
@@ -237,14 +236,14 @@ proof -
   ultimately show "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> pushrelAll G" by auto
 qed
 
-
+(*
 lemma guar_capE:
   "guar\<^sub>\<alpha> (popbasic \<alpha>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
 unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc (popbasic \<alpha>)) O beh (popbasic \<alpha>) \<subseteq> capGuar G"
   hence "uncapGuar (Id_on (capPred (vc \<alpha>))) O beh \<alpha> \<subseteq> G"
-  sorry
+  
   thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
     using Id_in_pushrelAll_poppred by fast
 oops
@@ -256,14 +255,14 @@ proof -
   assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
   hence "poprel (Id_on (vc \<alpha>) O beh \<alpha>) \<subseteq> poprel G" by simp
   hence "poprel (Id_on (vc \<alpha>)) O poprel (beh \<alpha>) \<subseteq> poprel G"
-    using poprel_relcomp poprel_mono sorry
+    using poprel_relcomp poprel_mono 
   moreover have "Id_on (capPred (vc \<alpha>)) = capGuar (Id_on (vc \<alpha>))"
     using poppred_eq_poprel by auto
   ultimately show "Id_on (vc (popbasic \<alpha>)) O beh (popbasic \<alpha>) \<subseteq> capGuar G"
     by auto
-oops
+oops*)
 
-
+(*
 text \<open>If P satisfies the wp of a pushbasic, then it must have had 's' pushed onto it.\<close>
 lemma wp_pushbasic_poppable:
   assumes "P \<subseteq> wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) Q"
@@ -279,6 +278,7 @@ lemma atomic_poppable:
   shows "poppable s P"
 using assms unfolding atomic_rule_def
 by (intro wp_pushbasic_poppable) auto
+*)
 
 text \<open>We can replace an atomic judgement with its strongest postcondition.\<close>
 lemma atomic_spI:
@@ -297,7 +297,7 @@ proof (intro conjI)
 
   show "stable R (stabilise R (sp \<alpha> P))" by (rule stable_stabilise)
   
-  have "P \<subseteq> vc \<alpha>" "P \<subseteq> Domain (beh \<alpha>)" using A(1) unfolding wp_def by auto
+  have "P \<subseteq> vc \<alpha>" using A(1) unfolding wp_def by auto
   hence "P \<subseteq> wp\<^sub>\<alpha> \<alpha> (sp \<alpha> P)" by (intro wp_sp, simp)
   moreover have "sp \<alpha> P \<subseteq> stabilise R (sp \<alpha> P)" by (rule stabilise_supset)
   ultimately show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> (stabilise R (sp \<alpha> P))" using wp\<^sub>\<alpha>_mono by fastforce
@@ -323,11 +323,12 @@ proof -
   thus "poppable s' Q'" by simp
 qed
 
+(*
 lemma atomic_pushbasic_postE:
   assumes "pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q"
   obtains Q' where "Q' \<subseteq> Q" "poppable s' Q'" "pushrelSame R,G \<turnstile>\<^sub>A P {pushbasic s s' \<alpha>} Q'"
 using assms atomic_spI poppable_stabilise_sp[OF atomic_poppable]
-by metis
+by metis 
 
 lemma poppred_wp_subset: "poppred (wp\<^sub>\<alpha> (pushbasic s s' \<alpha>) (pushpred s' Q)) \<subseteq> wp\<^sub>\<alpha> \<alpha> Q"
 unfolding wp_def poppred_def pushpred_def pushrel_def
@@ -349,6 +350,6 @@ proof (intro conjI)
   show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using poppred_mono[OF a(1)] poppred_wp_subset by fastforce
   show "guar\<^sub>\<alpha> \<alpha> G" using guar_uncapE[OF a(2)] by simp
   show "stable R P" "stable R Q" using a(3,4) stable_uncap by auto
-qed
+qed*)
 
 end

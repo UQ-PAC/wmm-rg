@@ -35,7 +35,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   (* | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow>
     thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Capture op l l' c } thr\<^sub>P op l' Q" *)
   | capture[intro]: 
-    "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpred s' Q
+    "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
+    rif (uncapRely R) (uncapGuar G) c 
      \<Longrightarrow> R,G \<turnstile> P {Capture s c} Q"
   (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
 
@@ -90,7 +91,7 @@ proof (induct R G P "Capture s c" Q arbitrary: s c)
   case (conseq R G P Q P' R' G' Q')
   thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
 next
-  case (capture R G s P c s' Q)
+  case (capture R G s P c Q)
   thus ?case by (intro exI)
 next
   case (inv R G P Q R' I)
@@ -121,6 +122,10 @@ lemma captureE [elim]:
   obtains s' where "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
 by (rule exE[OF captureE'[OF assms]])
 
+lemma [simp]:
+  "stabilise R {} = {}"
+  by (auto simp: stabilise_def)
+
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
 lemma stable_preE':
   assumes "R,G \<turnstile> P {c} Q"
@@ -150,8 +155,8 @@ next
     using inv stabilise_stable[of R' I] by simp
   thus ?case using stabilise_inter_RP by (rule conseq; simp)
 next
-  case (capture R G s P c s' Q)
-  thus ?case by (intro rules.capture, simp add: stabilise_pushrel)
+  case (capture R G s P c Q)
+  thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
 qed auto
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
@@ -162,7 +167,7 @@ using assms stabilise_supset stable_stabilise stable_preE'
 by metis
 
 
-
+(*
 lemma false_seqI [intro]:
   "\<forall>\<beta> \<in> set s. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {seq2com s} {}"
   by (induct s) auto
@@ -185,8 +190,8 @@ next
   then show ?case by auto
 next
   case (Capture s c)
-  thus ?case by (intro capture, simp add: guar_mix)
-qed (auto)
+  thus ?case by (intro capture, auto simp add: guar_mix)
+qed (auto) *)
 
 
 

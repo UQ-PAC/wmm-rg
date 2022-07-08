@@ -144,13 +144,76 @@ next
   hence rest: "R,G \<turnstile> poppred M {Capture s' c'} Q" by fast
 
   (* TODO: this step pops the statement in "atomic". again it almost certainly doesn't hold. *)
-  have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic' s s' \<alpha>\<llangle>r\<rrangle>} poppred M" using atomic sorry
+  have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic' s s' \<alpha>\<llangle>r\<rrangle>} poppred M" using atomic oops
   hence head: "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>Capture2 s s' r\<rrangle>} poppred M" by simp
 
   show ?case using rest head by auto *)
 qed
 
+lemma help1:
+  assumes "stable (pushrelSame R) M"
+  shows "stable R (poppred' n M)"
+  unfolding stable_def poppred'_def
+proof (clarsimp)
+  fix m m' assume a: "push m n \<in> M" "(m,m') \<in> R"
+  hence "(push m n, push m' n) \<in> pushrelSame R" by (auto simp: pushrelSame_def)
+  thus "push m' n \<in> M" using a assms by (auto simp: stable_def) 
+qed
 
+lemma help2:
+  assumes "stable (pushrelSame R) (pushpred s P)"
+  shows "stable R P"
+  unfolding stable_def
+proof (clarify)
+  fix m m' assume a: "m \<in> P" "(m,m') \<in> R"
+  hence "\<forall>n. (push m n, push m' n) \<in> pushrelSame R" by (auto simp: pushrelSame_def)
+  moreover have "push m s \<in> pushpred s P" using a by (auto simp: pushpred_def)
+  ultimately have "push m' s \<in> pushpred s P" using assms by (auto simp: stable_def)
+  thus "m' \<in> P" unfolding pushpred_def using push_inj by auto 
+qed
+
+lemma help3:
+  assumes "guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
+  shows "guar (poppred' s (vc \<alpha>)) (poprel' s s' (beh \<alpha>)) G"
+  unfolding guar_def
+proof (clarify)
+  fix m m' assume a: "m \<in> poppred' s (vc \<alpha>)" "(m,m') \<in> poprel' s s' (beh \<alpha>)" 
+  hence "push m s \<in> vc \<alpha>" by (auto simp: poppred'_def)
+  moreover have "(push m s, push m' s') \<in> beh \<alpha>" using a by (auto simp: poprel'_def)
+  ultimately have "(push m s, push m' s') \<in> pushrelAll G" using assms by (auto simp: guar_def)
+  thus "(m,m') \<in> G" unfolding pushrelAll_def using push_inj apply (auto ) by blast
+qed
+
+lemma help4:
+  assumes "pushpred s P \<subseteq> wp\<^sub>\<alpha> \<alpha> M"
+  shows "P \<subseteq> wp\<^sub>\<alpha> (popbasic' s s' \<alpha>) (poppred' s' M)"
+  unfolding wp_def
+proof (clarify)
+  fix x assume "x \<in> P"
+  hence "push x s \<in> pushpred s P" by (auto simp: pushpred_def)
+  hence "push x s \<in> wp\<^sub>\<alpha> \<alpha> M" using assms by auto
+  hence "push x s \<in> vc \<alpha> \<inter> {m. (\<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" unfolding wp_def by auto
+  thus "x \<in> vc (popbasic' s s' \<alpha>) \<inter>
+              {m. (\<forall>m'. (m, m') \<in> beh (popbasic' s s' \<alpha>) \<longrightarrow> m' \<in> (poppred' s' M))}"
+    by (auto simp: poppred'_def poprel'_def)
+qed
+
+lemma helpa:
+  assumes "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A pushpred s P {\<alpha>} M"
+  shows "R,G \<turnstile>\<^sub>A P {popbasic' s s' \<alpha>} (poppred' s' M)"
+proof (unfold atomic_rule_def, intro conjI, goal_cases)
+  case 1
+  then show ?case using assms help4 unfolding atomic_rule_def by blast
+next
+  case 2
+  then show ?case using assms help3 by (auto simp: atomic_rule_def)
+next
+  case 3
+  then show ?case using assms stable_uncap by (auto simp: atomic_rule_def)
+next
+  case 4
+  then show ?case using assms help1 by (auto simp: atomic_rule_def)
+qed
 
 text \<open>Judgements are preserved across silent steps\<close>
 lemma rewrite_ruleI [intro]:
@@ -160,38 +223,50 @@ lemma rewrite_ruleI [intro]:
   using assms
 proof (induct arbitrary: c' rule: rules.induct)
   case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
-  thus ?case by (cases rule: silentE, auto) blast+
+  thus ?case by (cases rule: silentE, auto) (blast)+
 next
   case (ord R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) blast+
 next
-  case (capture R G s P c s' Q)
+  case (capture R G s P c Q)
   show ?case using capture
   proof (cases "Capture s c" c' rule: silentE)
     case (19 c c' k)
     thus ?thesis using capture by auto
   next
-    case (20 c \<alpha>' r \<alpha> c'' s s')
-    hence False using capture   sorry
-    fix M
-    have "R,G \<turnstile> P {Basic (popbasic' s s' \<alpha>')} M" sorry
-    moreover have "R,G \<turnstile> M {Capture s' c''} Q" sorry
-    ultimately show ?thesis unfolding 20(2) by (intro ord)
+    case (20 c''' \<alpha>' r \<alpha> c'' s'' n)
+    hence e: "c \<mapsto>[\<alpha>',r,\<alpha>] c''" by auto
+    have [simp]:  "\<alpha>'=\<alpha>\<llangle>r\<rrangle>" using 20 lexecute_triple by blast
+    obtain M where m:
+        "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A stabilise (pushrelSame R) (pushpred s P) {\<alpha>\<llangle>r\<rrangle>} M"
+        "pushrelSame R,pushrelAll G \<turnstile> M {c''} pushpredAll Q"
+        "rif (pushrelSame R) (pushrelAll G) c''"
+      using lexecute_ruleI[OF capture(1) e] indep_stepI[OF capture(3) e] by metis
+
+    have \<alpha>: "R,G \<turnstile> stabilise R P {Basic (popbasic' s n \<alpha>')} (poppred' n M)" 
+      using  helpa[OF m(1)[simplified stabilise_pushrel]] by auto
+
+    have "pushrelSame R,pushrelAll G \<turnstile> pushpred n (poppred' n M) {c''} pushpredAll Q"
+      using m(2) by (rule conseq, auto simp: poppred'_def pushpred_def)
+    hence "R, G \<turnstile> (poppred' n M) {Capture n c''} Q" using m(3)
+      by (rule rules.capture)
+    hence "R,G \<turnstile> stabilise R P {Basic (popbasic' s n \<alpha>') \<cdot> Capture n c''} Q" using \<alpha> by (rule ord)
+    moreover have "P \<subseteq> stabilise R P" by (simp add: stabilise_supset)
+    ultimately show ?thesis using 20 by blast
   next
     case (21 k)
-    hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} uncapPred s' Q"
+    hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} pushpredAll Q"
       using capture(1) by fast
     then obtain M where M:
-      "stable (uncapRely R) M" "uncapPred s P \<subseteq> M" "M \<subseteq> uncapPred s' Q"
+      "stable (uncapRely R) M" "uncapPred s P \<subseteq> M" "M \<subseteq> pushpredAll Q"
       by auto
     hence 1: "stable R (poppred M)" by (simp only: stable_mix)
     hence 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
-      using M(2,3) using pop_pushpred poppred_mono by metis+
+      using M(2,3) using pop_pushpred poppred_mono sorry
     have "R,G \<turnstile> poppred M {Nil} Q" using 1 2 by auto
     thus ?thesis using 2(1) 21(2) by (simp add: conseq)
   qed auto
 qed (cases rule: silentE, auto)+
-
 
 text \<open>Judgements are preserved across global execution steps\<close>
 lemma gexecute_ruleI [intro]:
@@ -236,9 +311,10 @@ next
 next
   case (thread R G P c Q)
   then obtain r \<alpha> \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r,\<alpha>] c''" "c' = Thread c''" by auto
-  then obtain P' M where "P \<subseteq> P'" "R,G \<turnstile>\<^sub>A P' {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
-    using thread lexecute_ruleI indep_stepI[OF thread(3) e(2)] by metis
-  thus ?case using e unfolding atomic_rule_def by auto
+  hence [simp]:  "\<alpha>\<llangle>r\<rrangle> = \<alpha>'" using lexecute_triple by blast
+  then obtain M where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>\<llangle>r\<rrangle>} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
+    using thread lexecute_ruleI[OF thread(1) e(2)] indep_stepI[OF thread(3) e(2)] by metis
+  thus ?case using stabilise_supset[of P R] e unfolding atomic_rule_def by auto
 qed auto
 
 end

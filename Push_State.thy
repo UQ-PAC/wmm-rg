@@ -245,14 +245,14 @@ lemma pushrelSame_in_pushrelAll: "pushrelSame G \<subseteq> pushrelAll G"
 unfolding pushrelSame_def pushrelAll_def by fast
 
 (* unlikely to hold, after popping more relations will link up. *)
-lemma "poprel (Id_on P) O poprel P' \<subseteq> poprel (Id_on P O P')"
+(*lemma "poprel (Id_on P) O poprel P' \<subseteq> poprel (Id_on P O P')"
 proof (rule subrelI)
   fix m m' assume mm': "(m,m') \<in> poprel (Id_on P) O poprel P'"
   hence "m \<in> poppred P" unfolding poprel_def poppred_def by auto
   have "(m,m') \<in> poprel P'" using mm' unfolding poprel_def by auto
 
-  show "(m,m') \<in> poprel (Id_on P O P')" sorry
-oops
+  show "(m,m') \<in> poprel (Id_on P O P')" oops
+oops *)
 
 text \<open>If P is contained in a pushed set, popping then pushing again is the identity.\<close>
 lemma pushpred_poppable: "P \<subseteq> pushpred s P' \<Longrightarrow> P = pushpred s (poppred P)"
@@ -364,7 +364,6 @@ proof (intro antisym subrelI, goal_cases)
     case base
     have "(m,m) \<in> R\<^sup>*" by simp
     then show ?case using mm' by (simp add: pushrelSame_in_eq)
-  next
     case (step y z)
     then show ?case unfolding pushrelSame_def apply auto
     by (metis (no_types, lifting) local.push_inj rtrancl.rtrancl_into_rtrancl)
@@ -376,7 +375,7 @@ next
   with mm'(3) show ?case
   proof (induct)
     case base
-    then show ?case sorry
+    then show ?case 
   next
     case (step y z)
     then show ?case 

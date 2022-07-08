@@ -24,7 +24,7 @@ definition stable :: "('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
 text \<open>Weakest precondition for a pre-condition and post-relation\<close>
 definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
   where "wp pre post Q \<equiv>
-    pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q) \<and> (\<exists>m'. (m,m') \<in> post)}"
+    pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q) }"
 
 text \<open>Equivalent definitions for stable and wp using relation operations.\<close>
 
@@ -32,13 +32,14 @@ lemma stable_rel:
   "stable R P = (R `` P \<subseteq> P)"
 unfolding stable_def by auto
 
+(*
 lemma wp_rel_partial:
   "wp pre post Q = pre \<inter> Domain post \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q)}"
 unfolding wp_def by auto
 
 lemma wp_rel:
   "wp pre post Q = pre \<inter> Domain post \<inter> -(post\<inverse> `` (-Q))"
-unfolding wp_def by auto
+unfolding wp_def by auto *)
 
 text \<open>Guarantee check for a pre-condition and post-relation\<close>
 definition guar :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool"
@@ -213,6 +214,7 @@ proof (clarsimp, goal_cases)
   then show ?case using a(1) by auto
 qed
 
+(*
 lemma aux_wp [intro]:
   assumes "P \<subseteq> wp v b Q"
   shows "aux\<^sub>P r P \<subseteq> wp (aux\<^sub>P r v) (aux\<^sub>R r b) (aux\<^sub>P r Q)"
@@ -228,9 +230,9 @@ next
     then show ?case unfolding aux\<^sub>R_def wp_def by fast
   next
     case 2
-    then show ?case sorry
+    then show ?case 
   qed 
-oops
+oops *)
 
 lemma aux_guar [intro]:
   assumes "guar v b G" 
