@@ -150,6 +150,9 @@ text \<open>Pop a previously pushed predicate or relation.\<close>
 lemma pop_pushpred [simp]: "poppred (pushpred s P) = P"
 unfolding poppred_def pushpred_def by force
 
+lemma pop_pushpredAll [simp]: "poppred (pushpredAll P) = P"
+unfolding poppred_def pushpredAll_def by force
+
 lemma pop_pushrel [simp]: "poprel (pushrel s s' R) = R"
 unfolding poprel_def pushrel_def by force
 
@@ -284,6 +287,10 @@ by (auto, metis popl_push)
 lemma pushrelAll_inter [simp]: "pushrelAll (G \<inter> G') = pushrelAll G \<inter> pushrelAll G'"
 unfolding pushrelAll_def
 by (auto, metis popl_push)
+
+lemma pushpredAll_inter: "pushpredAll (P \<inter> P') = pushpredAll P \<inter> pushpredAll P'"
+unfolding pushpredAll_def
+by auto (metis local.popl_push)
 
 text \<open>Special case where we intersect a narrowed push with a more general push.\<close>
 lemma pushpred_inter_pushpredAll: "pushpred s P \<inter> pushpredAll P' = pushpred s (P \<inter> P')"

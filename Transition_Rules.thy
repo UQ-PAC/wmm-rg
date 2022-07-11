@@ -160,18 +160,6 @@ proof (clarsimp)
   thus "push m' n \<in> M" using a assms by (auto simp: stable_def) 
 qed
 
-lemma help2:
-  assumes "stable (pushrelSame R) (pushpred s P)"
-  shows "stable R P"
-  unfolding stable_def
-proof (clarify)
-  fix m m' assume a: "m \<in> P" "(m,m') \<in> R"
-  hence "\<forall>n. (push m n, push m' n) \<in> pushrelSame R" by (auto simp: pushrelSame_def)
-  moreover have "push m s \<in> pushpred s P" using a by (auto simp: pushpred_def)
-  ultimately have "push m' s \<in> pushpred s P" using assms by (auto simp: stable_def)
-  thus "m' \<in> P" unfolding pushpred_def using push_inj by auto 
-qed
-
 lemma help3:
   assumes "guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
   shows "guar (poppred' s (vc \<alpha>)) (poprel' s s' (beh \<alpha>)) G"
@@ -261,8 +249,8 @@ next
       "stable (uncapRely R) M" "uncapPred s P \<subseteq> M" "M \<subseteq> pushpredAll Q"
       by auto
     hence 1: "stable R (poppred M)" by (simp only: stable_mix)
-    hence 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
-      using M(2,3) using pop_pushpred poppred_mono sorry
+    have 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
+      using poppred_mono[OF M(2)] poppred_mono[OF M(3)] by auto
     have "R,G \<turnstile> poppred M {Nil} Q" using 1 2 by auto
     thus ?thesis using 2(1) 21(2) by (simp add: conseq)
   qed auto

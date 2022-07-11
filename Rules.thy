@@ -85,17 +85,17 @@ lemma ordE [elim]:
 
 lemma captureE':
   assumes "R,G \<turnstile> P {Capture s c} Q"
-  shows "\<exists>s'. uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
+  shows "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} pushpredAll Q"
 using assms
 proof (induct R G P "Capture s c" Q arbitrary: s c)
   case (conseq R G P Q P' R' G' Q')
-  thus ?case by (meson pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
+  thus ?case using rules.conseq by simp
 next
   case (capture R G s P c Q)
-  thus ?case by (intro exI)
+  thus ?case by simp
 next
   case (inv R G P Q R' I)
-  obtain s' where s': "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpred s' Q"
+  have "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpredAll Q"
     using inv(2) by auto
   moreover have "pushrelAll G \<subseteq> pushrelAll R'"
     using inv by (intro pushrelAll_mono)
@@ -104,23 +104,23 @@ next
     using inv by (intro stable_pushrelAll)
   ultimately have 
     "pushrelSame R \<inter> pushrelAll R',pushrelAll G
-      \<turnstile> pushpred s P \<inter> pushpredAll I {c} pushpred s' Q \<inter> pushpredAll I"
+      \<turnstile> pushpred s P \<inter> pushpredAll I {c} pushpredAll Q \<inter> pushpredAll I"
     by (intro rules.inv)
   hence 
     "pushrelSame R \<inter> pushrelAll R',pushrelAll G
-      \<turnstile> pushpred s (P \<inter> I) {c} pushpred s' (Q \<inter> I)"
-    by (simp add: pushpred_inter_pushpredAll)
+      \<turnstile> pushpred s (P \<inter> I) {c} pushpredAll (Q \<inter> I)"
+    by (simp add: pushpred_inter_pushpredAll pushpredAll_inter)
   hence
     "pushrelSame (R \<inter> R'),pushrelAll G 
-      \<turnstile> pushpred s (P \<inter> I) {c} pushpred s' (Q \<inter> I)"
+      \<turnstile> pushpred s (P \<inter> I) {c} pushpredAll (Q \<inter> I)"
     using pushrelSame_in_pushrelAll by auto 
-  thus ?case by auto
+  thus ?case.
 qed
 
 lemma captureE [elim]:
   assumes "R,G \<turnstile> P {Capture s c} Q"
-  obtains s' where "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} uncapPred s' Q"
-by (rule exE[OF captureE'[OF assms]])
+  shows "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} pushpredAll Q"
+by (rule captureE'[OF assms])
 
 lemma [simp]:
   "stabilise R {} = {}"
