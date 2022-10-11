@@ -153,10 +153,11 @@ fun basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Parallel c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Loop c) = basics c" |
     "basics (Thread c) = basics c" |
-    (* "basics (Capture s c) = pushbasic s ` basics c" | *)
     "basics (Capture k c) = popbasic ` basics c" |
-    (* "basics (CaptureAll c) = basics c" | *)
     "basics _ = {}"
+
+    (* "basics (Capture s c) = pushbasic s ` basics c" | *)
+    (* "basics (CaptureAll c) = basics c" | *)
 
 
 (* lemma basics_thr\<^sub>c: "basics (thr\<^sub>c op l l' c) = thr\<^sub>\<alpha> op l l' ` basics c"

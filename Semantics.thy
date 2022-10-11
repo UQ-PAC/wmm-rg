@@ -82,14 +82,10 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   parE1[intro]: "Nil || c \<leadsto> c" |
   parE2[intro]: "c || Nil \<leadsto> c" |
   thr[intro]:   "c \<leadsto> c' \<Longrightarrow> Thread c \<leadsto> Thread c'" |
-  thrE[intro]:  "Thread Nil \<leadsto> Nil" (* |
-  cap2E[intro]: "Capture s Nil \<leadsto> Capture s' Nil" *) 
-  | capS[intro]:  "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'"
-  | capStep[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<leadsto> Basic (popbasic' s s' \<alpha>') \<cdot> (Capture s' c')"
-  (* | capNil[intro]:  "Capture _ _ k Nil \<leadsto> Nil" *)
-  | capE[intro]: "Capture k Nil \<leadsto> Nil"
-  (* | caps[intro]: "c \<leadsto> Nil \<Longrightarrow> CaptureAll c \<leadsto> Nil" *)
-  (* | capl[intro]: "c \<mapsto>[r,\<alpha>] c' \<Longrightarrow> CaptureAll c \<leadsto> CaptureAll c'" (* TODO: does not handle partial execution *) *)
+  thrE[intro]:  "Thread Nil \<leadsto> Nil"  |
+  capE[intro]: "Capture k Nil \<leadsto> Nil" |
+  capS[intro]:  "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'" |
+  capStep[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<leadsto> Basic (popbasic' s s' \<alpha>') \<cdot> (Capture s' c')" 
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>An execution step implies the program has changed\<close>
@@ -167,6 +163,27 @@ lemma basics_exec:
   assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
   using assms basics_exec by (induct) auto    *)
 
+(*--from winter2021 --------------------------*)
+lemma basics_silent:
+  assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
+  using assms basics_exec by (induct) auto
+  
+  sorry
+    (* by (induct) auto *)
+
+lemma basics_lexec:
+  assumes "lexecute c \<alpha>' r \<alpha> c'" 
+  shows "basics c \<supseteq> basics c'"
+  using assms by (induct) auto
+
+lemma basics_gex: 
+  assumes "gexecute c g c'" shows "basics c \<supseteq> basics c'"
+  using assms basics_lexec by (induct) auto 
+
+lemma basics_lexec_prefix:
+  assumes "lexecute c \<alpha>' r \<alpha> c'" shows "basics c \<supseteq> insert \<alpha> (basics r)"
+  using assms by (induct) auto
+(*----------------------------*)
 
 fun seqonly :: "('a,'b) com \<Rightarrow> bool" where
   "seqonly Nil = True" |
