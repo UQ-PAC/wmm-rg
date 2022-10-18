@@ -39,7 +39,8 @@ fun rely :: "'b rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
     "rely R _ = True"
 
 text \<open>Validity of the rely/guarantee judgements\<close>
-definition validity ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0,0] 45) 
+definition validity :: "('a,'b) com \<Rightarrow> 'b set \<Rightarrow> ('b) rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> bool" 
+  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0,0] 45) 
   where "\<Turnstile> c SAT [P, R, G, Q] \<equiv> \<forall>t. cp c t \<and> pre P t \<and> rely R t \<longrightarrow> post Q t \<and> gurn G t"
 
 section \<open>Soundness Proof\<close>
@@ -68,7 +69,8 @@ qed force+
 theorem sound:
   assumes "R,G \<turnstile> P { c } Q"
   shows "\<Turnstile> c SAT [P, R, G, Q]"
-  using assms sound_transitions by (auto simp: validity_def)
+  using sound_transitions[OF _ _ assms] 
+  by (auto simp: validity_def)
 
 end
 

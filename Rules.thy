@@ -17,28 +17,19 @@ text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<c
 inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> ('a,'b) com \<Rightarrow> 'b set \<Rightarrow> bool" 
   ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
   where
-  basic[intro]:  "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
-  nil[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
-  seq[intro]:    "R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;; c\<^sub>2 } M" |
-  ord[intro]:    "R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 \<cdot> c\<^sub>2 } M" |
-  choice[intro]: "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 \<sqinter> c\<^sub>2 } Q" |
-  seqset[intro]: "\<forall>s \<in> S. R,G \<turnstile> P { seq2com s } Q \<Longrightarrow> R,G \<turnstile> P { \<Sqinter> S } Q" |
-  loop[intro]:   "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c* } P" |
-  thread[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
-  par[intro]:    "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
-                  R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
-  conseq[intro]: "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
-                   R',G' \<turnstile> P' { c } Q'"  |
-  inv[intro]:    "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)"
-(*   | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable (capbeh k R) (capvc k P) \<Longrightarrow>
-      capbeh k R,capbeh k G \<turnstile> capvc k P {Capture k c} capvc k Q" *)
-  (* | capture[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow>
-    thr\<^sub>R op R,thr\<^sub>G op G \<turnstile> thr\<^sub>P op l P { Capture op l l' c } thr\<^sub>P op l' Q" *)
-  | capture[intro]: 
-    "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
-    rif (uncapRely R) (uncapGuar G) c 
-     \<Longrightarrow> R,G \<turnstile> P {Capture s c} Q"
-  (* | capall[intro]: "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {CaptureAll c} P" *)
+  basic[intro]:   "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
+  nil[intro]:     "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
+  seq[intro]:     "R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } M" |
+  choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
+  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
+  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
+  par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
+                    R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
+  conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
+                    R',G' \<turnstile> P' { c } Q'"  |
+  inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
+  capture[intro]: "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
+                    R,G \<turnstile> P {Capture s c} Q"
 
 subsection \<open>Properties\<close>
 
@@ -69,27 +60,23 @@ next
   proof (rule inv(2), goal_cases)
     case (1 Q')
     thus ?case using inv(3,4) inv(5)[of "Q' \<inter> I"] atomic_invI
-    by (smt (verit, best) Int_greatest atomic_pre dual_order.eq_iff dual_order.trans le_infE stabilise_inter_RP stabilise_stable stable_stabilise)
+      by (smt (verit, best) Int_greatest atomic_pre dual_order.eq_iff dual_order.trans 
+                            le_infE stabilise_inter_RP stabilise_stable stable_stabilise)
   qed
 qed
 
 lemma seqE [elim]:
-  assumes "R,G \<turnstile> P {c\<^sub>1 ;; c\<^sub>2} Q"
+  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms by (induct R G P "c\<^sub>1 ;; c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
+  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
 
-lemma ordE [elim]:
-  assumes "R,G \<turnstile> P {c\<^sub>1 \<cdot> c\<^sub>2} Q"
-  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms by (induct R G P "c\<^sub>1 \<cdot> c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+
-
-lemma captureE':
+lemma captureE:
   assumes "R,G \<turnstile> P {Capture s c} Q"
   shows "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} pushpredAll Q"
 using assms
 proof (induct R G P "Capture s c" Q arbitrary: s c)
   case (conseq R G P Q P' R' G' Q')
-  thus ?case using rules.conseq by simp
+  thus ?case using rules.conseq by force
 next
   case (capture R G s P c Q)
   thus ?case by simp
@@ -116,15 +103,6 @@ next
     using pushrelSame_in_pushrelAll by auto 
   thus ?case.
 qed
-
-lemma captureE [elim]:
-  assumes "R,G \<turnstile> P {Capture s c} Q"
-  shows "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} pushpredAll Q"
-by (rule captureE'[OF assms])
-
-lemma [simp]:
-  "stabilise R {} = {}"
-  by (auto simp: stabilise_def)
 
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
 lemma stable_preE':
@@ -163,14 +141,8 @@ text \<open>It is always possible to rephrase a judgement in terms of a stable p
 lemma stable_preE:
   assumes "R,G \<turnstile> P {c} Q"
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
-using assms stabilise_supset stable_stabilise stable_preE'
-by metis
-
-
-(*
-lemma false_seqI [intro]:
-  "\<forall>\<beta> \<in> set s. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {seq2com s} {}"
-  by (induct s) auto
+  using assms stabilise_supset stable_stabilise stable_preE'
+  by metis
 
 lemma falseI:
   "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
@@ -178,26 +150,18 @@ proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
 next
-  case (SeqChoice x)
-  thus ?case by (intro ballI seqset false_seqI) auto
+  case (Choice x)
+  thus ?case by (intro choice allI Choice(1)) auto
 next
-  case (Seq c1 c2)
-  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
-  then show ?case by auto
-next
-  case (Ord c1 c2)
+  case (Seq c1 w c2)
   hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
   then show ?case by auto
 next
   case (Capture s c)
-  thus ?case by (intro capture, auto simp add: guar_mix)
-qed (auto) *)
-
-
-
-lemma seq_rot:
-  "R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;; c\<^sub>2 } M"
-  by auto
+  hence "\<forall>\<beta>\<in>basics c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
+  hence "\<forall>\<beta>\<in>basics c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
+  thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp)
+qed (auto)
 
 end
 

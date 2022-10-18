@@ -149,6 +149,10 @@ lemma stabilise_min: "P \<subseteq> P' \<Longrightarrow> stable R P' \<Longright
 unfolding stabilise_rtrancl
 by auto (metis stable_transitive subset_iff)
 
+lemma [simp]:
+  "stabilise R {} = {}"
+  by (auto simp: stabilise_def)
+
 
 text \<open>Manually computing the strongest postcondition which might hold.\<close>
 definition sp :: "('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> 'b pred" where
@@ -167,18 +171,18 @@ unfolding sp_def by auto
 
 lemma sp_pushbasic: "sp (pushbasic s s' \<alpha>) (pushpred s P) = pushpred s' (sp \<alpha> P)" 
 unfolding pushpred_def pushrel_def sp_def
-by auto (metis ImageI popl_push)
+by auto (metis ImageI pop_push)
 
 
 text \<open>Definitions and lemmas for capturing guarantee and stability properties.\<close>
 
 lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
 unfolding stable_def pushrelSame_def pushpred_def
-by (auto, metis popl_push)
+by (auto, metis pop_push)
 
 lemma stable_mix: "stable (pushrelSame R) M \<Longrightarrow> stable R (poppred M)"
 unfolding stable_def pushrelSame_def poppred_def
-by auto (metis popl_push push_popl)
+by auto (metis pop_push push_pop)
 
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
@@ -220,20 +224,19 @@ proof -
     using pushrel_in_pushrelAll[of s s'] by auto
 qed
 
-
 lemma guar_mix:
-  "guar\<^sub>\<alpha> (popbasic \<alpha>) G \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> (uncapGuar G)"
-unfolding guar\<^sub>\<alpha>_rel
-proof -
-  assume "Id_on (vc (popbasic \<alpha>)) O beh (popbasic \<alpha>) \<subseteq> G"
-  hence "Id_on (poppred (vc \<alpha>)) O poprel (beh \<alpha>) \<subseteq> G" by simp
-  hence "pushrelAll (Id_on (poppred (vc \<alpha>))) O pushrelAll (poprel (beh \<alpha>)) \<subseteq> pushrelAll G"       
-    by (metis pushrelAll_relcomp pushrelAll_mono)
-  moreover have "Id_on (vc \<alpha>) \<subseteq> pushrelAll (Id_on (poppred (vc \<alpha>)))"
-    by (simp add: Id_in_pushrelAll_poppred)
-  moreover have "beh \<alpha> \<subseteq> pushrelAll (poprel (beh \<alpha>))"
-    by (simp add: pushrelAll_poprel_supset)
-  ultimately show "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> pushrelAll G" by auto
+  assumes "\<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<alpha>) G"
+  shows "guar\<^sub>\<alpha> \<alpha> (uncapGuar G)"
+  unfolding guar\<^sub>\<alpha>_rel Id_on_def poprel'_def poppred'_def 
+proof (clarsimp)
+  fix m\<^sub>1 m\<^sub>2
+  assume a: "(m\<^sub>1, m\<^sub>2) \<in> beh \<alpha>" "m\<^sub>1 \<in> vc \<alpha>"
+  obtain s\<^sub>1 s\<^sub>2 where s: "m\<^sub>1 = push (pop m\<^sub>1) s\<^sub>1" "m\<^sub>2 = push (pop m\<^sub>2) s\<^sub>2" using push_pop by metis+
+  hence a': "(push (pop m\<^sub>1) s\<^sub>1, push (pop m\<^sub>2) s\<^sub>2) \<in> beh \<alpha>" "push (pop m\<^sub>1) s\<^sub>1 \<in> vc \<alpha>"
+    using a by simp+
+  hence "(pop m\<^sub>1, pop m\<^sub>2) \<in> G"
+    using assms unfolding guar\<^sub>\<alpha>_rel poprel'_def poppred'_def guar_def by auto
+  thus "(m\<^sub>1, m\<^sub>2) \<in> pushrelAll G" using s by (auto simp: pushrelAll_def)
 qed
 
 (*
@@ -351,5 +354,62 @@ proof (intro conjI)
   show "guar\<^sub>\<alpha> \<alpha> G" using guar_uncapE[OF a(2)] by simp
   show "stable R P" "stable R Q" using a(3,4) stable_uncap by auto
 qed*)
+
+
+lemma help1:
+  assumes "stable (pushrelSame R) M"
+  shows "stable R (poppred' n M)"
+  unfolding stable_def poppred'_def
+proof (clarsimp)
+  fix m m' assume a: "push m n \<in> M" "(m,m') \<in> R"
+  hence "(push m n, push m' n) \<in> pushrelSame R" by (auto simp: pushrelSame_def)
+  thus "push m' n \<in> M" using a assms by (auto simp: stable_def) 
+qed
+
+lemma help3:
+  assumes "guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
+  shows "guar (poppred' s (vc \<alpha>)) (poprel' s s' (beh \<alpha>)) G"
+  unfolding guar_def
+proof (clarify)
+  fix m m' assume a: "m \<in> poppred' s (vc \<alpha>)" "(m,m') \<in> poprel' s s' (beh \<alpha>)" 
+  hence "push m s \<in> vc \<alpha>" by (auto simp: poppred'_def)
+  moreover have "(push m s, push m' s') \<in> beh \<alpha>" using a by (auto simp: poprel'_def)
+  ultimately have "(push m s, push m' s') \<in> pushrelAll G" using assms by (auto simp: guar_def)
+  thus "(m,m') \<in> G" unfolding pushrelAll_def using push_inj apply (auto ) by blast
+qed
+
+lemma help4:
+  assumes "pushpred s P \<subseteq> wp\<^sub>\<alpha> \<alpha> M"
+  shows "P \<subseteq> wp\<^sub>\<alpha> (popbasic s s' \<alpha>) (poppred' s' M)"
+  unfolding wp_def 
+proof (clarify)
+  fix x assume "x \<in> P"
+  hence "push x s \<in> pushpred s P" by (auto simp: pushpred_def)
+  hence "push x s \<in> wp\<^sub>\<alpha> \<alpha> M" using assms by auto
+  hence "push x s \<in> vc \<alpha> \<inter> {m. (\<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" unfolding wp_def by auto
+  thus "x \<in> vc (popbasic s s' \<alpha>) \<inter>
+              {m. (\<forall>m'. (m, m') \<in> beh (popbasic s s' \<alpha>) \<longrightarrow> m' \<in> (poppred' s' M))}"
+    by (auto simp: poppred'_def poprel'_def)
+qed
+
+text \<open>
+Critical for soundness: atomic judgement with a hidden top-most state fixed to an initial s
+can be lifted to a judgement over its observable behaviour fixed to a final internal state s'\<close>
+lemma helpa:
+  assumes "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A pushpred s P {\<alpha>} M"
+  shows "R,G \<turnstile>\<^sub>A P {popbasic s s' \<alpha>} (poppred' s' M)"
+proof (unfold atomic_rule_def, intro conjI, goal_cases)
+  case 1
+  then show ?case using assms help4 unfolding atomic_rule_def by blast
+next
+  case 2
+  then show ?case using assms help3 by (auto simp: atomic_rule_def)
+next
+  case 3
+  then show ?case using assms stable_uncap by (auto simp: atomic_rule_def)
+next
+  case 4
+  then show ?case using assms help1 by (auto simp: atomic_rule_def)
+qed
 
 end
