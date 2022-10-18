@@ -18,7 +18,6 @@ abbreviation vc :: "('a,'b) basic \<Rightarrow> 'b set"
 abbreviation beh :: "('a,'b) basic \<Rightarrow> 'b rel"
   where "beh \<alpha> \<equiv> snd (snd \<alpha>)"
 
-
 text \<open>
 A While language with non-deterministic choice, iteration and parallel composition.
 Also includes special commands for environment steps, which is useful for describing
@@ -149,12 +148,37 @@ fun basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
     "basics (Seq c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Ord c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Choice c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
-    "basics (SeqChoice S) = (\<Union>s \<in> S. set s)" |
-    "basics (Parallel c\<^sub>1 c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2" |
+    "basics (SeqChoice S) = (\<Union>s \<in> S. set s)" |    
+    "basics (Parallel c\<^sub>1 c\<^sub>2) =basics c\<^sub>1 \<union> basics c\<^sub>2" |
     "basics (Loop c) = basics c" |
     "basics (Thread c) = basics c" |
     "basics (Capture k c) = popbasic ` basics c" |
     "basics _ = {}"
+
+(* from basics to observable basics by overapprox  to what is visible after Capture *)
+
+definition observable
+  where "observable \<alpha> \<equiv> { (poppred' s (fst \<alpha>), poprel' s s' (snd \<alpha>)) | s s'. True}"
+
+definition strip_tag
+  where "strip_tag \<alpha> \<equiv>  ((vc \<alpha>), (beh \<alpha>))"
+
+definition strip_tag_set
+  where "strip_tag_set s \<equiv>  { strip_tag \<alpha>  | \<alpha>. \<alpha> \<in> s}"
+
+text \<open>Identify all observable operations in a program\<close>
+fun obs_basics :: "('a,'b::state) com \<Rightarrow> ('b set \<times> 'b rel) set"
+  where
+    "obs_basics (Basic \<beta>) = {(vc \<beta>,beh \<beta>)}" |
+    "obs_basics (Seq c\<^sub>1 c\<^sub>2) = obs_basics c\<^sub>1 \<union> obs_basics c\<^sub>2" |
+    "obs_basics (Ord c\<^sub>1 c\<^sub>2) = obs_basics c\<^sub>1 \<union> obs_basics c\<^sub>2" |
+    "obs_basics (Choice c\<^sub>1 c\<^sub>2) = obs_basics c\<^sub>1 \<union> obs_basics c\<^sub>2" |
+    "obs_basics (SeqChoice S) = (\<Union>s \<in> S. strip_tag_set (set s))" |    
+    "obs_basics (Parallel c\<^sub>1 c\<^sub>2) =obs_basics c\<^sub>1 \<union> obs_basics c\<^sub>2" |
+    "obs_basics (Loop c) = obs_basics c" |
+    "obs_basics (Thread c) = obs_basics c" |
+    "obs_basics (Capture k c) = \<Union> (observable ` obs_basics c)" |
+    "obs_basics _ = {}"
 
     (* "basics (Capture s c) = pushbasic s ` basics c" | *)
     (* "basics (CaptureAll c) = basics c" | *)

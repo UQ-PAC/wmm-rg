@@ -1,5 +1,5 @@
 theory Semantics
-  imports Reordering Atomics
+  imports Reordering CaptureReasoning
 begin
 
 chapter \<open>Small Step Semantics\<close>
@@ -46,7 +46,8 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p,\<alpha>] c'"
 (* 
 DONE: replace the [r,\<alpha>] with a triple [\<alpha>',r,\<alpha>] which will allow the r to hold
-"Capture s r". then, the \<alpha>' is the one which describes the effects which are
+"Capture s r", i.e., [\<alpha>', Capture s r, \<alpha>]. 
+Then, the \<alpha>' is the one which describes the effects which are
 visible from that local execution step. *)
 
 
@@ -87,6 +88,9 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   capS[intro]:  "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'" |
   capStep[intro]: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> Capture s c \<leadsto> Basic (popbasic' s s' \<alpha>') \<cdot> (Capture s' c')" 
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
+
+thm silent.cases
+thm silentE
 
 text \<open>An execution step implies the program has changed\<close>
 lemma execute_neq:
@@ -134,6 +138,7 @@ text \<open>Program Execution Transition\<close>
 abbreviation exec_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
   where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>g. fst s \<mapsto>[g] (fst s') \<and> (snd s,snd s') \<in> g"
 
+(* does the mem-state stay the same over a Capture step? *)
 text \<open>Program Silent Transition\<close>
 abbreviation sil_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)
   where "s -s\<rightarrow> s' \<equiv> fst s \<leadsto> fst s' \<and> snd s = snd s'"
@@ -164,12 +169,32 @@ lemma basics_exec:
   using assms basics_exec by (induct) auto    *)
 
 (*--from winter2021 --------------------------*)
+(*
+lemma popBasic:
+ "basics (Basic (popbasic \<beta>)) = {\<beta>}"
+  sorry
+
+
+lemma popbasicBasic:
+  assumes "basics c \<supseteq> basics c'"
+  shows "popbasic ` basics c' \<supseteq> popbasic ` basics c"
+  using 
+
+lemma basics_silentCap1:
+  assumes "Capture k c \<leadsto> Capture k c'"
+  shows "basics c \<supseteq> basics c'"
+  using basics_exec basics.elims
+
+lemma basics_silentCap2:
+  assumes "Capture s c \<leadsto> Basic (popbasic' s s' \<alpha>') \<cdot> (Capture s' c')"
+  shows "basics c \<supseteq> basics c'"
+  sorry
+
 lemma basics_silent:
   assumes "c \<leadsto> c'" shows "basics c \<supseteq> basics c'"
-  using assms basics_exec by (induct) auto
-  
-  sorry
-    (* by (induct) auto *)
+  using assms basics_exec basics_silentCap1 basics_silentCap2
+  by (simp add: capS)
+*)
 
 lemma basics_lexec:
   assumes "lexecute c \<alpha>' r \<alpha> c'" 

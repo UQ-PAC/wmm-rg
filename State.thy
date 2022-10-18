@@ -36,10 +36,14 @@ unfolding stable_def by auto
 lemma wp_rel_partial:
   "wp pre post Q = pre \<inter> Domain post \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q)}"
 unfolding wp_def by auto
+*)
+
+(*  "r `` s = {y. \<exists>x\<in>s. (x, y) \<in> r}"  *)
 
 lemma wp_rel:
-  "wp pre post Q = pre \<inter> Domain post \<inter> -(post\<inverse> `` (-Q))"
-unfolding wp_def by auto *)
+  "wp pre post Q = pre \<inter> -(post\<inverse> `` (-Q))"
+  unfolding wp_def by auto
+
 
 text \<open>Guarantee check for a pre-condition and post-relation\<close>
 definition guar :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow> bool"

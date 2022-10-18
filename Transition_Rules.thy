@@ -202,6 +202,7 @@ next
   case 4
   then show ?case using assms help1 by (auto simp: atomic_rule_def)
 qed
+thm silent.cases[of a b]
 
 text \<open>Judgements are preserved across silent steps\<close>
 lemma rewrite_ruleI [intro]:
@@ -209,6 +210,7 @@ lemma rewrite_ruleI [intro]:
   assumes "c \<leadsto> c'"
   shows "R,G \<turnstile> P {c'} Q"
   using assms
+  sorry (*
 proof (induct arbitrary: c' rule: rules.induct)
   case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) (blast)+
@@ -217,8 +219,66 @@ next
   thus ?case by (cases rule: silentE, auto) blast+
 next
   case (capture R G s P c Q)
-  show ?case using capture
-  proof (cases "Capture s c" c' rule: silentE)
+  show ?case 
+  proof (cases "Capture s c" c' rule: silent.cases)
+    case seq1
+    then show ?case sorry
+  
+  next
+    case seq2
+    then show ?case sorry
+  next
+    case seqE1
+    then show ?case sorry
+next
+  case seqE2
+  then show ?case sorry
+next
+  case ordE
+  then show ?case sorry
+next
+  case bigc
+  then show ?case sorry
+next
+  case left
+  then show ?case sorry
+next
+  case right
+  then show ?case sorry
+next
+  case loop1
+  then show ?case sorry
+next
+  case loop2
+  then show ?case sorry
+next
+  case par1
+  then show ?case sorry
+next
+case par2
+  then show ?case sorry
+next
+  case parE1
+  then show ?case sorry
+next
+  case parE2
+  then show ?case sorry
+next
+  case thr
+  then show ?case sorry
+next
+  case thrE
+  then show ?case sorry
+next
+  case capE
+  then show ?case sorry
+next
+  case capS
+  then show ?thesis sorry
+next
+  case (capStep c')
+  then show ?thesis sorry
+qed
     case (19 c c' k)
     thus ?thesis using capture by auto
   next
@@ -255,6 +315,7 @@ next
     thus ?thesis using 2(1) 21(2) by (simp add: conseq)
   qed auto
 qed (cases rule: silentE, auto)+
+*)
 
 text \<open>Judgements are preserved across global execution steps\<close>
 lemma gexecute_ruleI [intro]:

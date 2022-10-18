@@ -61,6 +61,7 @@ definition pushrelSame :: "'a rel \<Rightarrow> 'a rel" where
 definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 "pushrelAll G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
 
+(* allows one to match top-most stack-elem to s *)
 abbreviation poppable :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
 "poppable s P \<equiv> (P = pushpred s (poppred P))"
 
@@ -178,7 +179,7 @@ lemma pushpredAll_mono [simp]: "P \<subseteq> P' \<Longrightarrow> pushpredAll P
 unfolding pushpredAll_def by auto
 
 lemma poprel_mono [simp]: "G \<subseteq> G' \<Longrightarrow> poprel G \<subseteq> poprel G'"
-unfolding poprel_def pushrelAll_def by auto
+  unfolding poprel_def pushrelAll_def by auto
 
 lemma poprel'_mono [simp]: "G \<subseteq> G' \<Longrightarrow> poprel' s s' G \<subseteq> poprel' s s' G'"
 unfolding poprel'_def pushrelAll_def by auto
@@ -195,7 +196,7 @@ unfolding pushrelAll_def by auto
 
 lemma pushrelAll_eq: "(pushrelAll G \<subseteq> pushrelAll G') = (G \<subseteq> G')"
 using poprel_mono pop_pushrelAll pushrelAll_mono
-by metis
+  by metis
 
 subsection \<open>Relation composition\<close>
 
@@ -248,6 +249,7 @@ lemma pushrelSame_in_pushrelAll: "pushrelSame G \<subseteq> pushrelAll G"
 unfolding pushrelSame_def pushrelAll_def by fast
 
 (* unlikely to hold, after popping more relations will link up. *)
+(* lemma " poprel (Id_on P O P') \<subseteq> poprel (Id_on P) O poprel P'" by (simp add: poprel_relcomp) *)
 (*lemma "poprel (Id_on P) O poprel P' \<subseteq> poprel (Id_on P O P')"
 proof (rule subrelI)
   fix m m' assume mm': "(m,m') \<in> poprel (Id_on P) O poprel P'"
@@ -334,8 +336,7 @@ lemma pushrelAll_empty [simp]: "pushrelAll {} = {}"
 unfolding pushrelAll_def by simp
 
 lemma poppable_empty [simp]: "poppable s {}"
-by simp
-
+  by simp
 
 subsection \<open>Correspondences between predicates and Id_on.\<close>
 
