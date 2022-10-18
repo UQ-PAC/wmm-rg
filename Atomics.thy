@@ -154,6 +154,10 @@ lemma stabilise_min: "P \<subseteq> P' \<Longrightarrow> stable R P' \<Longright
 unfolding stabilise_rtrancl
 by auto (metis stable_transitive subset_iff)
 
+lemma [simp]:
+  "stabilise R {} = {}"
+  by (auto simp: stabilise_def)
+
 
 text \<open>Manually computing the strongest postcondition which might hold.\<close>
 
@@ -175,6 +179,6 @@ unfolding sp_def by auto
 
 lemma sp_pushbasic: "sp (pushbasic s s' \<alpha>) (pushpred s P) = pushpred s' (sp \<alpha> P)" 
 unfolding pushpred_def pushrel_def sp_def
-by auto (metis ImageI popl_push)
+by auto (metis ImageI pop_push)
 
 end
