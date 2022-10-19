@@ -58,6 +58,17 @@ definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 abbreviation poppable :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
 "poppable s P \<equiv> (P = pushpred s (poppred P))"
 
+lemma poppable_push_poppred': "poppable s P \<Longrightarrow> pushpred s (poppred' s P) = P"
+unfolding poppred'_def pushpred_def by auto
+
+abbreviation poppable_rel :: "'a \<Rightarrow> 'a \<Rightarrow> 'a rel \<Rightarrow> bool" where
+"poppable_rel s s' R \<equiv> (R = pushrel s s' (poprel' s s' R))" 
+
+
+lemma poppable_push_poprel': "poppable_rel s s' R \<Longrightarrow> pushrel s s' (poprel' s s' R) = R" 
+  by auto
+
+
 section \<open>Introduction/elimination rules for the definitions\<close>
 
 lemma pushpred_inI [intro]:
@@ -103,6 +114,10 @@ by auto (metis push_pop)
 
 lemma push_poppred_subset: "pushpred s (poppred' s P) \<subseteq> P"
 unfolding pushpred_def poppred'_def
+by auto
+
+lemma push_poprel_subset: "pushrel s s' (poprel' s s' R) \<subseteq> R"
+unfolding pushrel_def poprel'_def
 by auto
 
 lemma pushed_empty: "pushed P = {} \<Longrightarrow> P = {}"
@@ -153,9 +168,9 @@ unfolding poprel_def pushrel_def by force
 text \<open>These push after pop lemmas are *suspicious*...\<close>
 
 lemma push_poprel [simp]: "pushrel s s' (poprel R) = R"
-unfolding poprel_def pushrel_def
-oops
-
+  unfolding poprel_def pushrel_def 
+  oops
+  
 
 subsection \<open>Monotonicity\<close>
 

@@ -84,7 +84,7 @@ inductive basic :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic \<Rightarrow>
     "basic c\<^sub>2 \<beta> \<Longrightarrow> basic (c\<^sub>1 ;\<^sub>r c\<^sub>2) \<beta>" |
     "basic (f s) \<beta> \<Longrightarrow> basic (\<Sqinter>s. f s) \<beta>" |
     "basic c \<beta> \<Longrightarrow> basic (c*\<^sub>w) \<beta>" |
-    "basic c \<beta> \<Longrightarrow> basic (Capture k c) (popbasic s s' \<beta>)" |
+    "basic c \<beta> \<Longrightarrow> basic (Capture k c) ( \<beta>)" |
     "basic c\<^sub>1 \<beta> \<Longrightarrow> basic (c\<^sub>1 || c\<^sub>2) \<beta>" |
     "basic c\<^sub>2 \<beta> \<Longrightarrow> basic (c\<^sub>1 || c\<^sub>2) \<beta>" |
     "basic c \<beta> \<Longrightarrow> basic (Thread c) \<beta>"
@@ -99,12 +99,11 @@ lemma basics_simps [simp]:
   "basics (c\<^sub>1 ;\<^sub>r c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2"
   "basics (\<Sqinter>s. f s) = \<Union>{basics (f s) | s. True}"
   "basics (c*\<^sub>w) = basics c"
-  "basics (Capture k c) = {popbasic s s' \<beta> | s s' \<beta>. \<beta> \<in> basics c}"
+  "basics (Capture k c) =  basics c"
   "basics (c\<^sub>1 || c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2"
   "basics (Thread c) = basics c" 
   apply (auto simp: basics_def elim: basic.cases  intro: basic.intros)
-  apply (erule basic_tuple; clarsimp; blast)
-  apply (drule basic.intros(6), auto)
+  
   done
 
 end

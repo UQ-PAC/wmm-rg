@@ -20,6 +20,7 @@ bookkeeping data structures to track how the reordering relation has been applie
 datatype ('a,'b) log =
   Reorder "('a,'b) basic" "('a,'b) wmm" "('a,'b) com" |
   Scope
+
 type_synonym ('a,'b) bookkeeping = "('a,'b) log list"
 
 locale semantics =
@@ -28,6 +29,10 @@ locale semantics =
 
 context semantics
 begin
+
+text \<open> (w \<alpha>' \<beta> \<alpha>) is an abstract reordering relation that evaluates to true if
+          \<alpha> can reorder over \<beta> to become \<alpha>' under WMM w; it is carried around 
+          as a subscript to reordering relation _ < _ < _  \<close>
 
 text \<open>Extend a reordering relation recursively over a program\<close>
 fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) wmm \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
@@ -55,6 +60,12 @@ lemma lexecute_triple: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> \
 by (induct rule: lexecute.induct) auto
 *)
 
+fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow> ('a,'b) basic set"
+  where
+  "beforeReord \<alpha>' [] = {\<alpha>'}" |
+  "beforeReord \<alpha>' (Scope#rs) = \<Union>{beforeReord (pushbasic s s' \<alpha>') rs | s s'. True}" |
+  "beforeReord \<alpha>' ((Reorder \<alpha> w c\<^sub>2)#rs) =  (beforeReord \<alpha> rs)"
+
 
 text \<open>Small step semantics for a global execution step\<close>
 inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -64,6 +75,9 @@ inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) co
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
+
+
+
 
 text \<open>Small step semantics for a silent step\<close>
 inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
@@ -109,6 +123,34 @@ lemma local_execute:
   "c \<mapsto>[\<alpha>'',r] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
   by (induct rule: lexecute.induct) (auto)
 
+
+lemma basics_lexec:
+  assumes "lexecute c \<alpha> r c'" shows "(beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {}"
+  using assms
+proof (induct)
+  case (act \<alpha>)
+  then show ?case by auto
+next
+  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
+  then show ?case by auto
+next
+  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
+  then have a0:"c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" by auto
+  then show ?case using ooo  by auto
+next
+  case (cap c \<alpha>' r c' s s')
+  assume a2:" beforeReord \<alpha>' r \<inter> basics c \<noteq> {}" 
+  have p: "poppable s (vc \<alpha>')" sorry 
+  have p2:"poppable_rel s s' (beh \<alpha>')" sorry
+  have a0:"pushpred s (poppred' s (vc \<alpha>')) = vc \<alpha>'" using p by (meson poppable_push_poppred')
+  have a1:"pushrel s s' (poprel' s s' (beh \<alpha>')) = beh \<alpha>'" using p2 poppable_push_poprel' by blast 
+  have a3:"beforeReord \<alpha>' r \<subseteq> \<Union> {beforeReord (pushbasic sa s'a (popbasic s s' \<alpha>')) r |sa s'a. True}" 
+    using a0 a1
+    by (metis (mono_tags, lifting) Sup_upper fst_conv mem_Collect_eq p2 prod.exhaust_sel snd_conv) 
+  show ?case using cap unfolding beforeReord.simps basics_simps a3 
+    by (smt (verit, best) Union_disjoint a0 mem_Collect_eq p2 prod.exhaust_sel prod.sel(1) snd_conv)
+qed
+
 text \<open>A silent step will not introduce parallelism\<close>
 lemma local_silent:
   "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"  
@@ -125,6 +167,20 @@ lemma basics_silent:
   assumes "c \<leadsto> c'" 
   shows "basics c \<supseteq> basics c'"
   using assms by induct (auto, blast)
+
+text \<open>A global execution step will not introduce new basics\<close>
+
+lemma basics_par: 
+  assumes "gexecute c g c'" 
+  shows "basics c\<^sub>1 \<subseteq> basics (c\<^sub>1 || c\<^sub>2)" 
+        "basics c\<^sub>2 \<subseteq> basics (c\<^sub>1 || c\<^sub>2)" 
+  using assms by simp+
+
+lemma basics_gexec:
+  assumes "c \<mapsto>[g] c'" 
+  shows "basics c \<supseteq> basics c'"
+  using assms using basics_exec basics_par by (induct) auto
+
 
 section \<open>Transition Definitions\<close>
 
