@@ -17,7 +17,7 @@ inductive_set trace :: "(('a,'b) com \<times> ('a,'b) Trace \<times> ('a,'b) com
   | sil[intro]: "c\<^sub>1 \<leadsto> c\<^sub>2 \<Longrightarrow> c\<^sub>2 \<mapsto>\<^sup>*t c\<^sub>3 \<Longrightarrow> c\<^sub>1 \<mapsto>\<^sup>*t c\<^sub>3"
   | gex[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>2 \<Longrightarrow> c\<^sub>2 \<mapsto>\<^sup>*t c\<^sub>3 \<Longrightarrow> c\<^sub>1 \<mapsto>\<^sup>*g#t c\<^sub>3"
 
-inductive trace_mem :: "'m \<Rightarrow> 'm rel list  \<Rightarrow> 'm \<Rightarrow> bool" (*m rel = m X m set*)
+inductive trace_mem :: "'m \<Rightarrow> 'm rel list  \<Rightarrow> 'm \<Rightarrow> bool" 
   where
     [intro]: "trace_mem m [] m" |
     [intro]: "(m'', m) \<in> g \<Longrightarrow> trace_mem m t m' \<Longrightarrow> trace_mem m'' (g#t) m'"
@@ -26,9 +26,7 @@ definition ev :: "('a,'b) com \<Rightarrow> 'b \<Rightarrow> ('a,'b) Trace \<Rig
   ("\<langle>_,_\<rangle> \<rightarrow>\<^sup>*_ \<langle>_,_\<rangle>" [50,40,40] 70)
   where "\<langle>c,m\<rangle> \<rightarrow>\<^sup>*t \<langle>c',m'\<rangle> \<equiv> trace_mem m t m' \<and> c \<mapsto>\<^sup>*t c'"
 
-(*non-interference over all basic commands *)
-definition tag_basic
-  where "tag_basic a \<alpha> \<equiv>  (tag a, \<alpha>)"
+text \<open> Noninterference over all basic commands \<close>
 
 definition sec_pres :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> bool"
   where 
@@ -36,7 +34,7 @@ definition sec_pres :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> bool"
      ((beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {}) \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> 
                              (m\<^sub>1,m\<^sub>1') \<in> beh \<alpha> \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2,m\<^sub>2') \<in> beh \<alpha> \<and> (m\<^sub>1',m\<^sub>2') \<in> S)"
 
-(* non-interference over all traces *)
+text \<open> Noninterference over all traces \<close>
 
 definition secure :: "('a,'b) com \<Rightarrow> 'b set \<Rightarrow> 'b rel \<Rightarrow> bool"
   where "secure c P S \<equiv> \<forall>m\<^sub>1 m\<^sub>2 c\<^sub>1 t m\<^sub>1'. 
@@ -63,48 +61,6 @@ lemma trace_preE [elim]:
   obtains P\<^sub>2 where "P\<^sub>1 \<mapsto>\<^sup>*[x] P\<^sub>2" "P\<^sub>2 \<mapsto>\<^sup>*t P\<^sub>3"
   using assms by (metis append.simps(1) append.simps(2) trace_concatE)
 
-lemma trace_basics: 
-  assumes "c \<mapsto>\<^sup>*t c'"
-  shows "basics c \<supseteq> basics c'"
-  using assms basics_silent
-proof (induct)
-  case (none c)
-  then show ?case by auto
-next
-  case (sil c\<^sub>1 c\<^sub>2 t c\<^sub>3)
-  then show ?case using basics_silent by blast
-next
-  case (gex c\<^sub>1 g c\<^sub>2 t c\<^sub>3)
-  then show ?case using basics_exec basics_simps(7,8) dual_order.trans basics_gexec by fast
-qed
-
-
-lemma something1: (*Nick help with name please*)
-  assumes "gexecute c g c'" 
-  shows "\<exists>\<alpha> r. (beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {} \<and> g = beh \<alpha>"
-  using assms proof induct  
-  case (thr c \<alpha>' r c')
-  then show ?case using basics_simps(8) basics_lexec by blast
-next
-  case (par1 c\<^sub>1 g c\<^sub>1' c\<^sub>2)
-  then show ?case using basics_simps(7) basics_lexec by blast
-next
-  case (par2 c\<^sub>2 g c\<^sub>2' c\<^sub>1)
-  then show ?case using basics_simps(7) basics_lexec by blast
-qed
-
-lemma something2: (*Nick help with name please*)
-  assumes "c \<mapsto>\<^sup>*[g] c'"
-  shows "\<exists>r \<alpha>. (beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {} \<and> g = beh \<alpha>" 
-  using assms 
-proof (induct c "[g]" c')
-  case (sil c\<^sub>1 c\<^sub>2 c\<^sub>3)
-  then show ?case using basics_silent by blast
-next
-  case (gex c\<^sub>1 c\<^sub>2 c\<^sub>3)
-  then show ?case using something1 by fast
-qed 
-
 
 lemma trace_rule_nil: 
   assumes "c \<mapsto>\<^sup>*[] c'"
@@ -124,7 +80,8 @@ proof (induct c "[g]" c' arbitrary: P)
     by (smt (verit, ccfv_SIG) inf.absorb_iff1 inf_bot_right inf_left_commute)
 next
   case (gex c\<^sub>1 c\<^sub>2 c\<^sub>3)
-  then show ?case using basics_lexec trace_rule_nil gexecute_ruleI[OF gex(3,1)] sorry
+  then show ?case using basics_lexec trace_rule_nil gexecute_ruleI[OF gex(3,1)]
+    by (metis beforeReord.simps(3) fst_conv snd_conv basics_gexecute)
 qed 
 
 
@@ -152,7 +109,7 @@ proof safe
     then obtain m\<^sub>2' where itm3: "(m\<^sub>2,m\<^sub>2') \<in> g" "(m\<^sub>1',m\<^sub>2') \<in> S" using 2(1,4,6,8) itm2(2,3,4) 
       unfolding sec_pres_def wp_def by blast 
     hence itm4: "sec_pres c' S" 
-      using 2(4) itm1 trace_basics unfolding sec_pres_def by blast 
+      using 2(4) itm1 basics_gexecute unfolding sec_pres_def by (metis beforeReord.simps(3) itm2(2)) 
     hence itm5: "\<exists>m\<^sub>2'' c\<^sub>2. (trace_mem m\<^sub>2' t m\<^sub>2'' \<and> c' \<mapsto>\<^sup>*t c\<^sub>2) \<and> (m\<^sub>1'', m\<^sub>2'') \<in> S"
       using 2(3)[OF itm4 itm2(1) itm3(2) itm1(2) itm6] by blast
     then show ?case using "2.prems"(4) itm3(1) by blast

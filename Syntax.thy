@@ -26,6 +26,11 @@ abbreviation pushbasic where
 abbreviation popbasic where
   "popbasic s s' \<alpha> \<equiv> (tag \<alpha>, poppred' s (vc \<alpha>), poprel' s s' (beh \<alpha>))"
 
+
+abbreviation poppableBasic where
+"poppableBasic s s' \<alpha> \<equiv> poppable s (vc \<alpha>) \<and> poppable_rel s s' (beh \<alpha>)"
+
+
 text \<open>
 A While language with non-deterministic choice, iteration and parallel composition.
 Choice is intended to select from an arbitrary set of commands, however, this cannot
@@ -51,7 +56,7 @@ Identify if a command consists of only thread local constructs.
 
 inductive local :: "('a,'b) com \<Rightarrow> bool"
   where 
-    "local Nil" |
+    "local Nil" |                
     "local (Basic \<alpha>)" |
     "local c\<^sub>1 \<Longrightarrow> local c\<^sub>2  \<Longrightarrow> local (c\<^sub>1 ;\<^sub>r c\<^sub>2)" |
     "\<forall>s. local (f s) \<Longrightarrow> local (Choice f)" |
@@ -103,7 +108,6 @@ lemma basics_simps [simp]:
   "basics (c\<^sub>1 || c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2"
   "basics (Thread c) = basics c" 
   apply (auto simp: basics_def elim: basic.cases  intro: basic.intros)
-  
-  done
+    done
 
 end

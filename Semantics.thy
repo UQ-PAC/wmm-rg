@@ -52,7 +52,8 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   act[intro]: "Basic \<alpha> \<mapsto>[\<alpha>,[]] Nil" |
   ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>' \<Longrightarrow> c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
-  cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic s s' \<alpha>',Scope#r] Capture s' c'"  
+  cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
+                                            Capture s c \<mapsto>[popbasic s s' \<alpha>',Scope#r] Capture s' c'"  
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
 (*
@@ -140,15 +141,14 @@ next
 next
   case (cap c \<alpha>' r c' s s')
   assume a2:" beforeReord \<alpha>' r \<inter> basics c \<noteq> {}" 
-  have p: "poppable s (vc \<alpha>')" sorry 
-  have p2:"poppable_rel s s' (beh \<alpha>')" sorry
+  have p: "poppableBasic s s' \<alpha>'" using cap.hyps(3) by auto
   have a0:"pushpred s (poppred' s (vc \<alpha>')) = vc \<alpha>'" using p by (meson poppable_push_poppred')
-  have a1:"pushrel s s' (poprel' s s' (beh \<alpha>')) = beh \<alpha>'" using p2 poppable_push_poprel' by blast 
+  have a1:"pushrel s s' (poprel' s s' (beh \<alpha>')) = beh \<alpha>'" using p poppable_push_poprel' by blast 
   have a3:"beforeReord \<alpha>' r \<subseteq> \<Union> {beforeReord (pushbasic sa s'a (popbasic s s' \<alpha>')) r |sa s'a. True}" 
     using a0 a1
-    by (metis (mono_tags, lifting) Sup_upper fst_conv mem_Collect_eq p2 prod.exhaust_sel snd_conv) 
-  show ?case using cap unfolding beforeReord.simps basics_simps a3 
-    by (smt (verit, best) Union_disjoint a0 mem_Collect_eq p2 prod.exhaust_sel prod.sel(1) snd_conv)
+    by (metis (mono_tags, lifting) Sup_upper fst_conv mem_Collect_eq prod.exhaust_sel snd_conv)
+  show ?case using cap unfolding beforeReord.simps basics_simps a3 Union_disjoint eq_snd_iff 
+    by (metis (mono_tags, lifting) a0 fst_conv mem_Collect_eq prod.collapse snd_conv)
 qed
 
 text \<open>A silent step will not introduce parallelism\<close>
@@ -156,17 +156,35 @@ lemma local_silent:
   "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"  
   by (induct rule: silent.induct) (auto simp add: local_execute)
 
+(* This probably doesn't hold in the ooo case; instead we have basics_lexec
+
 text \<open>An execution step will not introduce new basics\<close>
 lemma basics_exec:
-  assumes "c \<mapsto>[\<alpha>'',r] c'" 
+  assumes "c \<mapsto>[\<alpha>',r] c'" 
   shows "basics c \<supseteq> basics c'"
-  using assms by induct (auto, blast)
+  using assms  (*by induct (auto, blast)*)
+proof induct
+  case (act \<alpha>)
+  then show ?case by auto
+next
+  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
+  then show ?case by auto
+next
+  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
+  then show ?case sorry
+next
+  case (cap c \<alpha>' r c' s s')
+  then show ?case by auto
+qed
+*)
+
 
 text \<open>A silent step will not introduce new basics\<close>
 lemma basics_silent:
   assumes "c \<leadsto> c'" 
   shows "basics c \<supseteq> basics c'"
-  using assms by induct (auto, blast)
+  using assms by induct auto
+
 
 text \<open>A global execution step will not introduce new basics\<close>
 
@@ -176,11 +194,12 @@ lemma basics_par:
         "basics c\<^sub>2 \<subseteq> basics (c\<^sub>1 || c\<^sub>2)" 
   using assms by simp+
 
+(*  we don't have basics_exec 
 lemma basics_gexec:
   assumes "c \<mapsto>[g] c'" 
   shows "basics c \<supseteq> basics c'"
   using assms using basics_exec basics_par by (induct) auto
-
+*)
 
 section \<open>Transition Definitions\<close>
 

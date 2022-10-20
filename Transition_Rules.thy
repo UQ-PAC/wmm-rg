@@ -77,8 +77,8 @@ next
 next
   case (cap c \<alpha>' r c' s s')
   let ?R="uncapRely R" and ?G="uncapGuar G" and ?P="uncapPred s P" and ?Q="pushpredAll Q"
-  have "?R,?G \<turnstile> ?P {c} ?Q" using cap(3) by (rule captureE)
-  moreover have "inter ?R ?G r" using cap(4) by simp
+  have "?R,?G \<turnstile> ?P {c} ?Q" using cap(4) by (rule captureE)
+  moreover have "inter ?R ?G r" using cap(5) by simp
   ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {c'} ?Q"
     using cap(2) by force
   have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic s s' \<alpha>'} poppred' s' M"
@@ -95,81 +95,15 @@ lemma rewrite_ruleI [intro]:
   assumes "c \<leadsto> c'"
   shows "R,G \<turnstile> P {c'} Q"
   using assms
-  sorry (*
 proof (induct arbitrary: c' rule: rules.induct)
   case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
   thus ?case by (cases rule: silentE, auto) (blast)+
 next
   case (capture R G s P c Q)
-<<<<<<< HEAD
-  show ?case 
-  proof (cases "Capture s c" c' rule: silent.cases)
-    case seq1
-    then show ?case sorry
-  
-  next
-    case seq2
-    then show ?case sorry
-  next
-    case seqE1
-    then show ?case sorry
-next
-  case seqE2
-  then show ?case sorry
-next
-  case ordE
-  then show ?case sorry
-next
-  case bigc
-  then show ?case sorry
-next
-  case left
-  then show ?case sorry
-next
-  case right
-  then show ?case sorry
-next
-  case loop1
-  then show ?case sorry
-next
-  case loop2
-  then show ?case sorry
-next
-  case par1
-  then show ?case sorry
-next
-case par2
-  then show ?case sorry
-next
-  case parE1
-  then show ?case sorry
-next
-  case parE2
-  then show ?case sorry
-next
-  case thr
-  then show ?case sorry
-next
-  case thrE
-  then show ?case sorry
-next
-  case capE
-  then show ?case sorry
-next
-  case capS
-  then show ?thesis sorry
-next
-  case (capStep c')
-  then show ?thesis sorry
-qed
-    case (19 c c' k)
-    thus ?thesis using capture by auto
-=======
   show ?case using capture
   proof (cases "Capture s c" c' rule: silentE)
     case 1
     then show ?case using capture by auto
->>>>>>> capture-push
   next
     case (15 k)
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} pushpredAll Q"
@@ -187,7 +121,7 @@ qed
     then show ?thesis using capture by auto
   qed auto
 qed (cases rule: silentE, auto)+
-*)
+
 
 text \<open>Judgements are preserved across global execution steps\<close>
 lemma gexecute_ruleI [intro]:

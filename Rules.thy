@@ -144,6 +144,7 @@ lemma stable_preE:
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
 
+(*
 lemma falseI:
   "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
@@ -158,10 +159,11 @@ next
   then show ?case by auto
 next
   case (Capture s c)
-  hence "\<forall>\<beta>\<in>basics c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
+  hence "\<forall>\<beta>\<in>basics c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce 
   hence "\<forall>\<beta>\<in>basics c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
   thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp)
 qed (auto)
+*)
 
 end
 
