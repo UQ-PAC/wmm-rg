@@ -43,6 +43,9 @@ datatype ('a,'b) com =
   | Thread "('a,'b) com"
   | Capture 'b "('a,'b) com"
 
+abbreviation univ_stack ("\<forall>\<^sub>c _" 100)
+  where "univ_stack c \<equiv> \<Sqinter>s. Capture s c"
+
 subsection \<open>Local Command\<close>
 
 text \<open>
@@ -68,43 +71,5 @@ lemma local_simps [simp]:
   "local (c\<^sub>1 || c\<^sub>2) = False"
   "local (Thread c) = False"
   by (auto intro: local.intros elim: local.cases)
-
-subsection \<open>Syntactic Basics\<close>
-
-text \<open>
-Collect basics contained within the command.
-May not directly line up with those basics emitted during evaluation due to the effects
-of forwarding. Consequently, probably a bad idea to use these definitions.
-\<close>
-
-inductive basic :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
-  where
-    "basic (Basic \<beta>) ( \<beta>)" |
-    "basic c\<^sub>1 \<beta> \<Longrightarrow> basic (c\<^sub>1 ;\<^sub>r c\<^sub>2) \<beta>" |
-    "basic c\<^sub>2 \<beta> \<Longrightarrow> basic (c\<^sub>1 ;\<^sub>r c\<^sub>2) \<beta>" |
-    "basic (f s) \<beta> \<Longrightarrow> basic (\<Sqinter>s. f s) \<beta>" |
-    "basic c \<beta> \<Longrightarrow> basic (c*\<^sub>w) \<beta>" |
-    "basic c \<beta> \<Longrightarrow> basic (Capture k c) (popbasic s s' \<beta>)" |
-    "basic c\<^sub>1 \<beta> \<Longrightarrow> basic (c\<^sub>1 || c\<^sub>2) \<beta>" |
-    "basic c\<^sub>2 \<beta> \<Longrightarrow> basic (c\<^sub>1 || c\<^sub>2) \<beta>" |
-    "basic c \<beta> \<Longrightarrow> basic (Thread c) \<beta>"
-inductive_cases basic_tuple: "basic c (a,b,d)"
-
-definition basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
-  where "basics c \<equiv> {\<beta>. basic c \<beta>}"
-
-lemma basics_simps [simp]:
-  "basics Nil = {}"
-  "basics (Basic \<beta>) = {\<beta>}"
-  "basics (c\<^sub>1 ;\<^sub>r c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2"
-  "basics (\<Sqinter>s. f s) = \<Union>{basics (f s) | s. True}"
-  "basics (c*\<^sub>w) = basics c"
-  "basics (Capture k c) = {popbasic s s' \<beta> | s s' \<beta>. \<beta> \<in> basics c}"
-  "basics (c\<^sub>1 || c\<^sub>2) = basics c\<^sub>1 \<union> basics c\<^sub>2"
-  "basics (Thread c) = basics c" 
-  apply (auto simp: basics_def elim: basic.cases  intro: basic.intros)
-  apply (erule basic_tuple; clarsimp; blast)
-  apply (drule basic.intros(6), auto)
-  done
 
 end

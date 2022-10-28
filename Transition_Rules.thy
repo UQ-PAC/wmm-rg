@@ -88,6 +88,17 @@ next
   ultimately show ?case by blast
 qed
 
+lemma test:
+  assumes "pushpred s (stabilise R P) \<subseteq> pushpredAll Q" "x \<in> stabilise R P" 
+  shows "x \<in> Q"
+proof -
+  have "push x s \<in> pushpred s (stabilise R P)" using assms by auto
+  hence "push x s \<in> pushpredAll Q" using assms by auto
+  then obtain x' s' where e: "push x s = push x' s'" "x' \<in> Q" unfolding pushpredAll_def by auto
+  hence "x' = x" using push_inj by auto
+  thus ?thesis using e by auto
+qed
+
 text \<open>Judgements are preserved across silent steps\<close>
 lemma rewrite_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q"
@@ -107,14 +118,15 @@ next
     case (15 k)
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} pushpredAll Q"
       using capture(1) by simp
-    then obtain M where M:
-      "stable (uncapRely R) M" "uncapPred s P \<subseteq> M" "M \<subseteq> pushpredAll Q"
-      by auto
-    hence 1: "stable R (poppred M)" by (simp only: stable_mix)
-    have 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
-      using poppred_mono[OF M(2)] poppred_mono[OF M(3)] by auto
-    have "R,G \<turnstile> poppred M {Nil} Q" using 1 2 by auto
-    thus ?thesis using 2(1) 15(2) by (simp add: conseq)
+    hence t: "stabilise (uncapRely R) (uncapPred s P) \<subseteq> pushpredAll Q"
+      using nilE2 by simp
+    have "R,G \<turnstile> stabilise R P {Nil} stabilise R P"
+      by (simp add: rules.rules.nil stable_stabilise)
+    moreover have "P \<subseteq> stabilise R P"
+      by (simp add: stabilise_supset)
+    moreover have "stabilise R P \<subseteq> Q"
+      using t test unfolding stabilise_pushrel by blast
+    ultimately show ?thesis using 15(2) by blast
   next
     case (16 c'' c''' k)
     then show ?thesis using capture by auto

@@ -180,9 +180,10 @@ lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stab
 unfolding stable_def pushrelSame_def pushpred_def
 by (auto, metis pop_push)
 
+(*
 lemma stable_mix: "stable (pushrelSame R) M \<Longrightarrow> stable R (poppred M)"
 unfolding stable_def pushrelSame_def poppred_def
-by auto (metis pop_push push_pop)
+by auto (metis pop_push push_pop) *)
 
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
@@ -224,6 +225,7 @@ proof -
     using pushrel_in_pushrelAll[of s s'] by auto
 qed
 
+(*
 lemma guar_mix:
   assumes "\<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<alpha>) G"
   shows "guar\<^sub>\<alpha> \<alpha> (uncapGuar G)"
@@ -237,7 +239,7 @@ proof (clarsimp)
   hence "(pop m\<^sub>1, pop m\<^sub>2) \<in> G"
     using assms unfolding guar\<^sub>\<alpha>_rel poprel'_def poppred'_def guar_def by auto
   thus "(m\<^sub>1, m\<^sub>2) \<in> pushrelAll G" using s by (auto simp: pushrelAll_def)
-qed
+qed*)
 
 (*
 lemma guar_capE:

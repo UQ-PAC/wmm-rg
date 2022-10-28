@@ -107,18 +107,6 @@ lemma local_silent:
   "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"  
   by (induct rule: silent.induct) (auto simp add: local_execute)
 
-text \<open>An execution step will not introduce new basics\<close>
-lemma basics_exec:
-  assumes "c \<mapsto>[\<alpha>'',r] c'" 
-  shows "basics c \<supseteq> basics c'"
-  using assms by induct (auto, blast)
-
-text \<open>A silent step will not introduce new basics\<close>
-lemma basics_silent:
-  assumes "c \<leadsto> c'" 
-  shows "basics c \<supseteq> basics c'"
-  using assms by induct (auto, blast)
-
 section \<open>Transition Definitions\<close>
 
 text \<open>These transitions are over configurations of (program,state)\<close>
@@ -147,6 +135,38 @@ inductive_set transitions :: "('a,'b) config list set"
     prg[intro]: "s -\<alpha>\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |
     sil[intro]: "s -s\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions"
 inductive_cases transitionsE[elim]: "t \<in> transitions"
+
+section \<open>Observable atomics\<close>
+
+inductive obs_trace
+  where 
+    "obs_trace [] c" |
+    "c \<leadsto> c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace t c" |
+    "c \<mapsto>[\<alpha>,r] c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace (\<alpha>#t) c"
+
+definition obs
+  where "obs c \<equiv> {\<alpha>. \<exists>t. \<alpha> \<in> set t \<and> obs_trace t c}"
+
+lemma obs_exec:
+  assumes "c \<mapsto>[\<alpha>',r] c'"
+  shows "obs c \<supseteq> obs c'"
+  unfolding obs_def using assms obs_trace.intros(3) 
+  by (smt (verit, best) Collect_mono set_subset_Cons subsetD)
+
+lemma obs_sil:
+  assumes "c \<leadsto> c'"
+  shows "obs c \<supseteq> obs c'"
+  unfolding obs_def using assms obs_trace.intros(2) by auto
+
+lemma obs_act:
+  assumes "c \<mapsto>[\<alpha>',r] c'"
+  shows "\<alpha>' \<in> obs c"
+  using assms unfolding obs_def 
+  by clarsimp (meson list.set_intros(1) obs_trace.intros(1,3))
+
+lemma obs_nil [simp]:
+  "obs Nil = {}"
+  by (auto simp: obs_def elim: obs_trace.cases)
 
 end
 

@@ -39,6 +39,24 @@ lemma nilE [elim!]:
   using assms 
   by (induct R G P "Nil :: ('a,'b) com" Q) blast+
 
+lemma nilE2:
+  assumes "R,G \<turnstile> P {Nil} Q"
+  shows "stabilise R P \<subseteq> Q"
+  using assms 
+proof (induct R G P "Nil :: ('a,'b) com" Q)
+  case (nil R P G)
+  then show ?case 
+    by (simp add: stabilise_stable) 
+next
+  case (conseq R G P Q P' R' G' Q')
+  then show ?case 
+    by (meson dual_order.trans stabilise_mono_RP) 
+next
+  case (inv R G P Q R' I)
+  then show ?case 
+    by (metis Int_commute inf_mono order_refl stabilise_inter_RP stabilise_stable subset_trans)
+qed
+
 lemma basicE [elim!]:
   assumes "R,G \<turnstile> P {Basic \<beta>} Q"
   obtains Q' where "R,G \<turnstile>\<^sub>A stabilise R P {\<beta>} Q'" "Q' \<subseteq> Q"
@@ -144,24 +162,32 @@ lemma stable_preE:
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
 
+text \<open>Universal quantification of top-most stack frame\<close>
+lemma univ_captureI:
+  assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
+  shows "R,G \<turnstile> P {\<forall>\<^sub>c c} Q"
+  using assms by (intro choice allI capture) simp
+
+(*
 lemma falseI:
-  "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
+  "local c \<Longrightarrow> \<forall>\<beta> \<in> obs c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
 next
   case (Choice x)
-  thus ?case by (intro choice allI Choice(1)) auto
+  thus ?case
+    by (intro choice allI Choice(1)) auto
 next
   case (Seq c1 w c2)
   hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
   then show ?case by auto
 next
   case (Capture s c)
-  hence "\<forall>\<beta>\<in>basics c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
-  hence "\<forall>\<beta>\<in>basics c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
+  hence "\<forall>\<beta>\<in>overbasic c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
+  hence "\<forall>\<beta>\<in>overbasic c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
   thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp)
-qed (auto)
+qed (auto) *)
 
 end
 
