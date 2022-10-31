@@ -17,7 +17,7 @@ fun re\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r) subop \<Rightarrow> bool"
                 wr \<alpha> \<inter> wr \<beta> = {} \<and> 
                 rd \<alpha> \<inter> wr \<beta> = {})"
 
-text \<open>Sub-Instruction Forwarding\<close>
+text \<open>Sub-Instruction Forwarding\<close>   (* fwd\<^sub>i \<alpha> \<beta> == forward \<alpha> over \<beta>  == \<alpha>\<^sub><\<^sub>\<beta>\<^sub>> *) 
 fun fwd\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,'r) subop" 
   where
     "fwd\<^sub>i \<alpha> (cstore b g e) = subst\<^sub>g \<alpha> g e" |
@@ -25,7 +25,7 @@ fun fwd\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,
     "fwd\<^sub>i \<alpha> (op r e) = subst\<^sub>r \<alpha> r e" |
     "fwd\<^sub>i \<alpha> _ = \<alpha>"
 
-definition comp (infixr "\<Otimes>" 60)
+definition comp (infixr "\<Otimes>" 60)   
   where "comp a b \<equiv> {(m,m'). \<exists>m''. (m,m'') \<in> a \<and> (m'',m') \<in> b}"
 
 lemma [simp]:
@@ -45,6 +45,10 @@ This is achieved by allowing arbitrary extensions to the state representation, w
 can be updated atomically at any sub-operation.
 This auxiliary state cannot influence real execution behaviour by definition.
 \<close>
+(* to be used for ghost/aux variables like \<Gamma> and their updates *) 
+(* aux state not affected by reord or forwarding *)
+(* when used to capture the Cache, does the Cache state influence the execution behaviour?? *)
+
 type_synonym ('v,'r,'a) auxop = "('v,'r) subop \<times> ('v,'r,'a) auxfn"
 
 fun beh\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) state rel"
@@ -56,10 +60,12 @@ fun re\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow>
 fun fwd\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop" 
   where "fwd\<^sub>a (\<alpha>,f) \<beta> = (fwd\<^sub>i \<alpha> (fst \<beta>),f)"
 
+
+
 section \<open>Sub-Instruction Specification Language\<close>
 
 text \<open>
-To instantiate the abstract theory, we must couple each sub-operation with its precondition
+To instantiate the abstract theory, we must couple each sub-operation with its precondition/vc
 and behaviour in a tuple\<close>
 type_synonym ('v,'r,'a) subbasic = "(('v,'r,'a) auxop, ('v,'r,'a) state) basic"
 
@@ -69,12 +75,12 @@ fun fwd\<^sub>s :: "('v,'r,'a) subbasic \<Rightarrow> ('v,'r,'a) auxop \<Rightar
 (*   where "fwd\<^sub>s (\<alpha>,v,_) \<beta> =  (fwd\<^sub>a \<alpha> \<beta>, wp UNIV (beh\<^sub>a \<beta>) v, beh\<^sub>a (fwd\<^sub>a \<alpha> \<beta>))" 
  *)
 
-text \<open>Lift an operation with specification\<close>
+text \<open>Lift an operation with vc specification \<close>
 definition liftg :: "('v,'r,'a) pred \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) subbasic" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
-text \<open>Lift an operation without specification\<close>
+text \<open>Lift an operation without vc specification\<close>
 definition liftl :: "('v,'r) subop \<Rightarrow> ('v,'r,'a) subbasic" 
   ("\<lfloor>_\<rfloor>" 100)
   where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"

@@ -23,6 +23,9 @@ datatype ('a,'b) log =
 
 type_synonym ('a,'b) bookkeeping = "('a,'b) log list"
 
+text \<open> Locale semantics fixes the types 'a and 'b state; 
+        parameters exists_act and exists_state  are used as dummies to do so \<close>
+
 locale semantics =
   fixes exists_act :: "'a"
   fixes exists_state :: "'b::state"
@@ -55,11 +58,6 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
                                             Capture s c \<mapsto>[popbasic s s' \<alpha>',Scope#r] Capture s' c'"  
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
-
-(*
-lemma lexecute_triple: "c \<mapsto>[\<alpha>',r,\<alpha>] c' \<Longrightarrow> \<alpha>' = \<alpha>\<llangle>r\<rrangle>"
-by (induct rule: lexecute.induct) auto
-*)
 
 fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow> ('a,'b) basic set"
   where
@@ -151,31 +149,34 @@ next
     by (metis (mono_tags, lifting) a0 fst_conv mem_Collect_eq prod.collapse snd_conv)
 qed
 
+
+lemma basics_gexecute: 
+  assumes "gexecute c g c'" 
+  shows "\<exists>\<alpha> r. (beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {} \<and> g = beh \<alpha>" 
+  using assms proof induct  
+  case (thr c \<alpha>' r c')
+  then show ?case using basics_simps(8) basics_lexec by blast
+next
+  case (par1 c\<^sub>1 g c\<^sub>1' c\<^sub>2)
+  then show ?case using basics_simps(7) basics_lexec by blast
+next
+  case (par2 c\<^sub>2 g c\<^sub>2' c\<^sub>1)
+  then show ?case using basics_simps(7) basics_lexec by blast
+qed
+
+
+
 text \<open>A silent step will not introduce parallelism\<close>
 lemma local_silent:
   "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"  
   by (induct rule: silent.induct) (auto simp add: local_execute)
 
 (* This probably doesn't hold in the ooo case; instead we have basics_lexec
-
 text \<open>An execution step will not introduce new basics\<close>
 lemma basics_exec:
   assumes "c \<mapsto>[\<alpha>',r] c'" 
   shows "basics c \<supseteq> basics c'"
-  using assms  (*by induct (auto, blast)*)
-proof induct
-  case (act \<alpha>)
-  then show ?case by auto
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then show ?case by auto
-next
-  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
-  then show ?case sorry
-next
-  case (cap c \<alpha>' r c' s s')
-  then show ?case by auto
-qed
+  using assms  by induct (auto, blast)
 *)
 
 
@@ -194,13 +195,6 @@ lemma basics_par:
         "basics c\<^sub>2 \<subseteq> basics (c\<^sub>1 || c\<^sub>2)" 
   using assms by simp+
 
-(*  we don't have basics_exec 
-lemma basics_gexec:
-  assumes "c \<mapsto>[g] c'" 
-  shows "basics c \<supseteq> basics c'"
-  using assms using basics_exec basics_par by (induct) auto
-*)
-
 section \<open>Transition Definitions\<close>
 
 text \<open>These transitions are over configurations of (program,state)\<close>
@@ -213,7 +207,6 @@ text \<open>Program Execution Transition\<close>
 abbreviation exec_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
   where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>g. fst s \<mapsto>[g] (fst s') \<and> (snd s,snd s') \<in> g"
 
-(* does the mem-state stay the same over a Capture step? *)
 text \<open>Program Silent Transition\<close>
 abbreviation sil_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)
   where "s -s\<rightarrow> s' \<equiv> fst s \<leadsto> fst s' \<and> snd s = snd s'"

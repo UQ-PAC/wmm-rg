@@ -1,11 +1,31 @@
 theory ARMv8_State
-  imports Main
+  imports Main "../Push_State"
 begin
 
 section \<open>State Encoding\<close>
 
-datatype ('v,'r) var = Reg 'r | Glb 'v
+
+datatype ('v,'r) var = Reg 'r | Glb 'v | Tmp 'r
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
+
+
+ (* fun is a binding for 'a \<Rightarrow> 'v; the parameters (type,type) define that 
+    there is no restriction on the generic types 'a and 'v  *)
+instance"fun" :: (type, type) state
+proof
+  fix m m' s s' :: "'a \<Rightarrow> 'v::state" 
+  show "push m s = push m' s' \<Longrightarrow> m = m' \<and> s = s'" 
+    
+
+
+(* 
+  state_rec to be interpreted as class state in Push_State.thy;
+  - the aux component is just reserved for ghost-variables like \<Gamma> etc.
+  - the Tmp registers are used when splitting commands into sub-operations,
+     e.g. Load is lifted into a sequence of subops via lift\<^sub>c in ARMv8_Rules.thy  
+*)
+
+(* _scheme add the "more" field to a record to generalise it (Tutorial p.152) *)
 
 type_synonym ('v,'r,'a) state = "('v,('v,'r) var,'a) state_rec_scheme"
 type_synonym ('v,'a) gstate = "('v,'v,'a) state_rec_scheme"
@@ -13,11 +33,11 @@ type_synonym ('v,'a) gstate = "('v,'v,'a) state_rec_scheme"
 type_synonym ('v,'r,'a) pred = "('v,'r,'a) state set"
 type_synonym ('v,'a) gpred = "('v,'a) gstate set"
 
-type_synonym ('v,'r,'a) trel = "('v,'r,'a) state rel"
-type_synonym ('v,'a) grel = "('v,'a) gstate rel"
+type_synonym ('v,'r,'a) trel = "('v,'r,'a) state rel"  (* transition relation *)
+type_synonym ('v,'a) grel = "('v,'a) gstate rel"       (* trans rel reduced to globals/observable *)
 
-type_synonym ('v,'r,'a) trans = "('v,'r,'a) pred \<Rightarrow> ('v,'r,'a) pred"
-type_synonym ('v,'r,'a) rtrans = "('v,'r,'a) trel \<Rightarrow> ('v,'r,'a) trel"
+type_synonym ('v,'r,'a) trans = "('v,'r,'a) pred \<Rightarrow> ('v,'r,'a) pred"  (* pred transformer *)
+type_synonym ('v,'r,'a) rtrans = "('v,'r,'a) trel \<Rightarrow> ('v,'r,'a) trel" (* rel transformer *)
 
 type_synonym ('v,'r,'a) auxfn = "('v,('v,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
 
@@ -40,6 +60,8 @@ abbreviation globals
 
 section \<open>Write Operations\<close>
 
+(* (a:=b) to be read as a mapping a \<rightarrow> b, i.e., we upd state record m with m where the mapping 
+    to a \<rightarrow> _ is replaced by the new mapping a \<rightarrow> b  *) 
 definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v \<Rightarrow> ('v,'a,'b) state_rec_scheme"
   where "st_upd m a b = m \<lparr> st := ((st m) (a := b)) \<rparr>"
 

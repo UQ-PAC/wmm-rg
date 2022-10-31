@@ -15,14 +15,14 @@ fun sim :: "('a,'b) com \<Rightarrow> bool"
   where 
     "sim (c\<^sub>1 || c\<^sub>2) = False" |
     "sim (Thread _) = False" |
-    "sim (c*) = False" |   
-    "sim (c\<^sub>1 \<cdot> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
-    "sim (c\<^sub>1 ;; c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
-    "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |  
+    "sim (c*\<^sub>w) = False" |   
+    "sim (c\<^sub>1 ;\<^sub>w c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
+    "sim (Choice f) = (\<forall>l. sim (f l))" |
     "sim _ = True"
 
 definition wfbasic :: "('v,'r,'a) subbasic \<Rightarrow> bool"
-  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (tag \<beta>) \<and> (case inst \<beta> of cfence \<Rightarrow> vc \<beta> = UNIV \<and> beh \<beta> = beh\<^sub>i cfence | _ \<Rightarrow> True)"
+  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (tag \<beta>) \<and> 
+                          (case inst \<beta> of cfence \<Rightarrow> vc \<beta> = UNIV \<and> beh \<beta> = beh\<^sub>i cfence | _ \<Rightarrow> True)"
 
 definition wfcom
   where "wfcom c \<equiv> \<forall>\<beta> \<in> basics c. wfbasic \<beta>"

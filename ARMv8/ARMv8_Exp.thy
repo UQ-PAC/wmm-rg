@@ -472,7 +472,9 @@ proof -
     have "smap \<alpha> M = subst\<^sub>i (smap \<alpha> ?M) x (Val (the (M x)))"
     proof -
       have mx: "Finite_Set.fold (smap1 M) \<alpha> (rd \<alpha> - {x}) = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})"
-        by (auto intro!: Finite_Set.fold_cong simp add: cfi.comp_fun_commute_axioms)
+        apply (auto intro!: Finite_Set.fold_cong simp add: cfi.comp_fun_commute_axioms) 
+         apply (simp add: cfi.comp_fun_commute_on comp_fun_commute_on.intro) 
+        by (simp add: cfi.comp_fun_commute_on comp_fun_commute_on.intro)
       show ?thesis
       proof (cases "x \<in> rd \<alpha>")
         case True
@@ -512,8 +514,10 @@ proof -
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> ?M"
     proof -
       have mx: "Finite_Set.fold (smap1 M) \<alpha> (rd \<alpha> - {x}) = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})"
-        by (auto intro!: Finite_Set.fold_cong simp add: cfi.comp_fun_commute_axioms)
-      show ?thesis
+        apply (auto intro!: Finite_Set.fold_cong simp add: cfi.comp_fun_commute_axioms)
+         apply (simp add: cfi.comp_fun_commute_on comp_fun_commute_on.intro)
+        by (simp add: cfi.comp_fun_commute_on comp_fun_commute_on.intro)
+        show ?thesis
       proof (cases "x \<in> rd \<alpha>")
         case True
         hence [simp]: "insert x (rd \<alpha>) = rd \<alpha>" by auto
@@ -586,10 +590,12 @@ lemma st_upd_eq [intro]:
   "state_rec.more m = state_rec.more m' \<Longrightarrow> \<forall>x. x \<noteq> y \<longrightarrow> st m x = st m' x \<Longrightarrow> m(y :=\<^sub>s e) = m'(y :=\<^sub>s e)"
   by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
 
+
 lemma beh_substi [simp]:
   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s ev\<^sub>E (rg m\<^sub>1) e),m) \<in> beh\<^sub>i \<alpha>}"
   apply (cases \<alpha>; cases x; clarsimp simp: upd_def)
   by (auto intro!: equality split: if_splits) auto
+
 
 lemma [simp]:
   "st (m(x :=\<^sub>s e)) = (st m)(x := e)"

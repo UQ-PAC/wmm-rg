@@ -114,7 +114,7 @@ proof safe
       using 2(3)[OF itm4 itm2(1) itm3(2) itm1(2) itm6] by blast
     then show ?case using "2.prems"(4) itm3(1) by blast
    qed
-   thus ?thesis using that by (meson security.ev_def) (*Could it be nicer?*)
+   thus ?thesis using that by (meson security.ev_def)
  qed
 
 theorem secure_bisim:

@@ -1,5 +1,5 @@
 theory ARMv8_Rules    
-  imports "../Soundness" ARMv8 "HOL-Eisbach.Eisbach"
+  imports "../Security" ARMv8 "HOL-Eisbach.Eisbach"
 begin
 
 section \<open>Wellformedness\<close>
@@ -80,7 +80,7 @@ lemma stabilize_entail :
 
 section \<open>Predicate Transformations\<close>
 
-text \<open>Transform a predicate based on an sub-operation\<close>
+text \<open>Transform a predicate based on a sub-operation\<close>  (*pred transformer Q \<longrightarrow>  wp c Q *)
 fun wp\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r,'a) trans" 
   where 
     "wp\<^sub>i (load v e) Q = {m. st m (Glb v) = ev\<^sub>E (rg m) e \<longrightarrow> m \<in> Q}" | 
@@ -91,18 +91,26 @@ fun wp\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r,'a) trans"
     "wp\<^sub>i (cas\<^sub>F v e\<^sub>1) Q = {m. st m (Glb v) \<noteq> ev\<^sub>E (rg m) e\<^sub>1 \<longrightarrow> m \<in> Q}" | 
     "wp\<^sub>i _ Q = Q"
 
+(* m(Glb v :=\<^sub>s ev\<^sub>E (rg m) e) is syntax for updating the state:
+      m \<lparr> st := ((st m) (Glb v := ev\<^sub>E (rg m) e)) \<rparr>  -- see ARMv8_State.thy
+*)
+
 text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
-  where "wp\<^sub>a a Q = {m. (m(aux: a)) \<in> Q}"
+  where "wp\<^sub>a a Q = {m. (m(aux: a)) \<in> Q}"            
+  (* m(aux: a) is the syntax for updating the more in m to a:
+                         m\<lparr>state_rec.more := a m\<rparr>           *)
 
+
+(* Instructions are syntactic and don't refer to state, used in wpre and wp *) 
 datatype ('v,'r,'a) insts =
   ld "('v,'r,'a) pred" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
   | sr "('v,'r,'a) pred" "('v,'r) bexp" "('v,'r) exp" 'r "('v,'r,'a) auxfn"
   | ir 'r "('v,'r) exp" 
   | cm "('v,'r) bexp"
   | ncm "('v,'r) bexp"
-  | env "('v,'a) grel"
-  | cs "('v,'r,'a) pred" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
+  | env "('v,'a) grel"                                         (* env step *)
+  | cs "('v,'r,'a) pred" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"  (* cas inst *)
 
 text \<open>Transform a predicate based on a successful CAS instruction\<close>
 abbreviation wp_CAS\<^sub>T :: "('v,'r,'a) pred \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 'v \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) trans"
@@ -159,15 +167,16 @@ fun guar\<^sub>c
 section \<open>Locale Interpretation\<close>
 
 text \<open>Convert the ARMv8 language into the abstract language expected by the underlying logic\<close> 
-fun lift\<^sub>c :: "('v,'r,'a) com_armv8 \<Rightarrow> (('v,'r,'a) auxop, ('v,'r,'a) state) com"
+
+fun lift\<^sub>c :: "(('v,'r,'a) auxop, ('v,'r,'a) state) wmm \<Rightarrow> ('v,'r,'a) com_armv8 \<Rightarrow> (('v,'r,'a) auxop, ('v,'r,'a) state) com"
   where
-    "lift\<^sub>c Skip = com.Nil" |
-    "lift\<^sub>c Fence = Basic (\<lfloor>fence\<rfloor>)" |
-    "lift\<^sub>c (Op r e) = Basic (\<lfloor>op r e\<rfloor>)" |
-    "lift\<^sub>c (Load c d r\<^sub>a r a) = \<Sqinter> {[
-      \<lfloor>eq r\<^sub>a (Val v\<^sub>a)\<rfloor>, 
-      \<lfloor>{m. ev\<^sub>E (rg m) r\<^sub>a = v\<^sub>a} \<inter> c,load v\<^sub>a (Val v), (\<lambda>m. a (m(Reg r :=\<^sub>s v)))\<rfloor>, 
-      \<lfloor>op r (Val v)\<rfloor>] |v v\<^sub>a. v\<^sub>a \<in> d}" |
+    "lift\<^sub>c w Skip = com.Nil" |
+    "lift\<^sub>c w Fence = Basic (\<lfloor>fence\<rfloor>)" |
+    "lift\<^sub>c w (Op r e) = Basic (\<lfloor>op r e\<rfloor>)" |
+    "lift\<^sub>c w (Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1);\<^sub>w (lift\<^sub>c c\<^sub>2)"  
+(*  #1 and#2 are temp registers which are captured/hidden through \<forall>\<^sub>c operator; the command
+     to be captured is a sequence of subops which can potentially reorder: guard; upd; upd *)
+(*    "lift\<^sub>c (Load c d r\<^sub>a r a) = \<forall>\<^sub>c ([#1 = r\<^sub>a] ;\<^sub>w #2 := glb(#1) ;\<^sub>w r := #2 )" | 
     "lift\<^sub>c (Store c d r\<^sub>a r a) = \<Sqinter> {[
       \<lfloor>eq r\<^sub>a (Val v\<^sub>a)\<rfloor>, 
       \<lfloor>{m. ev\<^sub>E (rg m) r\<^sub>a = v\<^sub>a} \<inter> c,cstore True\<^sub>B v\<^sub>a (Var r), a\<rfloor>] |v\<^sub>a. v\<^sub>a \<in> d}" |
@@ -180,12 +189,18 @@ fun lift\<^sub>c :: "('v,'r,'a) com_armv8 \<Rightarrow> (('v,'r,'a) auxop, ('v,'
         \<lfloor>eq (Var r\<^sub>a) (Val v\<^sub>a)\<rfloor>, 
         \<lfloor>{m. rg m r\<^sub>a = v\<^sub>a} \<inter> c,cas\<^sub>F v\<^sub>a (Var r\<^sub>1),(\<lambda>m. a (m(Reg r :=\<^sub>s F)))\<rfloor>, 
         \<lfloor>op r (Val F)\<rfloor>] |v\<^sub>a. v\<^sub>a \<in> d}))" |
-    "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1 ;; lift\<^sub>c c\<^sub>2)" |
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
       (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c\<^sub>1)) 
-      (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" 
+      (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" *)
+*)
 
-interpretation rules fwd\<^sub>s re\<^sub>a by (unfold_locales) (auto)
+(* these two dummy parameters used in the interpretation of rules 
+    and help to instantiate the types of auxop and state for ARMv8 *)
+
+abbreviation "someAuxOp ::('v,'r,'a) auxop  \<equiv> undefined"
+abbreviation "someState :: ('v,'r,'a) state \<equiv> undefined" 
+
+interpretation rules "someAuxOp" "someState" by (unfold_locales) 
 
 abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
   where "rules_abv \<equiv> rules"

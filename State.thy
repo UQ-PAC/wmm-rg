@@ -112,7 +112,7 @@ that the global component from the first is merged with the local component of t
 We refer to this operation as op throughout the definitions.
 \<close>
 
-type_synonym 'b merge = "'b \<Rightarrow> 'b \<Rightarrow> 'b"
+type_synonym 'b merge = "'b \<Rightarrow> 'b \<Rightarrow> 'b"  (* note merge is just a type syn! *) 
 
 text \<open>Collect all states where their combination with the local state of l satisfies P\<close>
 definition thr\<^sub>P :: "'b merge \<Rightarrow> 'b \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
@@ -178,11 +178,11 @@ lemma thr_guar:
 section \<open>Auxiliary State\<close>
 
 text \<open>
-To support auxiliary state, we require a state relation the relates two states given their
+To support auxiliary state, we require a state relation that relates two states given their
 real components are equivalent.
 \<close>
 
-definition aux\<^sub>P
+definition aux\<^sub>P                           (* r\<^sup>= \<equiv> r \<union> Id *)
   where "aux\<^sub>P r P \<equiv> {m. \<exists>m'. (m,m') \<in> r\<^sup>= \<and> m' \<in> P}"
 
 definition aux\<^sub>R
