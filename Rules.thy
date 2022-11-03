@@ -39,6 +39,24 @@ lemma nilE [elim!]:
   using assms 
   by (induct R G P "Nil :: ('a,'b) com" Q) blast+
 
+lemma nilE2:
+  assumes "R,G \<turnstile> P {Nil} Q"
+  shows "stabilise R P \<subseteq> Q"
+  using assms 
+proof (induct R G P "Nil :: ('a,'b) com" Q)
+  case (nil R P G)
+  then show ?case 
+    by (simp add: stabilise_stable) 
+next
+  case (conseq R G P Q P' R' G' Q')
+  then show ?case 
+    by (meson dual_order.trans stabilise_mono_RP) 
+next
+  case (inv R G P Q R' I)
+  then show ?case 
+    by (metis Int_commute inf_mono order_refl stabilise_inter_RP stabilise_stable subset_trans)
+qed
+
 lemma basicE [elim!]:
   assumes "R,G \<turnstile> P {Basic \<beta>} Q"
   obtains Q' where "R,G \<turnstile>\<^sub>A stabilise R P {\<beta>} Q'" "Q' \<subseteq> Q"
@@ -144,8 +162,7 @@ lemma stable_preE:
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
 
-
-
+(*
 text \<open> Combining choice with capture to provide the choice over some var that is "hidden" \<close>
 
 abbreviation univ_capture  ("\<forall>\<^sub>c _")
@@ -154,95 +171,34 @@ abbreviation univ_capture  ("\<forall>\<^sub>c _")
 (* \<forall>\<^sub>c here chooses some pushed s without knowing it, hence wp (\<Sqinter>s. Capture s c) Q 
    is the wp to reach Q for all elems which might be topmost on the mem-stack *)
 
-lemma univ_capture:
+text \<open>Universal quantification of top-most stack frame\<close>
+lemma univ_captureI:
   assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
   shows "R,G \<turnstile> P {\<forall>\<^sub>c c} Q"
   using assms by (intro choice allI capture) simp
+*)
 
-
-(*----------------------------------------------*)
-(* Lemma falseI does not hold anymore, instead it would need to distinguish between different 
-    concepts of basic instructions: sc basic, forwarded basic, or reordered basic;
-   the lemma would look like this
-  "local c \<Longrightarrow> \<forall>\<beta> r. (beforeReord \<beta> r) \<inter> (basics c) \<noteq> {} \<and> guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
-         *)
-(*----------------------------------------------*)
-
-lemma falseI_old:
-  "local c \<Longrightarrow> \<forall>\<beta> \<in> basics c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
+(*
+lemma falseI:
+  "local c \<Longrightarrow> \<forall>\<beta> \<in> obs c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
 next
   case (Choice x)
-  thus ?case by (intro choice allI Choice(1)) auto
+  thus ?case
+    by (intro choice allI Choice(1)) auto
 next
   case (Seq c1 w c2)
   hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
   then show ?case by auto
 next
   case (Capture s c)
-(* this doesn't hold anymore since (basics Capture s c) has changed to equal (basic c) *)
-  hence "\<forall>\<beta>\<in>basics c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" sorry 
-  hence "\<forall>\<beta>\<in>basics c. guar\<^sub>\<alpha> \<beta> (pushrelAll G)" using guar_mix by force 
-  thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp) 
-    oops
-  (*qed (auto) *)
-
-
-(* Lemma falseI does not hold anymore, instead it would need to distinguish between different 
-    concepts of basic instructions: sc basic, forwarded basic, or reordered basic;
-   the lemma would look like this *)
-
-
-
-
-lemma sub_beforeReord:
-  shows "(beforeReord \<beta> r \<inter> basics (c1) \<noteq> {}) \<Longrightarrow> 
-           (beforeReord \<beta> r \<inter> basics (c1 ;\<^sub>x2a c2 ) \<noteq> {}) " using basics_simps(4) by auto
-  
-lemma falseI:
-  "local c \<Longrightarrow> \<forall>\<beta> r. (beforeReord \<beta> r) \<inter> (basics c) \<noteq> {} \<and> guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
-                        (is "?L1 \<Longrightarrow> ?L2 \<Longrightarrow> ?R") 
- proof (induct c arbitrary: R G)
-case Nil
-then show ?case by auto
-next
-  case (Basic x)
-  then show ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
-next
-  case (Seq c1 x2a c2) 
-  have a0:"local c1" "local c2" using Seq(3) by auto
-  have a5:"\<forall>\<beta> r. (beforeReord \<beta> r \<inter> basics (c1) \<noteq> {}\<longrightarrow> beforeReord \<beta> r \<inter> basics (c1 ;\<^sub>x2a c2) \<noteq> {})"
-    using sub_beforeReord by blast
-  have a6:"\<forall> \<beta> r .(beforeReord \<beta> r \<inter> basics (c1 ;\<^sub>x2a c2) \<noteq> {} \<longrightarrow> guar\<^sub>\<alpha> \<beta> G)" using Seq(4) by simp
-  have a1:"\<forall>\<beta> r. beforeReord \<beta> r \<inter> basics c1 \<noteq> {} \<and> guar\<^sub>\<alpha> \<beta> G" using a5 Seq(4) a6 sorry
-  hence a2:"R,G \<turnstile> {} {c1} {}" using a0(1) a1 by (simp add: Seq.hyps(1))
-  have a3:"\<forall>\<beta> r. beforeReord \<beta> r \<inter> basics c2 \<noteq> {} \<and> guar\<^sub>\<alpha> \<beta> G" using Seq(4) basics_simps sorry
-  hence a4:"R,G \<turnstile> {} {c2} {}" using a0(2) a2 by (simp add: Seq.hyps(2))
-  obtain M where "R,G \<turnstile> {} {c1} M \<and> R,G \<turnstile> M {c2} {}" using Seq(1,2) seq a2 a4 by blast
-  then have "R,G \<turnstile> M {c2} {} \<Longrightarrow> R,G \<turnstile> {} {c2} M" by auto
-  then have  "R,G \<turnstile> {} {c1 ;\<^sub>x2a c2 } {}" using seq using a2 a4 by presburger
-  then show ?case by auto
-  term ?case
-next
-  case (Choice x)
-  then show ?case sorry
-next
-  case (Loop c x2a)
-  then show ?case by auto
-next
-case (Parallel c1 c2)
-  then show ?case by auto
-next
-  case (Thread c)
-then show ?case by auto
-next
-  case (Capture x1 c)
-then show ?case sorry
-qed
-        
-
+  hence "\<forall>\<beta>\<in>overbasic c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
+  hence "\<forall>\<beta>\<in>overbasic c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
+  thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp)
+qed (auto) 
+*)
 
 end
 

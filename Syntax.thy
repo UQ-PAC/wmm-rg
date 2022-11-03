@@ -48,6 +48,9 @@ datatype ('a,'b) com =
   | Thread "('a,'b) com"
   | Capture 'b "('a,'b) com"
 
+abbreviation univ_stack ("\<forall>\<^sub>c _" 100)
+  where "univ_stack c \<equiv> \<Sqinter>s. Capture s c"
+
 subsection \<open>Local Command\<close>
 
 text \<open>
@@ -74,8 +77,9 @@ lemma local_simps [simp]:
   "local (Thread c) = False"
   by (auto intro: local.intros elim: local.cases)
 
-subsection \<open>Syntactic Basics\<close>
 
+(*
+subsection \<open>Syntactic Basics\<close>
 text \<open>
 Collect basics contained within the command.
 May not directly line up with those basics emitted during evaluation due to the effects
@@ -109,5 +113,7 @@ lemma basics_simps [simp]:
   "basics (Thread c) = basics c" 
   apply (auto simp: basics_def elim: basic.cases  intro: basic.intros)
     done
+*)
+
 
 end

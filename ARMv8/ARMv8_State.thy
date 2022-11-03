@@ -8,21 +8,15 @@ section \<open>State Encoding\<close>
 datatype ('v,'r) var = Reg 'r | Glb 'v | Tmp 'r
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
 
-
- (* fun is a binding for 'a \<Rightarrow> 'v; the parameters (type,type) define that 
-    there is no restriction on the generic types 'a and 'v  *)
-instance"fun" :: (type, type) state
-proof
-  fix m m' s s' :: "'a \<Rightarrow> 'v::state" 
-  show "push m s = push m' s' \<Longrightarrow> m = m' \<and> s = s'" 
-    
-
-
 (* 
   state_rec to be interpreted as class state in Push_State.thy;
   - the aux component is just reserved for ghost-variables like \<Gamma> etc.
   - the Tmp registers are used when splitting commands into sub-operations,
      e.g. Load is lifted into a sequence of subops via lift\<^sub>c in ARMv8_Rules.thy  
+
+  build a tree structure of state_rec  and instantiate 
+  the type-generic tree as (state) state (see below)
+
 *)
 
 (* _scheme add the "more" field to a record to generalise it (Tutorial p.152) *)
@@ -135,5 +129,36 @@ lemma [simp]:
 lemma [simp]:
   "aux (m(Reg x :=\<^sub>s e)) = aux m"
   by (auto simp: aux_def st_upd_def)
+
+
+text \<open> recTree as data structure in which each leaf is a state record \<close>
+
+datatype  'n tree = Leaf 'n | Branch "'n tree" "'n tree"
+
+
+text \<open> recTree is instantiated as a Push state such that push creates
+        a new sibling branch (to current branch) for which the push
+        mapping s becomes defined \<close>
+
+(* the parameter (type) would define that there is no restriction on the 
+   generic types 'a 
+   the parameter (state) says that 'a has to be a state
+    (similar usage found in lattice.thy)
+*)
+
+instantiation "tree" :: (state) state
+begin
+definition  
+      push_rec_def: "push m s = Branch m s"
+
+instance proof
+  fix m m' s s':: "'a tree"
+  show "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')" 
+    by (simp add: ARMv8_State.push_rec_def)
+qed
+end
+
+
+type_synonym ('v,'r,'a) recTree = "('v,'r,'a) state tree"
 
 end

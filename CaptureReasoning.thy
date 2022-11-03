@@ -12,7 +12,7 @@ by (auto, metis pop_push)
 
 lemma stable_mix: "stable (pushrelSame R) M \<Longrightarrow> stable R (poppred M)"
 unfolding stable_def pushrelSame_def poppred_def
-by auto (metis pop_push push_pop)
+  oops
 
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
@@ -54,6 +54,7 @@ proof -
     using pushrel_in_pushrelAll[of s s'] by auto
 qed
 
+(*
 lemma guar_mix:
   assumes "\<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<alpha>) G"
   shows "guar\<^sub>\<alpha> \<alpha> (uncapGuar G)"
@@ -61,13 +62,15 @@ lemma guar_mix:
 proof (clarsimp)
   fix m\<^sub>1 m\<^sub>2
   assume a: "(m\<^sub>1, m\<^sub>2) \<in> beh \<alpha>" "m\<^sub>1 \<in> vc \<alpha>"
-  obtain s\<^sub>1 s\<^sub>2 where s: "m\<^sub>1 = push (pop m\<^sub>1) s\<^sub>1" "m\<^sub>2 = push (pop m\<^sub>2) s\<^sub>2" using push_pop by metis+
+  obtain s\<^sub>1 s\<^sub>2 where s: "m\<^sub>1 = push (pop m\<^sub>1) s\<^sub>1" "m\<^sub>2 = push (pop m\<^sub>2) s\<^sub>2" oops
   hence a': "(push (pop m\<^sub>1) s\<^sub>1, push (pop m\<^sub>2) s\<^sub>2) \<in> beh \<alpha>" "push (pop m\<^sub>1) s\<^sub>1 \<in> vc \<alpha>"
     using a by simp+
   hence "(pop m\<^sub>1, pop m\<^sub>2) \<in> G"
     using assms unfolding guar\<^sub>\<alpha>_rel poprel'_def poppred'_def guar_def by auto
   thus "(m\<^sub>1, m\<^sub>2) \<in> pushrelAll G" using s by (auto simp: pushrelAll_def)
 qed
+*)
+
 
 (*
 lemma guar_capE:

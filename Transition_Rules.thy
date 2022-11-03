@@ -89,6 +89,17 @@ next
 qed
 thm silent.cases[of a b]
 
+lemma test:
+  assumes "pushpred s (stabilise R P) \<subseteq> pushpredAll Q" "x \<in> stabilise R P" 
+  shows "x \<in> Q"
+proof -
+  have "push x s \<in> pushpred s (stabilise R P)" using assms by auto
+  hence "push x s \<in> pushpredAll Q" using assms by auto
+  then obtain x' s' where e: "push x s = push x' s'" "x' \<in> Q" unfolding pushpredAll_def by auto
+  hence "x' = x" using push_inj by auto
+  thus ?thesis using e by auto
+qed
+
 text \<open>Judgements are preserved across silent steps\<close>
 lemma rewrite_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q"
@@ -108,14 +119,15 @@ next
     case (15 k)
     hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} pushpredAll Q"
       using capture(1) by simp
-    then obtain M where M:
-      "stable (uncapRely R) M" "uncapPred s P \<subseteq> M" "M \<subseteq> pushpredAll Q"
-      by auto
-    hence 1: "stable R (poppred M)" by (simp only: stable_mix)
-    have 2: "P \<subseteq> poppred M" "poppred M \<subseteq> Q"
-      using poppred_mono[OF M(2)] poppred_mono[OF M(3)] by auto
-    have "R,G \<turnstile> poppred M {Nil} Q" using 1 2 by auto
-    thus ?thesis using 2(1) 15(2) by (simp add: conseq)
+    hence t: "stabilise (uncapRely R) (uncapPred s P) \<subseteq> pushpredAll Q"
+      using nilE2 by simp
+    have "R,G \<turnstile> stabilise R P {Nil} stabilise R P"
+      by (simp add: rules.rules.nil stable_stabilise)
+    moreover have "P \<subseteq> stabilise R P"
+      by (simp add: stabilise_supset)
+    moreover have "stabilise R P \<subseteq> Q"
+      using t test unfolding stabilise_pushrel by blast
+    ultimately show ?thesis using 15(2) by blast
   next
     case (16 c'' c''' k)
     then show ?thesis using capture by auto
@@ -127,7 +139,7 @@ text \<open>Judgements are preserved across global execution steps\<close>
 lemma gexecute_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q"
   assumes "c \<mapsto>[g] c'"
-  shows "\<exists>M v. P \<subseteq> wp v g M \<and> guar v g G \<and> R,G \<turnstile> M {c'} Q"
+  shows "\<exists>\<alpha> M. \<alpha> \<in> obs c \<and> g = beh \<alpha> \<and> P \<subseteq> wp\<^sub>\<alpha> \<alpha> M \<and> guar\<^sub>\<alpha> \<alpha>  G \<and> R,G \<turnstile> M {c'} Q"
   using assms
 proof (induct arbitrary: g c' rule: rules.induct)
   case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
@@ -136,39 +148,41 @@ proof (induct arbitrary: g c' rule: rules.induct)
     case (par1 c\<^sub>1')
     obtain M\<^sub>2 where m2: "P\<^sub>2 \<subseteq> M\<^sub>2" "stable R\<^sub>2 M\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2} Q\<^sub>2" using par
       by (meson stable_preE)
-    obtain M\<^sub>1 v where m1: "P\<^sub>1 \<subseteq> wp v g M\<^sub>1" "guar v g G\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1'} Q\<^sub>1" 
+    obtain M\<^sub>1 \<alpha> where m1: "\<alpha> \<in> obs c\<^sub>1" "g = beh \<alpha>" "P\<^sub>1 \<subseteq> wp\<^sub>\<alpha> \<alpha> M\<^sub>1" "guar\<^sub>\<alpha> \<alpha> G\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1'} Q\<^sub>1" 
       using par1 par(2)[OF par1(2)] by blast
     hence "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> M\<^sub>1 \<inter> M\<^sub>2 {c'} Q\<^sub>1 \<inter> Q\<^sub>2" using par1 m2 par by blast
-    moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp v g (M\<^sub>1 \<inter> M\<^sub>2)" 
-      using m1(1,2) m2(1,2) par.hyps(6) unfolding guar_def wp_def stable_def
+    moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp\<^sub>\<alpha> \<alpha> (M\<^sub>1 \<inter> M\<^sub>2)" 
+      using m1(3,4) m2(1,2) par.hyps(6) unfolding guar_def wp_def stable_def
       by auto blast
-    ultimately show ?thesis using m1(2) unfolding guar_def by blast
+    ultimately show ?thesis using m1(1,2,4) unfolding guar_def obs_par by blast
   next
     case (par2 c\<^sub>2')
     obtain M\<^sub>1 where m1: "P\<^sub>1 \<subseteq> M\<^sub>1" "stable R\<^sub>1 M\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1} Q\<^sub>1" using par
       by (meson stable_preE)
-    obtain M\<^sub>2 v where m2: "P\<^sub>2 \<subseteq> wp v g M\<^sub>2" "guar v g G\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2'} Q\<^sub>2" 
+    obtain M\<^sub>2 \<alpha> where m2: "\<alpha> \<in> obs c\<^sub>2" "g = beh \<alpha>" "P\<^sub>2 \<subseteq> wp\<^sub>\<alpha> \<alpha> M\<^sub>2" "guar\<^sub>\<alpha> \<alpha> G\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2'} Q\<^sub>2" 
       using par2 par(4)[OF par2(2)] by blast
     hence "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> M\<^sub>1 \<inter> M\<^sub>2 {c'} Q\<^sub>1 \<inter> Q\<^sub>2" using par2 m1 par by blast
-    moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp v g (M\<^sub>1 \<inter> M\<^sub>2)" 
-      using m1(1,2) m2(1,2) par.hyps(5) unfolding guar_def wp_def stable_def
+    moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp\<^sub>\<alpha> \<alpha> (M\<^sub>1 \<inter> M\<^sub>2)" 
+      using m1(1,2) m2(3,4) par.hyps(5) unfolding guar_def wp_def stable_def 
       by auto blast
-    ultimately show ?thesis using m2(2) unfolding guar_def by blast
+    ultimately show ?thesis using m2(1,2,4) unfolding guar_def obs_par by blast
   qed 
 next
   case (conseq R G P c Q P' R' G' Q')
   thus ?case by (smt Un_iff guar_def rules.conseq subset_iff)
 next
   case (inv R G P c Q R' M')
-  then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {c'} Q" by metis
-  hence "P \<inter> M' \<subseteq> wp v g (M \<inter> M')" using inv(3,4) by (auto simp: stable_def guar_def wp_def) blast
-  thus ?case using rules.inv p(2,3) inv(3,4) by blast
+  then obtain M \<alpha> where p: "\<alpha> \<in> obs c" "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> M" "guar\<^sub>\<alpha> \<alpha> G" "R,G \<turnstile> M {c'} Q" by metis
+  hence "P \<inter> M' \<subseteq> wp\<^sub>\<alpha> \<alpha> (M \<inter> M')" using inv(3,4) by (auto simp: stable_def guar_def wp_def) blast
+  thus ?case using rules.inv p(1,2,3,4,5) inv(3,4) by blast
 next
   case (thread R G P c Q)
-  then obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" by auto
+  then obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" "\<alpha>' \<in> obs c" 
+    using obs_act by (auto)
   then obtain M where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
     using thread lexecute_ruleI[OF thread(1) e(2)] indep_stepI[OF thread(3) e(2)] by metis
-  thus ?case using stabilise_supset[of P R] e unfolding atomic_rule_def by auto
+  thus ?case using stabilise_supset[of P R] e unfolding atomic_rule_def 
+    by (metis (no_types, lifting) dual_order.trans obs_thread rules.rules.thread)
 qed auto
 
 end

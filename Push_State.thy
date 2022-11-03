@@ -13,16 +13,29 @@ scoped state.
 \<close>
 
 class state =
-  fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
-  fixes pop :: "'a \<Rightarrow> 'a"
-  assumes pop_push [simp]: "pop (push a b) = a"
-  assumes push_pop: "\<exists>s. push (pop m) s = m"
+  fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"   
   assumes push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
 
 context state
 begin
 
 section \<open>Operations on predicates and relations\<close>
+
+definition pop
+  where "pop A \<equiv> THE C. \<exists>B. A = push C B"
+
+lemma push_inj_eq:
+  "(push m s = push m' s') = (m = m' \<and> s = s')"
+  by rule (auto dest: push_inj)
+
+lemma pop_push [simp]:
+  "pop (push a b) = a"
+  unfolding pop_def push_inj_eq by auto
+
+lemma push_pop: "\<exists> s. push (pop m) s = m"
+  unfolding pop_def push_inj_eq
+oops
+
 
 definition pushpred :: "'a \<Rightarrow> 'a set \<Rightarrow> 'a set" where
 "pushpred s P = {push m s |m. m \<in> P}"
@@ -108,21 +121,21 @@ lemma pushed_inE [elim]:
   obtains p where "p \<in> P" "push (pop p) s = p"
 using assms unfolding pushed_def by auto 
 
+(*
 lemma pushed_set_supset: "P \<subseteq> (\<Union>s \<in> pushed P. pushpred s (poppred' s P))"
 unfolding pushed_def pushpred_def poppred'_def
-by auto (metis push_pop)
+by auto (metis push_pop) *)
 
 lemma push_poppred_subset: "pushpred s (poppred' s P) \<subseteq> P"
 unfolding pushpred_def poppred'_def
 by auto
 
-lemma push_poprel_subset: "pushrel s s' (poprel' s s' R) \<subseteq> R"
-unfolding pushrel_def poprel'_def
-by auto
-
+(*
+>>>>>>> capture-push
 lemma pushed_empty: "pushed P = {} \<Longrightarrow> P = {}"
 unfolding pushed_def 
-using push_pop by fastforce
+using push_pop by fastforce 
+*)
 
 
 section \<open>Lemmas for push/pop on predicates/relations\<close>
@@ -242,13 +255,14 @@ lemma pushrel_relcomp_id: "pushrel s s' (Id_on P O P') = Id_on (pushpred s P) O 
 unfolding pushrel_def pushpred_def
 by auto (metis Id_onI pop_push relcompI)
 
+(*
 lemma pushpredAll_poppred_supset: "P \<subseteq> pushpredAll (poppred P)"
 unfolding pushpredAll_def poppred_def 
 by clarsimp (metis push_pop)
 
 lemma pushrelAll_poprel_supset: "G \<subseteq> pushrelAll (poprel G)"
 unfolding pushrelAll_def poprel_def
-by clarsimp (metis push_pop)
+by clarsimp (metis push_pop) *)
 
 lemma pushrel_in_pushrelAll: "pushrel s s' G \<subseteq> pushrelAll G"
 unfolding pushrel_def pushrelAll_def by fast
@@ -348,10 +362,11 @@ lemma poppable_empty [simp]: "poppable s {}"
 
 subsection \<open>Correspondences between predicates and Id_on.\<close>
 
+(*
 lemma Id_in_pushrelAll_poppred: "Id_on G \<subseteq> pushrelAll (Id_on (poppred G))"
 using pushpredAll_poppred_supset subsetD
 unfolding pushrelAll_def pushpredAll_def
-by fast
+by fast *)
 
 lemma poppred_eq_poprel: "Id_on (poppred a) = poprel (Id_on a)"
 unfolding poppred_def poprel_def by auto
@@ -450,10 +465,11 @@ next
   qed
 qed
 
+(*
 lemma push_pop_one: "\<exists>!s. push (pop m) s = m"
 using push_pop push_inj
 by metis
-
+*)
 
 lemma "poppable s P \<Longrightarrow> pushed P \<subseteq> {s}"
 proof
@@ -465,6 +481,7 @@ proof
   thus "x \<in> {s}" by simp
 qed
 
+(*
 lemma "pushed P \<subseteq> {s} \<Longrightarrow> poppable s P"
 proof -
   assume "pushed P \<subseteq> {s}"
@@ -487,7 +504,7 @@ proof -
         by clarsimp (metis (mono_tags, lifting) mem_Collect_eq push_pop singleton_iff)
     qed  
   qed
-qed
+qed*)
 
 lemma [simp]:
   "pushpredAll {} = {}"

@@ -123,77 +123,12 @@ lemma local_execute:
   by (induct rule: lexecute.induct) (auto)
 
 
-lemma basics_lexec:
-  assumes "lexecute c \<alpha> r c'" shows "(beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {}"
-  using assms
-proof (induct)
-  case (act \<alpha>)
-  then show ?case by auto
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then show ?case by auto
-next
-  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
-  then have a0:"c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" by auto
-  then show ?case using ooo  by auto
-next
-  case (cap c \<alpha>' r c' s s')
-  assume a2:" beforeReord \<alpha>' r \<inter> basics c \<noteq> {}" 
-  have p: "poppableBasic s s' \<alpha>'" using cap.hyps(3) by auto
-  have a0:"pushpred s (poppred' s (vc \<alpha>')) = vc \<alpha>'" using p by (meson poppable_push_poppred')
-  have a1:"pushrel s s' (poprel' s s' (beh \<alpha>')) = beh \<alpha>'" using p poppable_push_poprel' by blast 
-  have a3:"beforeReord \<alpha>' r \<subseteq> \<Union> {beforeReord (pushbasic sa s'a (popbasic s s' \<alpha>')) r |sa s'a. True}" 
-    using a0 a1
-    by (metis (mono_tags, lifting) Sup_upper fst_conv mem_Collect_eq prod.exhaust_sel snd_conv)
-  show ?case using cap unfolding beforeReord.simps basics_simps a3 Union_disjoint eq_snd_iff 
-    by (metis (mono_tags, lifting) a0 fst_conv mem_Collect_eq prod.collapse snd_conv)
-qed
-
-
-lemma basics_gexecute: 
-  assumes "gexecute c g c'" 
-  shows "\<exists>\<alpha> r. (beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {} \<and> g = beh \<alpha>" 
-  using assms proof induct  
-  case (thr c \<alpha>' r c')
-  then show ?case using basics_simps(8) basics_lexec by blast
-next
-  case (par1 c\<^sub>1 g c\<^sub>1' c\<^sub>2)
-  then show ?case using basics_simps(7) basics_lexec by blast
-next
-  case (par2 c\<^sub>2 g c\<^sub>2' c\<^sub>1)
-  then show ?case using basics_simps(7) basics_lexec by blast
-qed
-
 
 
 text \<open>A silent step will not introduce parallelism\<close>
 lemma local_silent:
   "c \<leadsto> c' \<Longrightarrow> local c \<Longrightarrow> local c'"  
   by (induct rule: silent.induct) (auto simp add: local_execute)
-
-(* This probably doesn't hold in the ooo case; instead we have basics_lexec
-text \<open>An execution step will not introduce new basics\<close>
-lemma basics_exec:
-  assumes "c \<mapsto>[\<alpha>',r] c'" 
-  shows "basics c \<supseteq> basics c'"
-  using assms  by induct (auto, blast)
-*)
-
-
-text \<open>A silent step will not introduce new basics\<close>
-lemma basics_silent:
-  assumes "c \<leadsto> c'" 
-  shows "basics c \<supseteq> basics c'"
-  using assms by induct auto
-
-
-text \<open>A global execution step will not introduce new basics\<close>
-
-lemma basics_par: 
-  assumes "gexecute c g c'" 
-  shows "basics c\<^sub>1 \<subseteq> basics (c\<^sub>1 || c\<^sub>2)" 
-        "basics c\<^sub>2 \<subseteq> basics (c\<^sub>1 || c\<^sub>2)" 
-  using assms by simp+
 
 section \<open>Transition Definitions\<close>
 
@@ -223,6 +158,210 @@ inductive_set transitions :: "('a,'b) config list set"
     prg[intro]: "s -\<alpha>\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |
     sil[intro]: "s -s\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions"
 inductive_cases transitionsE[elim]: "t \<in> transitions"
+
+
+section \<open>Observable atomics\<close>
+
+(*non-deterministic in that a step might be taken or not and hence an event observed or not;
+
+   for global operations (thread, par) obs_traces are collected per thread (w/o interspersing)
+   which still allows to determine the overall observed events as union over all obs_traces *)
+
+inductive obs_trace
+  where
+    "obs_trace [] c" |
+    "c \<leadsto> c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace t c" |
+    "c \<mapsto>[\<alpha>,r] c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace (\<alpha>#t) c" |
+    "obs_trace t c \<Longrightarrow> obs_trace t (Thread c)" |
+    "obs_trace t c \<Longrightarrow> obs_trace t (c || c2)" |
+    "obs_trace t c \<Longrightarrow> obs_trace t (c2 || c)"
+ 
+definition obs
+  where "obs c \<equiv> {\<alpha>. \<exists>t. \<alpha> \<in> set t \<and> obs_trace t c}"
+
+lemma obs_exec:
+  assumes "c \<mapsto>[\<alpha>',r] c'"
+  shows "obs c \<supseteq> obs c'"
+  unfolding obs_def using assms obs_trace.intros(3) 
+  by (smt (verit, best) Collect_mono set_subset_Cons subsetD)
+
+lemma obs_sil:
+  assumes "c \<leadsto> c'"
+  shows "obs c \<supseteq> obs c'"
+  unfolding obs_def using assms obs_trace.intros(2) by auto
+
+lemma obs_act:
+  assumes "c \<mapsto>[\<alpha>',r] c'"
+  shows "\<alpha>' \<in> obs c"
+  using assms unfolding obs_def 
+  by clarsimp (meson list.set_intros(1) obs_trace.intros(1,3))
+
+lemma obs_act2:
+  assumes "c \<mapsto>[\<alpha>',r] c'"
+  shows "obs c \<supseteq> obs c'"
+  using assms unfolding obs_def 
+  using obs_exec semantics.obs_def by blast
+
+lemma obs_nil [simp]:
+  "obs Nil = {}"
+  by (auto simp: obs_def elim: obs_trace.cases)
+
+lemma obs_seq: 
+  assumes "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2"
+  shows "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)"
+  using assms obs_act by auto 
+
+
+
+lemma obs_trace_NilE [elim!]:
+  assumes "obs_trace t com.Nil"
+  obtains "t = []"
+  using assms
+  by (induct t "Nil ::  ('a, 'b) com") auto
+
+lemma obs_trace_BasicE [elim!]:
+  assumes "obs_trace t (Basic \<alpha>)"
+  obtains "t = [\<alpha>]" | "t = []"
+  using assms
+  by (induct t "Basic \<alpha>") auto
+
+lemma [simp]:
+  "obs (Basic \<alpha>) = {\<alpha>}"
+  unfolding obs_def apply (auto)
+  apply (intro exI conjI)
+  prefer 2
+  apply (rule obs_trace.intros(3))
+    apply (rule act)
+  apply (rule obs_trace.intros(1))
+  apply auto
+  done
+
+
+lemma obs_trace_ThreadE:
+  assumes "obs_trace t (Thread c)" 
+  shows "obs_trace t c"
+  using assms
+proof (induct t "Thread c" arbitrary: c)
+  case 1
+  then show ?case by (auto intro: obs_trace.intros)
+next
+  case (2 c' t)
+  show ?case using 2(1)
+  proof (cases rule: silentE, blast; clarsimp)
+    fix c'' assume a: "Thread c \<leadsto> Thread c''" "c' = Thread c''" "c \<leadsto> c''"
+    hence "obs_trace t c''" using 2 by auto
+    thus "obs_trace t c" using a by (auto intro: obs_trace.intros)
+  next
+    assume "c' = Nil"
+    hence "t = []" using 2 by auto
+    thus "obs_trace t Nil" by (auto intro: obs_trace.intros)
+  qed
+next
+  case (3 \<alpha> r c' t)
+  then show ?case by auto
+qed
+
+lemma obs_trace_ParE:
+  assumes "obs_trace t (c\<^sub>1 || c\<^sub>2)"
+  obtains "obs_trace t c\<^sub>1" | "obs_trace t c\<^sub>2"
+  using assms
+proof (induct t "c\<^sub>1 || c\<^sub>2" arbitrary: c\<^sub>1 c\<^sub>2)
+  case 1
+  then show ?case by (auto intro: obs_trace.intros)
+next
+  case (2 c' t)
+  show ?case using 2(1)
+  proof (cases rule: silent.cases)
+    case (par1 c\<^sub>1')
+    then show ?thesis using 2 obs_trace.intros(2) by auto
+  next
+    case (par2 c\<^sub>2')
+    then show ?thesis using 2 obs_trace.intros(2) by auto
+  next
+    case parE1
+    then show ?thesis using 2 obs_trace.intros(2) by auto
+  next
+    case parE2
+    then show ?thesis using 2 obs_trace.intros(2) by auto
+  qed
+qed (auto intro: obs_trace.intros)
+
+ 
+
+lemma obs_thread [simp]:
+  "obs (Thread c) = obs c"
+  unfolding obs_def using obs_trace_ThreadE
+  by (auto intro: obs_trace.intros)
+
+ 
+
+lemma obs_par [simp]:
+  "obs (c\<^sub>1 || c\<^sub>2) = obs c\<^sub>1 \<union> obs c\<^sub>2"
+  unfolding obs_def using obs_trace_ParE
+  by (auto intro: obs_trace.intros) blast
+
+lemma obs_lexec:
+  assumes "lexecute c \<alpha> r c'" 
+  shows "\<alpha> \<in> (obs c)"
+  using assms obs_act by auto
+
+lemma obs_gex:
+  assumes "c \<mapsto>[g] c'"
+  shows "obs c \<supseteq> obs c'"
+  unfolding obs_def using assms obs_sil obs_act2
+    obs_thread obs_par  obs_act2 obs_def by (induct) auto 
+
+(*
+lemma obs_basic:
+  "{\<alpha>} = obs (Basic \<alpha>)" 
+proof - 
+  have a0:"{\<alpha>} \<subseteq> obs (Basic \<alpha>)" using obs_act obs_exec obs_nil 
+    by (meson act bot.extremum insert_subsetI semantics.obs_act)
+  have a1:"obs (Basic \<alpha>) \<subseteq> {\<alpha>}" using lexecute.intros(1) obs_act obs_nil 
+     obs_trace.intros(1,3) list.set_intros obs_def apply simp sorry
+  thus ?thesis using a0 by auto
+qed
+   
+lemma obs_lexec:
+  assumes "lexecute c \<alpha> r c'" shows "(beforeReord \<alpha> r) \<inter> (obs c) \<noteq> {}"
+  using assms
+proof (induct)
+  case (act \<alpha>)
+  then show ?case using assms obs_act beforeReord.simps(1)
+    by (metis insert_disjoint(1) semantics.act) 
+next
+  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
+  then show ?case proof - 
+    have a0: "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2" using ino.hyps by blast
+    hence a1: "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)" by (meson obs_act)
+    hence ?thesis using a0 a1 ino.hyps(2) obs_subset by blast
+next
+  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
+  then have a0:"c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" by auto
+  then show ?case using ooo  sorry
+next
+  case (cap c \<alpha>' r c' s s')
+  assume a2:" beforeReord \<alpha>' r \<inter> obs c \<noteq> {}" 
+  have p: "poppableBasic s s' \<alpha>'" using cap.hyps(3) by auto
+  have a0:"pushpred s (poppred' s (vc \<alpha>')) = vc \<alpha>'" using p by (meson poppable_push_poppred')
+  have a1:"pushrel s s' (poprel' s s' (beh \<alpha>')) = beh \<alpha>'" using p poppable_push_poprel' by blast 
+  have a3:"beforeReord \<alpha>' r \<subseteq> \<Union> {beforeReord (pushbasic sa s'a (popbasic s s' \<alpha>')) r |sa s'a. True}" 
+    using a0 a1
+    by (metis (mono_tags, lifting) Sup_upper fst_conv mem_Collect_eq prod.exhaust_sel snd_conv)
+  show ?case using cap unfolding beforeReord.simps a3 Union_disjoint eq_snd_iff 
+    sorry      
+qed
+
+
+
+lemma obs_gexecute: 
+  assumes "gexecute c g c'" 
+  shows "\<exists>\<alpha> r. (beforeReord \<alpha> r) \<inter> (obs c) \<noteq> {} \<and> g = beh \<alpha>" 
+  using assms obs_lexec by blast
+*)
+
+
+
 end
 
 end

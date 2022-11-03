@@ -30,8 +30,8 @@ text \<open> Noninterference over all basic commands \<close>
 
 definition sec_pres :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> bool"
   where 
-  "sec_pres c S \<equiv> \<forall>\<alpha> r m\<^sub>1 m\<^sub>2 m\<^sub>1'. 
-     ((beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {}) \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> 
+  "sec_pres c S \<equiv> \<forall>\<alpha> m\<^sub>1 m\<^sub>2 m\<^sub>1'. 
+     \<alpha> \<in> (obs c) \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> 
                              (m\<^sub>1,m\<^sub>1') \<in> beh \<alpha> \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2,m\<^sub>2') \<in> beh \<alpha> \<and> (m\<^sub>1',m\<^sub>2') \<in> S)"
 
 text \<open> Noninterference over all traces \<close>
@@ -71,19 +71,24 @@ lemma trace_rule_nil:
 lemma trace_rule: 
   assumes "c \<mapsto>\<^sup>*[g] c'"
   assumes "R,G \<turnstile> P {c} Q"
-  shows "\<exists>\<alpha> r M. (beforeReord \<alpha> r) \<inter> (basics c) \<noteq> {} \<and> 
+  shows "\<exists>\<alpha> M. \<alpha> \<in> obs c \<and> 
               g = beh \<alpha> \<and> P \<subseteq> wp\<^sub>\<alpha> \<alpha> M \<and> guar\<^sub>\<alpha> \<alpha>  G \<and> R,G \<turnstile> M {c'} Q"
   using assms 
 proof (induct c "[g]" c' arbitrary: P) 
   case (sil c\<^sub>1 c\<^sub>2 c\<^sub>3)
-  then show ?case using basics_silent rewrite_ruleI 
-    by (smt (verit, ccfv_SIG) inf.absorb_iff1 inf_bot_right inf_left_commute)
+  then show ?case using obs_sil rewrite_ruleI 
+    by (meson subsetD)
 next
   case (gex c\<^sub>1 c\<^sub>2 c\<^sub>3)
-  then show ?case using basics_lexec trace_rule_nil gexecute_ruleI[OF gex(3,1)]
-    by (metis beforeReord.simps(3) fst_conv snd_conv basics_gexecute)
-qed 
+  then show ?case using  trace_rule_nil gexecute_ruleI[OF gex(3,1)]  
+    
+    by fast
+  qed
 
+lemma trace_obs:
+  assumes "c\<^sub>1  \<mapsto>\<^sup>*t c\<^sub>2"
+  shows "obs c\<^sub>1 \<supseteq> obs c\<^sub>2"
+  using assms obs_sil obs_gex by induct blast+
 
 lemma bisim_exists:
   assumes "sec_pres c S"
@@ -103,13 +108,13 @@ proof safe
   next
     case (2 m\<^sub>1 m\<^sub>1' g t m\<^sub>1'')
     then obtain c' where itm1: "c \<mapsto>\<^sup>*[g] c'" "c' \<mapsto>\<^sup>*t c\<^sub>1" by auto
-    then obtain P' \<alpha> r where itm2: "R,G \<turnstile> P' {c'} Q" "(beforeReord \<alpha> r) \<inter> basics c \<noteq> {}" 
+    then obtain P' \<alpha>  where itm2: "R,G \<turnstile> P' {c'} Q" "\<alpha> \<in> obs c" 
       "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> P'"  using trace_rule[OF itm1(1) 2(5)] by blast
     hence itm6: "m\<^sub>1' \<in> P'" using 2(1,8) unfolding wp_def by blast                       
     then obtain m\<^sub>2' where itm3: "(m\<^sub>2,m\<^sub>2') \<in> g" "(m\<^sub>1',m\<^sub>2') \<in> S" using 2(1,4,6,8) itm2(2,3,4) 
-      unfolding sec_pres_def wp_def by blast 
+      unfolding sec_pres_def wp_def by blast
     hence itm4: "sec_pres c' S" 
-      using 2(4) itm1 basics_gexecute unfolding sec_pres_def by (metis beforeReord.simps(3) itm2(2)) 
+      using 2(4) itm1 itm2(2) trace_obs unfolding sec_pres_def by blast
     hence itm5: "\<exists>m\<^sub>2'' c\<^sub>2. (trace_mem m\<^sub>2' t m\<^sub>2'' \<and> c' \<mapsto>\<^sup>*t c\<^sub>2) \<and> (m\<^sub>1'', m\<^sub>2'') \<in> S"
       using 2(3)[OF itm4 itm2(1) itm3(2) itm1(2) itm6] by blast
     then show ?case using "2.prems"(4) itm3(1) by blast
