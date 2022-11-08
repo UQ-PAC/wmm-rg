@@ -6,7 +6,21 @@ section \<open>State Encoding\<close>
 
 
 datatype ('v,'r) var = Reg 'r | Glb 'v | Tmp 'r
-record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
+
+text \<open> A state record is a partial mapping from vars to values, st
+         capture set, cap, denotes the set of "new" variables that the frame quantifies over
+         (these are the variables updated in the framed code)
+       state_rec describes the current "frame" on which an inst operates over, 
+         including mappings to variables that are existentially bound within the current 
+         "context" 
+       useful to model transient buffers which frame mis-speculated executions
+         of a branch which should not take effect on actual (core) mem but should reside
+         within its "local" frame; 
+       \<close>
+
+
+record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
+                           cap :: "'a set"
 
 (* 
   state_rec to be interpreted as class state in Push_State.thy;
@@ -14,7 +28,7 @@ record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
   - the Tmp registers are used when splitting commands into sub-operations,
      e.g. Load is lifted into a sequence of subops via lift\<^sub>c in ARMv8_Rules.thy  
 
-  build a tree structure of state_rec  and instantiate 
+  build a tree structure of state_rec, called stateTree,  and instantiate 
   the type-generic tree as (state) state (see below)
 
 *)
@@ -22,6 +36,7 @@ record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
 (* _scheme add the "more" field to a record to generalise it (Tutorial p.152) *)
 
 type_synonym ('v,'r,'a) state = "('v,('v,'r) var,'a) state_rec_scheme"
+type_synonym ('v,'r,'a) rstate = "('v,'r,'a) state_rec_scheme"
 type_synonym ('v,'a) gstate = "('v,'v,'a) state_rec_scheme"
 
 type_synonym ('v,'r,'a) pred = "('v,'r,'a) state set"
@@ -35,11 +50,16 @@ type_synonym ('v,'r,'a) rtrans = "('v,'r,'a) trel \<Rightarrow> ('v,'r,'a) trel"
 
 type_synonym ('v,'r,'a) auxfn = "('v,('v,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
 
-definition glb
-  where "glb m \<equiv> \<lparr> st = (\<lambda>v. st m (Glb v)), \<dots> = more m \<rparr>"
+definition glb :: "('v,'r,'a) state \<Rightarrow> ('v \<Rightarrow> 'v option)"
+  where "glb m \<equiv> \<lambda>v. st m (Glb v)"
+(*  where "glb m \<equiv> \<lparr> st = (\<lambda>v. st m (Glb v)), \<dots> = more m \<rparr>" *)
 
-definition rg :: "('v,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v)"
+definition rg :: "('v,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
+
+definition tmp :: "('v,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
+  where "tmp m \<equiv> \<lambda>v. st m (Tmp v)"
+
 
 definition aux
   where "aux m \<equiv> more m"
@@ -56,11 +76,14 @@ section \<open>Write Operations\<close>
 
 (* (a:=b) to be read as a mapping a \<rightarrow> b, i.e., we upd state record m with m where the mapping 
     to a \<rightarrow> _ is replaced by the new mapping a \<rightarrow> b  *) 
-definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v \<Rightarrow> ('v,'a,'b) state_rec_scheme"
-  where "st_upd m a b = m \<lparr> st := ((st m) (a := b)) \<rparr>"
+definition 
+   st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v option \<Rightarrow> ('v,'a,'b) state_rec_scheme"
+    where "st_upd m a b = m \<lparr> st := ((st m) (a := b)) \<rparr>"
 
-definition aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> ('v,'r,'a) state_rec_scheme"
-  where "aux_upd m f \<equiv> m\<lparr>state_rec.more := f m\<rparr>"
+definition 
+   aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> 
+                                                           ('v,'r,'a) state_rec_scheme"
+    where "aux_upd m f \<equiv> m\<lparr>state_rec.more := f m\<rparr>"
 
 nonterminal updbinds and updbind
 
@@ -131,20 +154,26 @@ lemma [simp]:
   by (auto simp: aux_def st_upd_def)
 
 
-text \<open> recTree as data structure in which each leaf is a state record \<close>
+text \<open> stateTree as data structure in which each leaf is a state record;
+       the Base (initial leaf) has a mapping for all variables s \<mapsto> Some v
+          and it maintains all globally observable updates;
+       the top-most/right-most state record serves as a "frame" or "scope" 
+          to the current computation and gets discarded once the frame is exited;
 
-datatype  'n tree = Leaf 'n | Branch "'n tree" "'n tree"
+       stateTree is instantiated as a Push state;
+       the push operation creates a new sibling frame (to current frame) 
+         in which all mappings from m are set to None (all vars are undefined); 
+       when reading a variable within a frame and it is not yet defined in the current
+         "topmost" frame then a lookup routine goes through the recTree in reverse 
+         order of its build until it finds the innermost value available;
+       the record entry cap is the set of variables "captured/pushed/quantified"
+         in the current frame;
+       Globally visible updates (but only those) have to be stored in the Base, 
+         e.g. Cache; global stores in general are not observable since they
+         are not written to memory when speculating;
+       \<close>
 
-
-text \<open> recTree is instantiated as a Push state such that push creates
-        a new sibling branch (to current branch) for which the push
-        mapping s becomes defined \<close>
-
-(* the parameter (type) would define that there is no restriction on the 
-   generic types 'a 
-   the parameter (state) says that 'a has to be a state
-    (similar usage found in lattice.thy)
-*)
+datatype  'n tree = Base 'n | Branch "'n tree" "'n tree"
 
 instantiation "tree" :: (state) state
 begin
@@ -158,7 +187,43 @@ instance proof
 qed
 end
 
+type_synonym ('v,'r,'a) stateTree = "(('v,('v,'r) var,'a) state_rec_scheme) tree"
 
-type_synonym ('v,'r,'a) recTree = "('v,'r,'a) state tree"
+fun base :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) state" where
+  "base (Base s) = s" |
+  "base (Branch m m') = (base m)"
+
+fun top :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) state" where
+  "top (Base s) = s" |
+  "top (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (top m'))"
+
+text \<open> lookup of var in a stateTree finds the closest frame in which var is defined 
+         and returns its value in that frame \<close>
+
+
+fun lookup :: "('v,'r,'a) stateTree \<Rightarrow> ('v, 'r) ARMv8_State.var \<Rightarrow> 'v option" where
+  "lookup (Base s) var =  st s var" |
+  "lookup (Branch m m') var =
+                      (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)" 
+
+(*
+type_synonym ('v,'a) state_recTree = "(('v,'a) state_rec) tree"
+
+fun topStateRec :: "('v,'a) state_recTree \<Rightarrow> ('v,'a) state_rec" where
+  "topStateRec (Base s) = s" |
+  "topStateRec (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (topStateRec m'))"
+
+fun lookupStateRec :: "('v,'a) state_recTree \<Rightarrow> 'a \<Rightarrow> 'v option" where
+  "lookupStateRec (Base s) var =  st s var" |
+  "lookupStateRec (Branch m m') var =
+                      (case (lookupStateRec m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookupStateRec m var)" 
+fun lookupState :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) ARMv8_State.var \<Rightarrow> ('v,'r,'a) state" where
+  "lookupState (Base s) var =  s" |
+  "lookupState (Branch m (Base s)) var =
+              (case (st (lookupState (Base s) var) var) of Some v \<Rightarrow> s |_ \<Rightarrow> lookupState m var)" |
+  "lookupState (Branch m m') var = lookupState m' var"  (* this is not quite true but the case doesn't occur *)
+*)
+
+
 
 end

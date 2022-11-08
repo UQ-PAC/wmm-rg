@@ -300,11 +300,6 @@ lemma obs_par [simp]:
   unfolding obs_def using obs_trace_ParE
   by (auto intro: obs_trace.intros) blast
 
-lemma obs_lexec:
-  assumes "lexecute c \<alpha> r c'" 
-  shows "\<alpha> \<in> (obs c)"
-  using assms obs_act by auto
-
 lemma obs_gex:
   assumes "c \<mapsto>[g] c'"
   shows "obs c \<supseteq> obs c'"
@@ -312,6 +307,13 @@ lemma obs_gex:
     obs_thread obs_par  obs_act2 obs_def by (induct) auto 
 
 (*
+
+lemma obs_lexec:
+  assumes "lexecute c \<alpha> r c'" 
+  shows "\<alpha> \<in> (obs c)"
+  using assms obs_act by auto
+
+
 lemma obs_basic:
   "{\<alpha>} = obs (Basic \<alpha>)" 
 proof - 

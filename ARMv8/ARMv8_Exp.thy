@@ -8,14 +8,16 @@ section \<open>Expression Language\<close>
 datatype ('v,'r) exp = 
   Var 'r | 
   Val 'v | 
-  Exp "'v list \<Rightarrow> 'v" "('v,'r) exp list"
+  Exp "'v option list \<Rightarrow> 'v option" "('v,'r) exp list"  (* some fct over a list of subexpr *) 
 
-text \<open>Evaluate an expression given a state\<close>
-fun ev\<^sub>E :: "('r \<Rightarrow> 'v) \<Rightarrow> ('v,'r) exp \<Rightarrow> 'v"
+
+text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the 
+          innermost scope in which a value is mapped to variable \<close>
+fun ev\<^sub>E :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) exp \<Rightarrow> 'v option"
   where 
-    "ev\<^sub>E m (Var r) = m r" |
-    "ev\<^sub>E _ (Val v) = v" |
-    "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"
+    "ev\<^sub>E m (Var r) = lookup m (Reg r)" |
+    "ev\<^sub>E _ (Val v) = Some v" |
+    "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
 
 text \<open>The syntactic dependencies of an expression\<close>
 fun deps\<^sub>E :: "('v,'r) exp \<Rightarrow> 'r set"
@@ -31,10 +33,12 @@ fun subst\<^sub>E :: "('v,'r) exp \<Rightarrow> 'r \<Rightarrow> ('v,'r) exp \<R
     "subst\<^sub>E (Exp f rs) r e = (Exp f (map (\<lambda>x. subst\<^sub>E x r e) rs))" |
     "subst\<^sub>E e _ _ = e"
 
-datatype ('v,'r) bexp = True\<^sub>B | Neg "('v,'r) bexp" | Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'r) exp list"
+datatype ('v,'r) bexp = True\<^sub>B | Neg "('v,'r) bexp" | 
+                        Exp\<^sub>B "'v option list \<Rightarrow> bool" "('v,'r) exp list"
 
-text \<open>Evaluate an expression given a state\<close>
-fun ev\<^sub>B :: "('r \<Rightarrow> 'v) \<Rightarrow> ('v,'r) bexp \<Rightarrow> bool"
+text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
+        innermost scope in which a value exists \<close>
+fun ev\<^sub>B :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) bexp \<Rightarrow> bool"
   where 
     "ev\<^sub>B m (True\<^sub>B) = True" |
     "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
@@ -61,6 +65,8 @@ To model the possible reordering behaviour seen in ARMv8, it is necessary
 to model each operation as a series of sub-operations.
 For example a load would consist of an operation that first determines the memory address
 to access, followed by the memory access, followed by a store to a register.
+
+Updating the cache is also a sub-operation
 \<close>
 datatype ('v,'r) subop =
     load 'v "('v,'r) exp"
@@ -73,6 +79,7 @@ datatype ('v,'r) subop =
   | cfence
   | stfence
   | nop
+  | cacheUpd 'r 'v   (* 'r is cache variable, 'v is the address to be added to cache *)
 
 text \<open>Common Sub-Instructions\<close>
 abbreviation assign
@@ -90,18 +97,20 @@ abbreviation neq
 abbreviation rubbish
   where "rubbish v e\<^sub>1 e\<^sub>2 e\<^sub>3 \<equiv> cstore (Exp\<^sub>B (\<lambda>x. x ! 0 = x ! 1) [e\<^sub>1,e\<^sub>3]) v e\<^sub>2"
 
-text \<open>Sub-operation execution behaviour\<close>
-fun beh\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r,'a) state rel"
-  where
-    "beh\<^sub>i (cstore b a e) = {(m,m'). ev\<^sub>B (rg m) b \<and> m' = m (Glb a :=\<^sub>s ev\<^sub>E (rg m) e)}" |
-    "beh\<^sub>i (load a e) = {(m,m'). m' = m \<and> st m (Glb a) = ev\<^sub>E (rg m) e}" |
-    "beh\<^sub>i (cas\<^sub>T a e\<^sub>1 e\<^sub>2) = {(m,m'). m' = m (Glb a :=\<^sub>s ev\<^sub>E (rg m) e\<^sub>2) \<and> st m (Glb a) = ev\<^sub>E (rg m) e\<^sub>1}" |
-    "beh\<^sub>i (cas\<^sub>F a e\<^sub>1) = {(m,m'). m' = m \<and> st m (Glb a) \<noteq> ev\<^sub>E (rg m) e\<^sub>1}" |
-    "beh\<^sub>i (op r e) = {(m,m'). m' = m (Reg r :=\<^sub>s ev\<^sub>E (rg m) e)}" |
-    "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> ev\<^sub>B (rg m) b}" |
-    "beh\<^sub>i _ = Id"
 
-text \<open>Variables modified by an operation\<close>
+text \<open>Sub-operation execution behaviour\<close>
+fun beh\<^sub>i :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,'r,'a) state rel"
+  where
+    "beh\<^sub>i t (cstore b a e) = {(m,m'). m=(top t) \<and> ev\<^sub>B t b \<and> m' = m (Glb a :=\<^sub>s ev\<^sub>E t e)}" | 
+    "beh\<^sub>i t (load a e) = {(m,m'). m=(top t) \<and> m' = m \<and> st m (Glb a) = ev\<^sub>E t e}" |
+    "beh\<^sub>i t (cas\<^sub>T a e\<^sub>1 e\<^sub>2) = {(m,m'). m=(top t) \<and> m' = m (Glb a :=\<^sub>s ev\<^sub>E t e\<^sub>2) \<and> st m (Glb a) = ev\<^sub>E t e\<^sub>1}" |
+    "beh\<^sub>i t (cas\<^sub>F a e\<^sub>1) = {(m,m'). m=(top t) \<and> m' = m \<and> st m (Glb a) \<noteq> ev\<^sub>E t e\<^sub>1}" |
+    "beh\<^sub>i t (op r e) = {(m,m'). m=(top t) \<and> m' = m (Reg r :=\<^sub>s ev\<^sub>E t e)}" |
+    "beh\<^sub>i t (cmp b) = {(m,m'). m=(top t) \<and> m = m' \<and> ev\<^sub>B t b}" |
+    "beh\<^sub>i t (cacheUpd c g) = {(m,m'). m = (base t) \<and> m' = st_upd m (Reg c) (Some g) }" | (* fix me *)
+    "beh\<^sub>i _ _ = Id" 
+
+text \<open>Variables modified by an operation, except cache variable \<close>
 fun wr :: "('v,'r) subop \<Rightarrow> ('v,'r) var set"
   where 
     "wr (cstore _ y _) = {Glb y}" |
@@ -149,7 +158,9 @@ fun subst\<^sub>g :: "('v,'r) subop \<Rightarrow> 'v \<Rightarrow> ('v,'r) exp \
 fun subst\<^sub>i :: "('v,'r) subop \<Rightarrow> ('v,'r) var \<Rightarrow> ('v,'r) exp \<Rightarrow> ('v,'r) subop"
   where
     "subst\<^sub>i i (Reg r) e = subst\<^sub>r i r e" |
-    "subst\<^sub>i i (Glb g) e = subst\<^sub>g i g e"
+    "subst\<^sub>i i (Glb g) e = subst\<^sub>g i g e" |
+    "subst\<^sub>i i (Tmp r) e = subst\<^sub>r i r e" 
+    
 
 definition smap1
   where "smap1 V x \<alpha> \<equiv> if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha>"
@@ -164,14 +175,33 @@ section \<open>Rules\<close>
 
 subsection \<open>Expression\<close>
 
+(*
 lemma ev_subst\<^sub>E [simp]:
-  "ev\<^sub>E m (subst\<^sub>E e r f) = ev\<^sub>E (m(r := (ev\<^sub>E m f))) e"
+  "ev\<^sub>E m (subst\<^sub>E e r f) = ev\<^sub>E (m (r := (ev\<^sub>E m f))) e"
 proof (induct e)
   case (Exp fn rs)
   hence [simp]: "map (ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (ev\<^sub>E (\<lambda>a. if a = r then ev\<^sub>E m f else m a)) rs"
     by auto
   show ?case by simp
 qed auto
+*)
+
+fun top_upd :: "('v,'r,'a) stateTree \<Rightarrow> 'r \<Rightarrow> 'v option \<Rightarrow> ('v,'r,'a) stateTree" where
+  "top_upd t r val = Base (st_upd (top t) (Reg r) val)"
+
+lemma ev_subst\<^sub>E [simp]:
+  "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (top_upd t r (ev\<^sub>E t f)) e"
+proof (induct e)
+  case (Var x)
+  then show ?case sorry
+next
+  case (Val x)
+  then show ?case sorry
+next
+  case (Exp x1a x2a)
+  then show ?case sorry
+qed
+
 
 lemma subst_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> subst\<^sub>E e r f = e"
@@ -181,6 +211,7 @@ proof (induct e)
   show ?case by simp
 qed auto
 
+(*
 lemma ev_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (m(r := f)) e = ev\<^sub>E m e"
 proof (induct e)
@@ -188,6 +219,20 @@ proof (induct e)
   hence [simp]: "map (ev\<^sub>E (\<lambda>a. if a = r then f else m a)) rs = map (ev\<^sub>E m) rs" by auto
   show ?case by simp
 qed auto
+*)
+lemma ev_nop\<^sub>E [simp]:
+  "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (top_upd m r f) e = ev\<^sub>E m e"
+proof (induct e)
+  case (Var x)
+  then show ?case using ev\<^sub>E.simps(3) ev_subst\<^sub>E subst_nop\<^sub>E sorry
+next
+  case (Val x)
+  then show ?case by simp
+next
+  case (Exp x1a x2a)
+  then show ?case using ev\<^sub>E.simps(3) ev_subst\<^sub>E subst_nop\<^sub>E sorry
+qed
+
 
 lemma deps_subst\<^sub>E [simp]:
   "deps\<^sub>E (subst\<^sub>E e x e') = deps\<^sub>E e - {x} \<union> (if x \<in> deps\<^sub>E e then deps\<^sub>E e' else {})"
@@ -281,7 +326,9 @@ lemma [simp]:
 
 lemma subst_rd [simp]:
   "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})"
-  by (cases \<alpha>; cases x; auto)
+  sorry
+(*  by (cases \<alpha>; cases x; auto)
+*)
 
 lemma subst_barriers [simp]:
   "barriers (subst\<^sub>i \<alpha> x e) = barriers \<alpha>"
@@ -289,7 +336,10 @@ lemma subst_barriers [simp]:
 
 lemma subst_nop [simp]:
   "x \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
-  unfolding smap1_def by (cases \<beta>; cases x) (auto split: if_splits)
+  unfolding smap1_def 
+  sorry
+(*  by (cases \<beta>; cases x) (auto split: if_splits)
+ *)
 
 lemma finite_rd [intro]:
   "finite (rd \<alpha>)"
@@ -299,7 +349,9 @@ subsection \<open>smap1 Theories\<close>
 
 lemma smap1_flip [simp]:
   "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)"
-  by (cases \<alpha>; cases x; cases y; cases "x = y"; auto simp: smap1_def)
+  sorry
+  (*by (cases \<alpha>; cases x; cases y; cases "x = y"; auto simp: smap1_def)
+*)
 
 lemma smap1_rep [simp]:
   "smap1 V x (smap1 V x \<alpha>) = smap1 V x \<alpha>"
@@ -588,18 +640,16 @@ lemma upd_more [simp]:
 
 lemma st_upd_eq [intro]:
   "state_rec.more m = state_rec.more m' \<Longrightarrow> \<forall>x. x \<noteq> y \<longrightarrow> st m x = st m' x \<Longrightarrow> m(y :=\<^sub>s e) = m'(y :=\<^sub>s e)"
-  by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
+  oops
+  (*by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
+*)
 
-
+(*
 lemma beh_substi [simp]:
   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s ev\<^sub>E (rg m\<^sub>1) e),m) \<in> beh\<^sub>i \<alpha>}"
   apply (cases \<alpha>; cases x; clarsimp simp: upd_def)
   by (auto intro!: equality split: if_splits) auto
 
-
-lemma [simp]:
-  "st (m(x :=\<^sub>s e)) = (st m)(x := e)"
-  by (auto simp: st_upd_def)
 
 lemma beh_smap1 [simp]:
   "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (upd ({x} \<inter> dom M) (the o M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
@@ -631,6 +681,7 @@ next
     apply (metis Int_Un_distrib2 Un_insert_right inf_bot_right sup_inf_absorb)
     done
 qed
+*)
 
 lemma [simp]:
   "rg (upd V f m) x = (if Reg x \<in> V then f (Reg x) else rg m x)"
@@ -649,6 +700,7 @@ lemma [simp]:
   "Reg ` deps\<^sub>B e \<subseteq> V \<Longrightarrow> ev\<^sub>B (rg (upd (V \<inter> dom M) (the \<circ> M) m\<^sub>1)) e = ev\<^sub>B (rg (upd (dom M) (the \<circ> M) m\<^sub>1)) e"
   by (rule deps_ev\<^sub>B) auto
 
+(*
 lemma beh_smap [simp]:
   "beh\<^sub>i (smap \<alpha> M) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) | m m\<^sub>1. (upd (dom M) (the o M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
 proof -
@@ -662,6 +714,6 @@ proof -
 
   finally show ?thesis unfolding smap_def .
 qed
-
+*)
 
 end
