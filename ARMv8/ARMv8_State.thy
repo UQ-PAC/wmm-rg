@@ -204,7 +204,7 @@ text \<open> lookup of var in a stateTree finds the closest frame in which var i
 fun lookup :: "('v,'r,'a) stateTree \<Rightarrow> ('v, 'r) ARMv8_State.var \<Rightarrow> 'v option" where
   "lookup (Base s) var =  st s var" |
   "lookup (Branch m m') var =
-                      (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)" 
+                      (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
 
 (*
 type_synonym ('v,'a) state_recTree = "(('v,'a) state_rec) tree"

@@ -107,7 +107,7 @@ fun beh\<^sub>i :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) subop \<Rightarro
     "beh\<^sub>i t (cas\<^sub>F a e\<^sub>1) = {(m,m'). m=(top t) \<and> m' = m \<and> st m (Glb a) \<noteq> ev\<^sub>E t e\<^sub>1}" |
     "beh\<^sub>i t (op r e) = {(m,m'). m=(top t) \<and> m' = m (Reg r :=\<^sub>s ev\<^sub>E t e)}" |
     "beh\<^sub>i t (cmp b) = {(m,m'). m=(top t) \<and> m = m' \<and> ev\<^sub>B t b}" |
-    "beh\<^sub>i t (cacheUpd c g) = {(m,m'). m = (base t) \<and> m' = st_upd m (Reg c) (Some g) }" | (* fix me *)
+(*    "beh\<^sub>i t (cacheUpd c g) = {(m,m'). m = (base t) \<and> m' =  m (Reg c) (Some g) }" | *) (* fix me *) 
     "beh\<^sub>i _ _ = Id" 
 
 text \<open>Variables modified by an operation, except cache variable \<close>
@@ -175,7 +175,95 @@ section \<open>Rules\<close>
 
 subsection \<open>Expression\<close>
 
-(*
+
+definition top_upd :: "('v,'r,'a) stateTree \<Rightarrow> 'r \<Rightarrow> 'v option \<Rightarrow> ('v,'r,'a) stateTree" where
+  "top_upd t r val = Base (st_upd (top t) (Reg r) val)"
+
+fun tree_upd :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) stateTree" where
+  "tree_upd (Base s) newTop = newTop" |
+  "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
+
+lemma stUpd_single :
+   "x \<noteq> r \<and> val\<noteq>None \<Longrightarrow> st (st_upd m r v) x = st m x" by auto
+
+lemma topUpd_single:
+ "x \<noteq> r \<and> val\<noteq>None \<Longrightarrow> lookup (top_upd (Base s) r val) (Reg x) = lookup (Base s) (Reg x)"
+  using top_upd_def stUpd_single by (metis lookup.simps(1) top.simps(1) var.inject(1))
+   
+lemma treeUpd_change: 
+  "x \<noteq> r \<and> val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) (Reg x) = lookup t (Reg x)"
+proof (induct t)
+  case (Base s)
+  then show ?case using topUpd_single lookup.simps(1) by fastforce
+next
+  case (Branch t1 t2)
+  then show ?case using topUpd_single lookup.simps(2) top.elims top_upd_def tree.distinct(1) 
+             tree.inject(2) tree.simps(5) tree.simps(6) tree_upd.simps(2)
+    by (smt (verit, ccfv_threshold) )
+qed
+
+lemma top_treeUpd:
+    "top (tree_upd t (Base newTop)) = newTop" 
+proof (induction t)
+  case (Base x)
+  then show ?case by simp
+next
+  case (Branch t1 t2)
+  then show ?case 
+  proof (induction t2)
+    case (Base x)
+    then show ?case by simp
+  next
+    case (Branch t21 t22)
+    then show ?case by auto
+  qed
+qed
+
+lemma lookup_upd:
+  "val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) (Reg r) = val"
+proof (induction t)
+  case (Base x)
+  then show ?case using lookup.simps(1) tree_upd.simps(1) top_treeUpd topUpd_single
+    by (simp add: top_upd_def)
+next
+  case (Branch t1 t2)
+  then show ?case 
+  proof (induction t2)
+    case (Base x)
+    then show ?case using tree_upd.simps lookup.simps(2) top.simps tree.simps(5)
+      by (metis (no_types, lifting) option.case_eq_if option.collapse top_upd_def)
+  next
+    case (Branch t21 t22)
+    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6)
+      by (metis (mono_tags, lifting) option.case_eq_if option.collapse top_upd_def)
+  qed
+qed
+
+lemma ev_subst\<^sub>E [simp]:
+  assumes "(ev\<^sub>E t f) \<noteq> None"
+  shows "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f))) e"
+proof (induct e)
+  case (Var x)
+  then show ?case 
+  proof -
+    have a1:"top_upd t r (ev\<^sub>E t f) = Base (st_upd (top t) (Reg r) (ev\<^sub>E t f))" using 
+                top_upd_def by metis
+    obtain t' where a2:"t'= tree_upd t (Base (st_upd (top t) (Reg r) (ev\<^sub>E t f)))" by simp
+    then have a3:"lookup t' (Reg r) = (ev\<^sub>E t f)" using lookup_upd by (metis assms a1)
+    thus ?case using treeUpd_change
+      by (metis a2 assms ev\<^sub>E.simps(1) subst\<^sub>E.simps(1) top_upd_def)
+  qed
+  next
+  case (Val x)
+  then show ?case by simp
+next
+  case (Exp fn rs) 
+    hence [simp]: "(map (ev\<^sub>E t \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs) = 
+                      (map (ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f)))) rs)"by simp
+  show ?case by simp
+qed
+
+(* old version
 lemma ev_subst\<^sub>E [simp]:
   "ev\<^sub>E m (subst\<^sub>E e r f) = ev\<^sub>E (m (r := (ev\<^sub>E m f))) e"
 proof (induct e)
@@ -186,22 +274,6 @@ proof (induct e)
 qed auto
 *)
 
-fun top_upd :: "('v,'r,'a) stateTree \<Rightarrow> 'r \<Rightarrow> 'v option \<Rightarrow> ('v,'r,'a) stateTree" where
-  "top_upd t r val = Base (st_upd (top t) (Reg r) val)"
-
-lemma ev_subst\<^sub>E [simp]:
-  "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (top_upd t r (ev\<^sub>E t f)) e"
-proof (induct e)
-  case (Var x)
-  then show ?case sorry
-next
-  case (Val x)
-  then show ?case sorry
-next
-  case (Exp x1a x2a)
-  then show ?case sorry
-qed
-
 
 lemma subst_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> subst\<^sub>E e r f = e"
@@ -211,7 +283,7 @@ proof (induct e)
   show ?case by simp
 qed auto
 
-(*
+(* old version 
 lemma ev_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (m(r := f)) e = ev\<^sub>E m e"
 proof (induct e)
@@ -221,16 +293,21 @@ proof (induct e)
 qed auto
 *)
 lemma ev_nop\<^sub>E [simp]:
-  "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (top_upd m r f) e = ev\<^sub>E m e"
+  assumes "f \<noteq> None"
+  shows "r \<notin> deps\<^sub>E e  \<Longrightarrow> ev\<^sub>E (tree_upd t (top_upd t r f)) e = ev\<^sub>E t e"
 proof (induct e)
   case (Var x)
-  then show ?case using ev\<^sub>E.simps(3) ev_subst\<^sub>E subst_nop\<^sub>E sorry
+  hence [simp]: " lookup (tree_upd t (top_upd t r f)) (Reg x) = lookup t (Reg x)" 
+    using assms treeUpd_change by (metis deps\<^sub>E.simps(1) singletonI)           
+  then show ?case by auto
 next
   case (Val x)
   then show ?case by simp
 next
   case (Exp x1a x2a)
-  then show ?case using ev\<^sub>E.simps(3) ev_subst\<^sub>E subst_nop\<^sub>E sorry
+  hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r f))) x2a 
+                  = (map (ev\<^sub>E t) x2a)" by simp
+  then show ?case by auto
 qed
 
 
