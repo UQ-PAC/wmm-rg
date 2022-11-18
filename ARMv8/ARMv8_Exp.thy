@@ -79,7 +79,7 @@ datatype ('v,'r) subop =
   | cfence
   | stfence
   | nop
-  | cacheUpd 'r 'v   (* 'r is cache variable, 'v is the address to be added to cache *)
+(*  | cacheUpd 'v 'v   (* 'r is cache variable, 'v is the address to be added to cache *) *)
 
 text \<open>Common Sub-Instructions\<close>
 abbreviation assign
@@ -119,15 +119,29 @@ fun wr :: "('v,'r) subop \<Rightarrow> ('v,'r) var set"
     "wr _ = {}"
 
 text \<open>Variables that influence an operation\<close>
+
 fun rd :: "('v,'r) subop \<Rightarrow> ('v,'r) var set"
   where
-    "rd (load y e) = {Glb y} \<union> Reg ` deps\<^sub>E e" |
+    "rd (load y e) = {Glb y} \<union> Reg`deps\<^sub>E e" |
     "rd (cas\<^sub>T y e\<^sub>1 e\<^sub>2) = {Glb y} \<union> Reg ` deps\<^sub>E e\<^sub>1 \<union> Reg ` deps\<^sub>E e\<^sub>2" |
     "rd (cas\<^sub>F y e\<^sub>1) = {Glb y} \<union> Reg ` deps\<^sub>E e\<^sub>1" |
     "rd (op _ e) = Reg ` deps\<^sub>E e" |
     "rd (cstore b _ e) = Reg ` deps\<^sub>E e \<union> Reg ` deps\<^sub>B b" |
     "rd (cmp b) = Reg ` deps\<^sub>B b" |
     "rd _ = {}"
+
+
+fun deps\<^sub>r :: "('v,'r) subop \<Rightarrow> 'r set"
+  where
+  "deps\<^sub>r (load v\<^sub>a e\<^sub>a) = deps\<^sub>E e\<^sub>a" |
+  "deps\<^sub>r (cstore b v\<^sub>a e\<^sub>a) = deps\<^sub>B b \<union> deps\<^sub>E e\<^sub>a" |
+  "deps\<^sub>r (op v\<^sub>a e\<^sub>a) = deps\<^sub>E e\<^sub>a"  |
+  "deps\<^sub>r (cmp b) = deps\<^sub>B b" | 
+  "deps\<^sub>r (cas\<^sub>T v\<^sub>a e\<^sub>1 e\<^sub>2) = deps\<^sub>E e\<^sub>1 \<union> deps\<^sub>E e\<^sub>2" | 
+  "deps\<^sub>r (cas\<^sub>F v\<^sub>a e\<^sub>1) = deps\<^sub>E e\<^sub>1" |  
+  "deps\<^sub>r  \<alpha> = {} "
+
+
 
 text \<open>Test if an instruction is a memory barrier\<close>
 fun barriers :: "('v,'r) subop \<Rightarrow> ('v,'r) subop set"
@@ -173,8 +187,8 @@ definition forall
 
 section \<open>Rules\<close>
 
-subsection \<open>Expression\<close>
 
+subsection \<open>Trees\<close>
 
 definition top_upd :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) var \<Rightarrow> 'v option \<Rightarrow> ('v,'r,'a) stateTree" where
   "top_upd t r val = Base (st_upd (top t) r val)"
@@ -184,14 +198,14 @@ fun tree_upd :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) stateTree \<Right
   "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
 
 lemma stUpd_single :
-   "x \<noteq> r \<and> val\<noteq>None \<Longrightarrow> st (st_upd m r v) x = st m x" by auto
+   "x \<noteq> r  \<Longrightarrow> st (st_upd m r v) x = st m x" by auto
 
 lemma topUpd_single:
- "x \<noteq> r \<and> val\<noteq>None \<Longrightarrow> lookup (top_upd (Base s) r val) x = lookup (Base s) x"
+ "x \<noteq> r  \<Longrightarrow> lookup (top_upd (Base s) r (the val)) x = lookup (Base s) x"
   using top_upd_def stUpd_single by (metis(full_types) lookup.simps(1) top.simps(1))
    
 lemma treeUpd_change: 
-  "x \<noteq> r \<and> val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) x = lookup t x"
+  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t (top_upd t r (the val))) x = lookup t x"
 proof (induct t)
   case (Base s)
   then show ?case using topUpd_single lookup.simps(1) by fastforce
@@ -239,6 +253,10 @@ next
   qed
 qed
 
+
+subsection \<open>Expression\<close>
+
+
 (* needs additional assumption that e doesn't evaluate to None 
    - otherwise lookup within ev\<^sub>E fails *)
 lemma ev_subst\<^sub>E [simp]:
@@ -253,7 +271,7 @@ proof (induct e)
     obtain t' where a2:"t'= tree_upd t (Base (st_upd (top t) r (ev\<^sub>E t f)))" by simp
     then have a3:"lookup t' r = (ev\<^sub>E t f)" using lookup_upd by (metis assms a1)
     thus ?case using treeUpd_change
-      by (metis a2 assms ev\<^sub>E.simps(1) subst\<^sub>E.simps(1) top_upd_def)
+      by (metis a1 a2 ev\<^sub>E.simps(1) option.sel subst\<^sub>E.simps(1))
   qed
   next
   case (Val x)
@@ -295,19 +313,18 @@ proof (induct e)
 qed auto
 *)
 lemma ev_nop\<^sub>E [simp]:
-  assumes "f \<noteq> None"
-  shows "r \<notin> deps\<^sub>E e  \<Longrightarrow> ev\<^sub>E (tree_upd t (top_upd t r f)) e = ev\<^sub>E t e"
+ "r \<notin> deps\<^sub>E e  \<Longrightarrow> ev\<^sub>E (tree_upd t (top_upd t r (the f))) e = ev\<^sub>E t e"
 proof (induct e)
   case (Var x)
-  hence [simp]: " lookup (tree_upd t (top_upd t r f)) x = lookup t x" 
-    using assms treeUpd_change by (metis deps\<^sub>E.simps(1) singletonI)           
+  hence [simp]: " lookup (tree_upd t (top_upd t r (the f))) x = lookup t x" 
+    using treeUpd_change by (metis deps\<^sub>E.simps(1) singletonI)           
   then show ?case by auto
 next
   case (Val x)
   then show ?case by simp
 next
   case (Exp x1a x2a)
-  hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r f))) x2a 
+  hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r (the f)))) x2a 
                   = (map (ev\<^sub>E t) x2a)" by simp
   then show ?case by auto
 qed
@@ -387,12 +404,11 @@ proof (induct b)
 qed simp+
 
 lemma ev_nop\<^sub>B [simp]:
-  assumes "f \<noteq> None"
-  shows "r \<notin> deps\<^sub>B b \<Longrightarrow> ev\<^sub>B (tree_upd t (top_upd t r f)) b = ev\<^sub>B t b"
+   "r \<notin> deps\<^sub>B b \<Longrightarrow> ev\<^sub>B (tree_upd t (top_upd t r (the f))) b = ev\<^sub>B t b"
 proof (induct b)
   case (Exp\<^sub>B fn rs)
-  hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r f))) rs = map (ev\<^sub>E t) rs" 
-    using assms top_upd_def by force
+  hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r (the f)))) rs = map (ev\<^sub>E t) rs" 
+    using top_upd_def by force
   show ?case by auto
 qed simp+
 
@@ -431,6 +447,20 @@ lemma finite_deps\<^sub>B [intro]:
 
 subsection \<open>Operations\<close>
 
+lemma subst\<^sub>r_flip [simp]:
+  "r1 \<noteq> r2 \<Longrightarrow> subst\<^sub>r (subst\<^sub>r \<alpha> r1 (Val v1)) r2 (Val v2) = 
+                  subst\<^sub>r (subst\<^sub>r \<alpha> r2 (Val v2)) r1 (Val v1)" 
+  by (induct \<alpha>) auto
+
+
+lemma subst_nop\<^sub>r [simp]:
+  "r \<notin> deps\<^sub>r \<alpha> \<Longrightarrow> subst\<^sub>r \<alpha> r f = \<alpha>"   
+  by (cases \<alpha>; simp+)
+
+lemma deps_subst\<^sub>r [simp]:
+  "deps\<^sub>r (subst\<^sub>r \<alpha> x e) = deps\<^sub>r \<alpha> - {x} \<union> (if x \<in> deps\<^sub>r \<alpha> then deps\<^sub>E e else {})"
+  by (induct \<alpha>; auto simp: if_splits)
+
 lemma subst_wr [simp]:
   "wr (subst\<^sub>i \<alpha> x e) = wr \<alpha>"
   by (cases \<alpha>; cases x; auto)
@@ -440,28 +470,55 @@ lemma [simp]:
   by auto
 
 lemma [simp]:
+  "Glb x \<in> Tmp ` e = False"
+  by auto
+
+lemma [simp]:
   "Reg x \<in> Reg ` e = (x \<in> e)"
   by auto
 
-(* not used 
+lemma [simp]:
+  "Tmp x \<in> Tmp ` e = (x \<in> e)"
+  by auto
+
+lemma [simp]:
+  "Tmp x \<in> Reg ` e = False"
+  by auto
+
+lemma [simp]:
+  "Reg x \<in> Tmp ` e = False"
+  by auto
+
+lemma  subst_rd_tmp:
+  assumes "x = Tmp r"
+  shows "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {Reg r} \<union> (if (Reg r) \<in> rd \<alpha> then Reg` deps\<^sub>E e else {})"
+  by (induct \<alpha>; auto simp add:assms)
+
+
 lemma subst_rd [simp]:
-  "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})" 
-sorry
-  by (cases \<alpha>; cases x; auto)
-*)
+ "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})"
+ proof (cases x)
+   case (Reg x1)
+   then show ?thesis by (induct \<alpha>; auto simp add: Reg)
+ next
+   case (Glb x2)
+   then show ?thesis by (induct \<alpha>; auto simp add: Glb)
+ next
+   case (Tmp x3)
+   then show ?thesis using subst_rd_tmp Tmp sorry (* on RHS x as in (Tmp r) needs to change to (Reg r) *)
+ qed
 
 
 lemma subst_barriers [simp]:
   "barriers (subst\<^sub>i \<alpha> x e) = barriers \<alpha>"
   by (cases \<alpha>; cases x; auto)
 
-(* not used 
+(* not used *)
 lemma subst_nop [simp]:
   "x \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
   unfolding smap1_def 
- sorry
-  by (cases \<beta>; cases x) (auto split: if_splits)
-*)
+  apply (cases \<beta>; cases x) apply (auto split: if_splits)
+  sorry
 
 lemma finite_rd [intro]:
   "finite (rd \<alpha>)"
@@ -469,43 +526,25 @@ lemma finite_rd [intro]:
 
 subsection \<open>smap1 Theories\<close>
 
+lemma help1:
+   "smap1 V (Reg y) (smap1 V (Reg x) \<alpha>) = smap1 V (Reg x) (smap1 V (Reg y) \<alpha>)"
+proof (cases "x=y")
+  case True
+  then show ?thesis  using smap1_def subst\<^sub>r.simps(1) by simp
+next
+  case False
+  then show ?thesis    
+    unfolding smap1_def by (auto split: if_splits)
+qed
+
 (* not used: *)
 lemma smap1_flip [simp]:
   "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)"
-proof (induct \<alpha>)
-  case (load x1 x2)
-  then show ?case sorry
-next
-  case (cstore x1 x2 x3)
-  then show ?case sorry
-next
-  case (cas\<^sub>T x1 x2 x3)
-  then show ?case sorry
-next
-  case (cas\<^sub>F x1 x2)
-  then show ?case sorry
-next
-  case (op x1 x2)
-  then show ?case sorry
-next
-  case (cmp x)
-  then show ?case sorry
-next
-  case fence
-  then show ?case sorry
-next
-  case cfence
-  then show ?case sorry
-next
-  case stfence
-  then show ?case sorry
-next
-  case nop
-  then show ?case sorry
-next
-  case (cacheUpd x1 x2)
-  then show ?case sorry
-qed
+  apply(cases y) apply(cases x) apply(cases "x=y")
+  using smap1_def subst\<^sub>r.simps(1) apply simp
+  using help1 apply metis
+  sorry
+
  (*  by (cases \<alpha>; cases x; cases y; cases "x = y"; auto simp: smap1_def) *)
 
 
@@ -523,7 +562,7 @@ proof -
 
 lemma smap1_rd [simp]:
   "rd (smap1 M x \<beta>) = rd \<beta> - ({x} \<inter> dom M)"
-  unfolding smap1_def by (auto split: if_splits)
+  unfolding smap1_def by (auto split: if_splits) 
 
 lemma smap1_wr [simp]:
   "wr (smap1 M x \<beta>) = wr \<beta>"

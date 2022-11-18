@@ -65,8 +65,10 @@ definition aux
   where "aux m \<equiv> more m"
 
 text \<open>Domain of register variables\<close>
+
+(* Tmp registers are also local? *)
 abbreviation locals
-  where "locals \<equiv> Reg ` UNIV"
+  where "locals \<equiv> Reg ` UNIV \<union> Tmp ` UNIV"
 
 text \<open>Domain of register variables\<close>
 abbreviation globals
