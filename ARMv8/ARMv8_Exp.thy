@@ -539,7 +539,7 @@ lemma help1:
    "smap1 V (Reg y) (smap1 V (Reg x) \<alpha>) = smap1 V (Reg x) (smap1 V (Reg y) \<alpha>)"
 proof (cases "x=y")
   case True
-  then show ?thesis  using smap1_def subst\<^sub>r.simps(1) by simp
+  then show ?thesis  using smap1_def by simp
 next
   case False
   then show ?thesis    
@@ -553,17 +553,35 @@ lemma help2:
 
 
 lemma Var_Neq:
-  assumes "x1 = Reg r1" "y1 = Tmp r2" 
-  shows "x1 \<noteq> y1"
-  by (simp add: assms)
+  assumes "x = Reg r1" "y = Tmp r2" "x \<noteq> y"
+  shows "r1 \<noteq> r2" 
+  oops
 
-lemma help3:
-  assumes  "y \<noteq> x"    (* that what we have "Reg y \<noteq> Tmp x" *)
+lemma help3a:
+  assumes  "y \<noteq> x"    (* that's not what we have "Reg y \<noteq> Tmp x" *)
   shows "smap1 V (Reg y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Reg y) \<alpha>)"
   unfolding smap1_def 
   using subst\<^sub>r.simps subst\<^sub>g.simps apply simp apply (cases \<alpha>; simp)
   using subst\<^sub>E_flip assms by auto
 
+lemma help3:
+  "smap1 V (Reg y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Reg y) \<alpha>)"
+proof (cases "Tmp x = Reg y")
+  case True
+  then show ?thesis unfolding smap1_def by simp 
+  next
+  case False
+  then show ?thesis unfolding smap1_def apply (auto split: if_splits)
+    using subst\<^sub>r_flip False
+  proof (cases "(Val (the (V (Reg y)))) = (Val (the (V (Tmp x))))")
+    case True
+    then show ?thesis 
+  next
+    case False
+    then show ?thesis sorry
+  qed
+
+qed
 
 
 (* not used: *)
