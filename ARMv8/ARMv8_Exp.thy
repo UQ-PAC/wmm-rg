@@ -489,6 +489,10 @@ lemma [simp]:
   "Reg x \<in> Tmp ` e = False"
   by auto
 
+
+(* special case for Tmp: 
+   rd labels every local variable as Reg which then can't be matched if x =Tmp r *)
+
 lemma  subst_rd_tmp:
   assumes "x = Tmp r"
   shows "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {Reg r} \<union> (if (Reg r) \<in> rd \<alpha> then Reg` deps\<^sub>E e else {})"
@@ -496,29 +500,34 @@ lemma  subst_rd_tmp:
 
 
 lemma subst_rd [simp]:
- "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})"
- proof (cases x)
-   case (Reg x1)
-   then show ?thesis by (induct \<alpha>; auto simp add: Reg)
- next
-   case (Glb x2)
-   then show ?thesis by (induct \<alpha>; auto simp add: Glb)
- next
-   case (Tmp x3)
-   then show ?thesis using subst_rd_tmp Tmp sorry (* on RHS x as in (Tmp r) needs to change to (Reg r) *)
- qed
+  assumes "x = Reg r \<or> x = Glb r"
+  shows "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})" 
+  apply (cases x; cases \<alpha>) using assms by (auto split: if_splits)
+
+(*---- *)
 
 
 lemma subst_barriers [simp]:
   "barriers (subst\<^sub>i \<alpha> x e) = barriers \<alpha>"
   by (cases \<alpha>; cases x; auto)
 
-(* not used *)
+(* special case for Tmp  
+   rd labels every local variable as Reg which then can't be matched if x =Tmp r *)
+
+lemma subst_nop_tmp [simp]:
+  assumes "x = Tmp r"
+  shows "(Reg r) \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
+  unfolding smap1_def using assms
+  apply (cases \<beta>; cases x) by (auto split: if_splits)
+
 lemma subst_nop [simp]:
-  "x \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
-  unfolding smap1_def 
-  apply (cases \<beta>; cases x) apply (auto split: if_splits)
-  sorry
+  assumes "x = Reg r \<or> x = Glb r"
+  shows "x \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
+  unfolding smap1_def using assms 
+  apply (cases \<beta>; cases x) by (auto split: if_splits)
+
+(*---- *)
+
 
 lemma finite_rd [intro]:
   "finite (rd \<alpha>)"
@@ -537,12 +546,36 @@ next
     unfolding smap1_def by (auto split: if_splits)
 qed
 
+lemma help2:
+   "smap1 V (Reg y) (smap1 V (Glb x) \<alpha>) = smap1 V (Glb x) (smap1 V (Reg y) \<alpha>)"
+  unfolding smap1_def 
+  using subst\<^sub>r.simps subst\<^sub>g.simps apply simp by (cases \<alpha>; auto)
+
+
+lemma Var_Neq:
+  assumes "x1 = Reg r1" "y1 = Tmp r2" 
+  shows "x1 \<noteq> y1"
+  by (simp add: assms)
+
+lemma help3:
+  assumes  "y \<noteq> x"    (* that what we have "Reg y \<noteq> Tmp x" *)
+  shows "smap1 V (Reg y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Reg y) \<alpha>)"
+  unfolding smap1_def 
+  using subst\<^sub>r.simps subst\<^sub>g.simps apply simp apply (cases \<alpha>; simp)
+  using subst\<^sub>E_flip assms by auto
+
+
+
 (* not used: *)
 lemma smap1_flip [simp]:
-  "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)"
+  shows "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)"
   apply(cases y) apply(cases x) apply(cases "x=y")
   using smap1_def subst\<^sub>r.simps(1) apply simp
   using help1 apply metis
+  using help2 apply metis
+  apply(cases "x=y") apply simp
+  using help3 
+  
   sorry
 
  (*  by (cases \<alpha>; cases x; cases y; cases "x = y"; auto simp: smap1_def) *)
