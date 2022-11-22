@@ -489,20 +489,31 @@ lemma [simp]:
   "Reg x \<in> Tmp ` e = False"
   by auto
 
-
-(* special case for Tmp: 
+(* special case of lemma subst_rd for Tmp: 
    rd labels every local variable as Reg which then can't be matched if x =Tmp r *)
 
-lemma  subst_rd_tmp:
+lemma  subst_rd_tmp:   (* should this be in simp set? *)
   assumes "x = Tmp r"
   shows "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {Reg r} \<union> (if (Reg r) \<in> rd \<alpha> then Reg` deps\<^sub>E e else {})"
   by (induct \<alpha>; auto simp add:assms)
 
 
-lemma subst_rd [simp]:
+lemma subst_rd [simp]:  (* should this still be in simp set? *)
   assumes "x = Reg r \<or> x = Glb r"
   shows "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})" 
   apply (cases x; cases \<alpha>) using assms by (auto split: if_splits)
+
+
+lemma subst_rd_Reg [simp]:  (* should this still be in simp set? *)
+  "rd (subst\<^sub>i \<alpha> (Reg x) e) = rd \<alpha> - {(Reg x)} \<union> 
+                  (if (Reg x) \<in> rd \<alpha> then Reg ` deps\<^sub>E e else {})" 
+  apply (cases \<alpha>) by (auto split: if_splits)
+
+lemma subst_rd_Glb [simp]:  (* should this still be in simp set? *)
+  "rd (subst\<^sub>i \<alpha> (Glb x) e) = rd \<alpha> - {(Glb x)} \<union> 
+                  (if (Glb x) \<in> rd \<alpha> then Glb ` deps\<^sub>E e else {})" 
+  apply (cases \<alpha>) apply (auto split: if_splits)
+  oops
 
 (*---- *)
 
@@ -511,16 +522,16 @@ lemma subst_barriers [simp]:
   "barriers (subst\<^sub>i \<alpha> x e) = barriers \<alpha>"
   by (cases \<alpha>; cases x; auto)
 
-(* special case for Tmp  
+(* special case of lemma subst_nop for Tmp  
    rd labels every local variable as Reg which then can't be matched if x =Tmp r *)
 
-lemma subst_nop_tmp [simp]:
+lemma subst_nop_tmp [simp]: (* should this be in simp set? *)
   assumes "x = Tmp r"
   shows "(Reg r) \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
   unfolding smap1_def using assms
   apply (cases \<beta>; cases x) by (auto split: if_splits)
 
-lemma subst_nop [simp]:
+lemma subst_nop [simp]:    (* should this still be in simp set? *)
   assumes "x = Reg r \<or> x = Glb r"
   shows "x \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
   unfolding smap1_def using assms 
@@ -537,66 +548,94 @@ subsection \<open>smap1 Theories\<close>
 
 lemma help1:
    "smap1 V (Reg y) (smap1 V (Reg x) \<alpha>) = smap1 V (Reg x) (smap1 V (Reg y) \<alpha>)"
-proof (cases "x=y")
-  case True
-  then show ?thesis  using smap1_def by simp
-next
-  case False
-  then show ?thesis    
-    unfolding smap1_def by (auto split: if_splits)
-qed
+  unfolding smap1_def by (cases "x=y"; auto split: if_splits)
 
 lemma help2:
+   "smap1 V (Glb y) (smap1 V (Glb x) \<alpha>) = smap1 V (Glb x) (smap1 V (Glb y) \<alpha>)"
+  unfolding smap1_def apply (auto split: if_splits) by (cases \<alpha>; auto) 
+
+
+lemma help3:
    "smap1 V (Reg y) (smap1 V (Glb x) \<alpha>) = smap1 V (Glb x) (smap1 V (Reg y) \<alpha>)"
   unfolding smap1_def 
   using subst\<^sub>r.simps subst\<^sub>g.simps apply simp by (cases \<alpha>; auto)
 
-
-lemma Var_Neq:
-  assumes "x = Reg r1" "y = Tmp r2" "x \<noteq> y"
-  shows "r1 \<noteq> r2" 
-  oops
-
-lemma help3a:
-  assumes  "y \<noteq> x"    (* that's not what we have "Reg y \<noteq> Tmp x" *)
-  shows "smap1 V (Reg y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Reg y) \<alpha>)"
-  unfolding smap1_def 
-  using subst\<^sub>r.simps subst\<^sub>g.simps apply simp apply (cases \<alpha>; simp)
-  using subst\<^sub>E_flip assms by auto
-
-lemma help3:
+lemma help4:
   "smap1 V (Reg y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Reg y) \<alpha>)"
-proof (cases "Tmp x = Reg y")
+proof (cases "x=y")
   case True
-  then show ?thesis unfolding smap1_def by simp 
-  next
+  then show ?thesis unfolding smap1_def apply simp sorry  (* registers have to be distinguishable *)
+next
   case False
-  then show ?thesis unfolding smap1_def apply (auto split: if_splits)
-    using subst\<^sub>r_flip False
-  proof (cases "(Val (the (V (Reg y)))) = (Val (the (V (Tmp x))))")
+  then show ?thesis unfolding smap1_def using subst\<^sub>r.simps subst\<^sub>g.simps by simp
+qed
+
+(* currently not used
+lemma help3:
+   "smap1 V (Tmp y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Tmp y) \<alpha>)"
+  unfolding smap1_def apply simp using subst\<^sub>r_flip by metis
+*)
+
+lemma help5:
+   "smap1 V (Glb y) (smap1 V x \<alpha>) = smap1 V x (smap1 V (Glb y) \<alpha>)"
+proof (cases x)
+  case (Reg x1)
+  then show ?thesis  using help3 by metis
+next
+  case (Glb x2)
+  then show ?thesis  using help2 by metis
+next
+  case (Tmp x3)
+  then show ?thesis 
+  proof (cases "x= (Glb y)")
     case True
-    then show ?thesis 
+    then show ?thesis by simp
   next
     case False
-    then show ?thesis sorry
+    then show ?thesis unfolding smap1_def 
+      using Tmp apply (auto split: if_splits)
+      by (cases \<alpha>; simp)   
   qed
-
 qed
 
 
-(* not used: *)
+lemma help6:
+  "smap1 V (Glb y) (smap1 V (Tmp x) \<alpha>) = smap1 V (Tmp x) (smap1 V (Glb y) \<alpha>)"
+ unfolding smap1_def apply (auto split: if_splits) by (cases \<alpha>; simp)   
+
+
+lemma help7:
+  "smap1 V (Tmp y) (smap1 V x \<alpha>) = smap1 V x (smap1 V (Tmp y) \<alpha>)"
+proof (cases x)
+  case (Reg x1)
+  then show ?thesis 
+     proof (cases "x1=y")
+       case True
+       then show ?thesis unfolding smap1_def apply simp using Reg apply simp sorry
+       next
+         case False
+         then show ?thesis unfolding smap1_def using Reg by simp
+       qed
+ next
+  case (Glb x2) 
+  then show ?thesis unfolding smap1_def apply simp using help6 
+    by (metis smap1_def subst\<^sub>i.simps(2) subst\<^sub>i.simps(3))
+ next
+  case (Tmp x3)
+  then show ?thesis unfolding smap1_def using Tmp apply simp 
+    using subst\<^sub>r_flip by metis
+qed
+
+
 lemma smap1_flip [simp]:
   shows "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)"
   apply(cases y) apply(cases x) apply(cases "x=y")
   using smap1_def subst\<^sub>r.simps(1) apply simp
   using help1 apply metis
-  using help2 apply metis
-  apply(cases "x=y") apply simp
-  using help3 
-  
-  sorry
-
- (*  by (cases \<alpha>; cases x; cases y; cases "x = y"; auto simp: smap1_def) *)
+  using help3 apply metis
+  using help4 apply metis
+  using help5 apply metis
+  using help7 by metis
 
 
 lemma smap1_rep [simp]:
@@ -606,14 +645,21 @@ lemma smap1_rep [simp]:
 
 interpretation cfi: comp_fun_idem "smap1 V"  by (standard) auto 
 
-(*
-proof -
-  have "smap1 V y \<circ> smap1 V x = smap1 V x \<circ> smap1 V y" 
-*)
 
 lemma smap1_rd [simp]:
   "rd (smap1 M x \<beta>) = rd \<beta> - ({x} \<inter> dom M)"
-  unfolding smap1_def by (auto split: if_splits) 
+proof (cases x)
+  case (Reg x1)
+  then show ?thesis unfolding smap1_def apply simp sorry 
+next
+  case (Glb x2)
+  then show ?thesis unfolding smap1_def apply (auto split: if_splits) sorry
+next
+  case (Tmp x3)
+  then show ?thesis sorry
+qed
+  
+(*  unfolding smap1_def by (auto split: if_splits) *)
 
 lemma smap1_wr [simp]:
   "wr (smap1 M x \<beta>) = wr \<beta>"
@@ -625,7 +671,7 @@ lemma smap1_barriers [simp]:
 
 lemma smap1_nop [simp]:
   "x \<notin> rd \<beta> \<Longrightarrow> smap1 M x \<beta> = \<beta>"
-  unfolding smap1_def by (auto split: if_splits)
+  unfolding smap1_def apply (auto split: if_splits) sorry
 
 lemma smap1_nop2 [simp]:
   "M x = None \<Longrightarrow> smap1 M x \<beta> = \<beta>"
@@ -766,7 +812,8 @@ proof -
   have "?L \<subseteq> ?R"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
     fix M assume d: "dom (M :: ('a, 'b) ARMv8_State.var \<Rightarrow> 'a option) = insert x V" "x \<in> V"
-    hence "smap \<alpha> M = subst\<^sub>i (smap \<alpha> M) x (Val (the (M x)))" by simp
+    hence "smap \<alpha> M = subst\<^sub>i (smap \<alpha> M) x (Val (the (M x)))"
+      by (metis insert_absorb smap1_def smap_rep)  (* by simp *)
     moreover have "dom M = V" using d by auto
     ultimately show "\<exists>c \<alpha>'. smap \<alpha> M = subst\<^sub>i \<alpha>' x (Val c) \<and> (\<exists>M. \<alpha>' = smap \<alpha> M \<and> dom M = V)"
       by blast
@@ -796,7 +843,8 @@ proof -
         case False
         hence [simp]: "rd \<alpha> - {x} = rd \<alpha>" by auto
         have "x \<notin> rd (smap \<alpha> ?M)" using False by simp
-        then show ?thesis using mx unfolding smap_def by simp
+        then show ?thesis using mx unfolding smap_def 
+          by (metis \<open>rd \<alpha> - {x} = rd \<alpha>\<close> d(1) insertCI smap1_def smap1_nop) (* by simp *)
       qed
     qed
     moreover have "dom ?M = V" using d by (auto split: if_splits)
@@ -808,7 +856,7 @@ proof -
   proof (clarsimp simp: forall_def, cases "x \<in> V")
     fix M c assume d: "V = dom (M :: ('a, 'b) ARMv8_State.var \<Rightarrow> 'a option)" "x \<in> V" 
     have "dom M = insert x (dom M)" using d by auto
-    moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> M" using d by simp
+    moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> M" using d sorry (* by simp *) 
     ultimately show "\<exists>Ma. subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> Ma \<and> dom Ma = insert x (dom M)"
       by blast
   next
@@ -838,7 +886,10 @@ proof -
         case False
         hence [simp]: "rd \<alpha> - {x} = rd \<alpha>" by auto
         have "x \<notin> rd (smap \<alpha> ?M)" using False by simp
-        then show ?thesis using mx unfolding smap_def by simp
+        then show ?thesis using mx unfolding smap_def 
+          by (smt (verit, best) \<open>rd \<alpha> - {x} = rd \<alpha>\<close> 
+                        calculation insertCI option.sel smap1_def smap_def smap_rep)
+ (*by simp*)
       qed
     qed
     ultimately show "\<exists>Ma. subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> Ma \<and> dom Ma = insert x (dom M)"
@@ -855,7 +906,7 @@ lemma forall_one [simp]:
 lemma forall_nop [simp]:
   assumes "x \<notin> rd \<alpha>" 
   shows "forall (insert x V) \<alpha> = forall V \<alpha>"
-  using assms forall_unfold by force
+  using assms forall_unfold sorry (* by force *)
 
 lemma forallI [intro]:
   "smap \<alpha> M \<in> forall (dom M) \<alpha>"
