@@ -4,8 +4,8 @@ begin
 
 section \<open>State Encoding\<close>
 
-
-datatype ('v,'r) var = Reg 'r | Glb 'v | Tmp 'r
+datatype 'r Reg = reg 'r | tmp 'r
+datatype ('v,'r) var = Reg 'r | Glb 'v 
 
 text \<open> A state record is a partial mapping from vars to values, st
          capture set, cap, denotes the set of "new" variables that the frame quantifies over
@@ -57,10 +57,6 @@ definition glb :: "('v,'r,'a) state \<Rightarrow> ('v \<Rightarrow> 'v option)"
 definition rg :: "('v,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
 
-definition tmp :: "('v,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
-  where "tmp m \<equiv> \<lambda>v. st m (Tmp v)"
-
-
 definition aux
   where "aux m \<equiv> more m"
 
@@ -68,7 +64,7 @@ text \<open>Domain of register variables\<close>
 
 (* Tmp registers are also local? *)
 abbreviation locals
-  where "locals \<equiv> Reg ` UNIV \<union> Tmp ` UNIV"
+  where "locals \<equiv> Reg ` UNIV"
 
 text \<open>Domain of register variables\<close>
 abbreviation globals
@@ -207,25 +203,6 @@ fun lookup :: "('v,'r,'a) stateTree \<Rightarrow> ('v, 'r) ARMv8_State.var \<Rig
   "lookup (Base s) var =  st s var" |
   "lookup (Branch m m') var =
                       (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
-
-(*
-type_synonym ('v,'a) state_recTree = "(('v,'a) state_rec) tree"
-
-fun topStateRec :: "('v,'a) state_recTree \<Rightarrow> ('v,'a) state_rec" where
-  "topStateRec (Base s) = s" |
-  "topStateRec (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (topStateRec m'))"
-
-fun lookupStateRec :: "('v,'a) state_recTree \<Rightarrow> 'a \<Rightarrow> 'v option" where
-  "lookupStateRec (Base s) var =  st s var" |
-  "lookupStateRec (Branch m m') var =
-                      (case (lookupStateRec m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookupStateRec m var)" 
-fun lookupState :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) ARMv8_State.var \<Rightarrow> ('v,'r,'a) state" where
-  "lookupState (Base s) var =  s" |
-  "lookupState (Branch m (Base s)) var =
-              (case (st (lookupState (Base s) var) var) of Some v \<Rightarrow> s |_ \<Rightarrow> lookupState m var)" |
-  "lookupState (Branch m m') var = lookupState m' var"  (* this is not quite true but the case doesn't occur *)
-*)
-
 
 
 end
