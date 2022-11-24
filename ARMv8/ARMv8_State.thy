@@ -54,6 +54,7 @@ definition glb :: "('v,'r,'a) state \<Rightarrow> ('v \<Rightarrow> 'v option)"
   where "glb m \<equiv> \<lambda>v. st m (Glb v)"
 (*  where "glb m \<equiv> \<lparr> st = (\<lambda>v. st m (Glb v)), \<dots> = more m \<rparr>" *)
 
+
 definition rg :: "('v,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
 
@@ -131,6 +132,7 @@ lemma [simp]:
   "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := e)"
   by (auto simp: st_upd_def rg_def)
 
+
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e)) = glb m"
   by (auto simp: glb_def st_upd_def)
@@ -187,6 +189,10 @@ end
 
 type_synonym ('v,'r,'a) stateTree = "(('v,('v,'r) var,'a) state_rec_scheme) tree"
 
+
+
+subsection \<open>Tree base, top and lookup and tree update\<close>
+
 fun base :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) state" where
   "base (Base s) = s" |
   "base (Branch m m') = (base m)"
@@ -203,6 +209,77 @@ fun lookup :: "('v,'r,'a) stateTree \<Rightarrow> ('v, 'r) ARMv8_State.var \<Rig
   "lookup (Base s) var =  st s var" |
   "lookup (Branch m m') var =
                       (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
+
+definition top_upd :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r) var \<Rightarrow> 'v option \<Rightarrow> ('v,'r,'a) stateTree" where
+  "top_upd t r val = Base (st_upd (top t) r val)"
+
+fun tree_upd :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) stateTree" where
+  "tree_upd (Base s) newTop = newTop" |
+  "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
+
+
+subsection \<open> tree lemmas \<close>
+
+
+lemma stUpd_single :
+   "x \<noteq> r  \<Longrightarrow> st (st_upd m r v) x = st m x" by auto
+
+lemma topUpd_single:
+ "x \<noteq> r  \<Longrightarrow> lookup (top_upd (Base s) r (the val)) x = lookup (Base s) x"
+  using top_upd_def stUpd_single by (metis(full_types) lookup.simps(1) top.simps(1))
+   
+lemma treeUpd_change: 
+  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t (top_upd t r (the val))) x = lookup t x"
+proof (induct t)
+  case (Base s)
+  then show ?case using topUpd_single lookup.simps(1) by fastforce
+next
+  case (Branch t1 t2)
+  then show ?case using topUpd_single lookup.simps(2) top.elims top_upd_def tree.distinct(1) 
+             tree.inject(2) tree.simps(5) tree.simps(6) tree_upd.simps(2)
+    by (smt (verit, ccfv_threshold) )
+qed
+
+lemma top_treeUpd:
+    "top (tree_upd t (Base newTop)) = newTop" 
+proof (induction t)
+  case (Base x)
+  then show ?case by simp
+next
+  case (Branch t1 t2)
+  then show ?case 
+  proof (induction t2)
+    case (Base x)
+    then show ?case by simp
+  next
+    case (Branch t21 t22)
+    then show ?case by auto
+  qed
+qed
+
+lemma lookup_upd:
+  "val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) r = val"
+proof (induction t)
+  case (Base x)
+  then show ?case using lookup.simps(1) tree_upd.simps(1) top_treeUpd topUpd_single
+    by (simp add: top_upd_def)
+next
+  case (Branch t1 t2)
+  then show ?case 
+  proof (induction t2)
+    case (Base x)
+    then show ?case using tree_upd.simps lookup.simps(2) top.simps tree.simps(5)
+      by (metis (no_types, lifting) option.case_eq_if option.collapse top_upd_def)
+  next
+    case (Branch t21 t22)
+    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6)
+      by (metis (mono_tags, lifting) option.case_eq_if option.collapse top_upd_def)
+  qed
+qed
+
+(* new tree def *)
+definition rgTree :: "('v,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
+  where "rgTree t \<equiv> \<lambda>v. st (top t) (Reg v)"
 
 
 end
