@@ -220,6 +220,17 @@ fun tree_upd :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) stateTree \<Right
 
 subsection \<open> tree lemmas \<close>
 
+lemma [simp]: 
+  "tree_upd t (Base (top t)) = t" 
+proof (induction t)
+  case (Base x)
+  then show ?case by auto
+next
+  case (Branch t1 t2)
+  then show ?case apply auto
+    by (metis top.elims tree.simps(5) tree.simps(6))
+qed
+
 
 lemma stUpd_single :
    "x \<noteq> r  \<Longrightarrow> st (st_upd m r v) x = st m x" by auto
@@ -276,6 +287,8 @@ next
       by (metis (mono_tags, lifting) option.case_eq_if option.collapse top_upd_def)
   qed
 qed
+
+
 
 (* new tree def *)
 definition rgTree :: "('v,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"

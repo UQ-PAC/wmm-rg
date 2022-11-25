@@ -79,7 +79,7 @@ datatype ('v,'r) subop =
   | cfence
   | stfence
   | nop
-  | cacheUpd 'v 'v   (* 'r is cache variable, 'v is the address to be added to cache *) 
+  | cacheUpd 'v 'v   (* 'v is cache variable, 'v is the address to be added to cache *) 
 
 text \<open>Common Sub-Instructions\<close>
 abbreviation assign
@@ -670,20 +670,44 @@ definition upd
 
 (* new *)
 definition updTree
-  where "updTree S f t \<equiv> (top t)\<lparr>st := \<lambda>x. if x \<in> S then f x else st (top t) x\<rparr>"
+  where "updTree S f t \<equiv> 
+           tree_upd t (Base ((top t)\<lparr>st := \<lambda>x. if x \<in> S then f x else st (top t) x\<rparr>))"
 
 
 lemma upd_nil [simp]:
   "upd {} f m = m"
   by (auto simp: upd_def)
 
+lemma updTree_nil [simp]:
+  "updTree {} f t = t"
+  by (auto simp: updTree_def) 
+
 lemma upd_insert [simp]:
   "upd (insert x V) f m = (upd V f m)(x :=\<^sub>s f x)"
   by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
 
+lemma updTree_insert [simp]:
+  "updTree (insert x V) f t = tree_upd t (Base ((upd V f (top t)) (x :=\<^sub>s f x)))"
+proof -
+  let ?f1 = "(\<lambda>xa. if xa = x \<or> xa \<in> V then f xa else (st (top t) xa))"
+  let ?f2 = "(\<lambda>x. if x \<in> V then f x else st (top t) x)(x := f x)"
+  have a0:"?f1 = ?f2" using st_upd_def by fastforce
+  hence a1:"Base (top t\<lparr>st := ?f1\<rparr>) = Base (top t\<lparr>st := ?f2\<rparr>)" by simp
+  hence a2:"tree_upd t (Base (top t\<lparr>st := ?f1\<rparr>)) = tree_upd t(Base (top t\<lparr>st := ?f2\<rparr>))" by simp
+  have a3:"tree_upd t(Base (top t\<lparr>st := ?f2\<rparr>)) = 
+         tree_upd t (Base ((upd V f (top t))(x :=\<^sub>s f x)))" 
+  by (auto simp: updTree_def st_upd_def upd_def intro!: state_rec.equality)   
+  have a4:"tree_upd t (Base (top t\<lparr>st := ?f1\<rparr>)) = updTree (insert x V) f t"
+    by (auto simp: updTree_def st_upd_def upd_def intro!: state_rec.equality)   
+  have a5:"updTree (insert x V) f t = tree_upd t (Base ((upd V f (top t))(x :=\<^sub>s f x)))"
+    using a3 a4 a2 by simp
+  thus ?thesis by simp
+qed
+
 lemma upd_rep [simp]:
   "upd A (st (upd A f m\<^sub>1)) m\<^sub>2 = upd A f m\<^sub>2"
   by (auto simp: upd_def intro!: state_rec.equality)
+
 
 lemma upd_rep' [simp]:
   "upd A f (upd B f m) = upd (A \<union> B) f m"
@@ -707,6 +731,16 @@ lemma st_upd_eq [intro]:
                     \<forall>x. x \<noteq> y \<longrightarrow> st m x = st m' x \<Longrightarrow> m(y :=\<^sub>s e) = m'(y :=\<^sub>s e)"
   by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
   
+lemma updTree_rep [simp]:
+  "updTree A (st (upd A f m\<^sub>1)) t2 = updTree A f t\<^sub>2"
+(*  apply (auto simp: updTree_def intro!: state_rec.equality) *)
+proof -
+  let ?t1 = "\<lambda>x. if x \<in> A then st (upd A f m\<^sub>1) x else st (top t2) x"
+  let ?t2 = "\<lambda>x. if x \<in> A then f x else st (top t\<^sub>2) x "
+  have a0:"?t1 = ?t2" using upd_def sorry
+  thus ?thesis 
+oops
+
 
 lemma [simp]:
   "rg (upd V f m) x = (if Reg x \<in> V then f (Reg x) else rg m x)"
@@ -719,21 +753,57 @@ lemma [simp]:
 
 (* old version: relies on  deps_ev\<^sub>E 
 lemma [simp]:
-    "Reg ` deps\<^sub>E e \<subseteq> V \<Longrightarrow> ev\<^sub>E (Base (rg(upd (V \<inter> dom M) (the \<circ> M) m\<^sub>1))) e = 
-                         ev\<^sub>E (Base (rg (upd (dom M) (the \<circ> M) m\<^sub>1))) e"
+  "Reg ` deps\<^sub>E e \<subseteq> V \<Longrightarrow> ev\<^sub>B (rg (upd (V \<inter> dom M) (the \<circ> M) m\<^sub>1)) e = 
+                                            ev\<^sub>B (rg (upd (dom M) (the \<circ> M) m\<^sub>1)) e"
   by (rule deps_ev\<^sub>E) auto
 *)
 lemma [simp]:
-    "deps\<^sub>E e \<subseteq> V \<Longrightarrow> ev\<^sub>E (Base (updTree (V \<inter> dom M) (the \<circ> M) m\<^sub>1)) e = 
-                         ev\<^sub>E (Base (updTree (dom M) (the \<circ> M) m\<^sub>1)) e"
-  apply (rule deps_ev\<^sub>E) 
-  apply simp 
+    "deps\<^sub>E e \<subseteq> V \<Longrightarrow> ev\<^sub>E (updTree (V \<inter> dom M) (the \<circ> M) t) e = 
+                         ev\<^sub>E (updTree (dom M) (the \<circ> M) t) e"
+  apply (rule deps_ev\<^sub>E)
+proof - 
+  assume a0:"deps\<^sub>E e \<subseteq> V"  
+  obtain x where "x\<in>deps\<^sub>E e" sorry
+  have a1:" x \<in> V" using a0 \<open>x\<in>deps\<^sub>E e\<close> by auto
+  have "lookup (updTree (V \<inter> dom M) (the \<circ> M) t) x  = 
+           lookup (tree_upd t (Base ((top t)\<lparr>st := \<lambda>y. 
+                   if y \<in>(V \<inter> dom M)  then  (the \<circ> M) y else st (top t) y\<rparr>))) x" 
+    using updTree_def by metis
+  have "... =  lookup (tree_upd t (Base ((top t)\<lparr>st := \<lambda>y. 
+                   if y \<in>(dom M)  then  (the \<circ> M) y else st (top t) y\<rparr>))) x" 
+    using stUpd_single topUpd_single treeUpd_change lookup_upd a1 
+  proof (cases "x \<in> (dom M)")
+    case True
+    then show ?thesis using a1
+    proof -
+      let ?t1 = "(tree_upd t (Base (ARMv8_State.top t\<lparr>st := 
+                         \<lambda>y. if y \<in> V \<inter> dom M then (the \<circ> M) y else st (ARMv8_State.top t) y\<rparr>)))"
+      let ?t2 = "(tree_upd t (Base (ARMv8_State.top t\<lparr>st := 
+                         \<lambda>y. if y \<in> dom M then (the \<circ> M) y else st (ARMv8_State.top t) y\<rparr>)))"
+      have b0:"x \<in> (V \<inter> dom M)" using a1 \<open>x \<in> (dom M)\<close> by auto
+      have b1: "st (top ?t1)  x = (the \<circ> M) x" using b0 top_treeUpd 
+        by (metis (mono_tags) upd_def upd_st)
+      have b2: "st (top ?t2)  x = (the \<circ> M) x" using  \<open>x \<in> (dom M)\<close> top_treeUpd 
+        by (metis upd_def upd_st)
+      have b3: "st (top ?t1) x = st (top ?t2) x" using b1 b2 by simp
+      have b4:  "(the \<circ> M) x \<noteq> None" sorry 
+      have b5: "lookup (?t1) x = (the \<circ> M) x"
+        using b0 b1 b4 lookup.simps lookup_upd top_treeUpd sorry 
+      thus ?thesis sorry
+    qed
+      next
+    case False
+    then show ?thesis sorry
+  qed
+oops
 
 
+(* todo?
 lemma [simp]:
-  "Reg ` deps\<^sub>B e \<subseteq> V \<Longrightarrow> ev\<^sub>B (rg (upd (V \<inter> dom M) (the \<circ> M) m\<^sub>1)) e = ev\<^sub>B (rg (upd (dom M) (the \<circ> M) m\<^sub>1)) e"
+  "Reg ` deps\<^sub>B e \<subseteq> V \<Longrightarrow> ev\<^sub>B (rg (upd (V \<inter> dom M) (the \<circ> M) m\<^sub>1)) e = 
+                                            ev\<^sub>B (rg (upd (dom M) (the \<circ> M) m\<^sub>1)) e"
   by (rule deps_ev\<^sub>B) auto
-
+*)
 
 
 (*
