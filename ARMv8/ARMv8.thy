@@ -33,11 +33,10 @@ lemma [simp]:
   "(Reg x \<notin> Reg ` e) = (x \<notin> e)"
   by blast
 
-(* beh\<^sub>i defined over the current tree: 
 lemma re_consistent:
-  "re\<^sub>i \<alpha> (fwd\<^sub>i \<beta> \<alpha>) \<Longrightarrow> beh\<^sub>i \<alpha> \<Otimes> beh\<^sub>i \<beta> \<supseteq> beh\<^sub>i (fwd\<^sub>i \<beta> \<alpha>) \<Otimes> beh\<^sub>i \<alpha>" 
-  by (cases \<alpha>; cases \<beta>; clarsimp simp add: comp_def fun_upd_twist split: if_splits)
-*)
+  "re\<^sub>i \<alpha> (fwd\<^sub>i \<beta> \<alpha>) \<Longrightarrow> beh\<^sub>i \<alpha> \<Otimes> beh\<^sub>i \<beta> \<supseteq> beh\<^sub>i (fwd\<^sub>i \<beta> \<alpha>) \<Otimes> beh\<^sub>i \<alpha>" sorry
+  (*by (cases \<alpha>; cases \<beta>; clarsimp simp add: comp_def fun_upd_twist split: if_splits) *)
+
 
 
 section \<open>Auxiliary State Updates\<close>
@@ -53,16 +52,24 @@ This auxiliary state cannot influence real execution behaviour by definition.
 (* aux state not affected by reord or forwarding *)
 (* when used to capture the Cache, does the Cache state influence the execution behaviour?? *)
 
-type_synonym ('v,'r,'a) auxop = "('v,'r) subop \<times> ('v,'r,'a) auxfn"
+type_synonym ('v,'r,'a) auxop = "('v,('v,'r) var) subop \<times> ('v,'r,'a) auxfn"
 
 (* old version
 fun beh\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) state rel"
-  where "beh\<^sub>a t (\<alpha>,f) = beh\<^sub>i t \<alpha> O {(m,m'). m' = m(aux: f)}"
+  where "beh\<^sub>a (\<alpha>,f) = beh\<^sub>i \<alpha> O {(m,m'). m' = m(aux: f)}"
 *)
-fun beh\<^sub>a :: "('v,'r,'a) stateTree \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) state rel"
-  where "beh\<^sub>a t (\<alpha>,f) = beh\<^sub>i t \<alpha>) O {(m,m'). m' = 
+(*
+fun beh\<^sub>a :: "('v,'r,'a) stateTree \<Rightarrow>('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) state rel"
+  where "beh\<^sub>a t (\<alpha>,f) = (beh\<^sub>i t \<alpha>) O {(m,m'). m' = 
                 (top (tree_upd t (Base (m\<lparr>state_rec.more := f m\<rparr>)))) } "
-(* {(m,m'). m' = m(aux: f)} " *)
+*)
+
+(* like beh\<^sub>i this fun returns a relation over stateTrees! *)
+
+fun beh\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) stateTree rel"
+  where "beh\<^sub>a (\<alpha>,f) = (beh\<^sub>i \<alpha>) O {(t,t'). 
+                                 t' = tree_upd t (Base ((top t)\<lparr>state_rec.more := f (top t)\<rparr>)) } "
+
 
 fun re\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> bool" 
   where "re\<^sub>a (\<alpha>,f) (\<beta>,f') = re\<^sub>i \<alpha> \<beta>"
