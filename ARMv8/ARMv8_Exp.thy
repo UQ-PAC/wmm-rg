@@ -99,6 +99,7 @@ abbreviation rubbish
 
 
 text \<open>Sub-operation execution behaviour\<close>
+(*
 fun beh\<^sub>i :: "('v,'r,'a) stateTree \<Rightarrow> ('v,('v,'r) var) subop \<Rightarrow> ('v,'r,'a) state rel"
   where
     "beh\<^sub>i t (cstore b a e) = {(m,m'). m=(top t) \<and> ev\<^sub>B t b \<and> m' = m (Glb a :=\<^sub>s ev\<^sub>E t e)}" | 
@@ -109,6 +110,17 @@ fun beh\<^sub>i :: "('v,'r,'a) stateTree \<Rightarrow> ('v,('v,'r) var) subop \<
     "beh\<^sub>i t (cmp b) = {(m,m'). m=(top t) \<and> m = m' \<and> ev\<^sub>B t b}" |
     "beh\<^sub>i t (cacheUpd c g) = {(m,m'). m = (base t) \<and> m' =  m (Glb c :=\<^sub>s Some g) }" |  (* fix me *) 
     "beh\<^sub>i _ _ = Id" 
+*)
+fun beh\<^sub>i :: "('v,('v,'r) var) subop \<Rightarrow> ('v,'r,'a) stateTree rel"
+  where
+    "beh\<^sub>i (cstore b a e) = {(t,t'). ev\<^sub>B t b \<and> (top t') = (top t)(Glb a :=\<^sub>s ev\<^sub>E t e)}" | 
+    "beh\<^sub>i (load a e) = {(t,t'). t' = t \<and> st (top t) (Glb a) = ev\<^sub>E t e}" |
+    "beh\<^sub>i (cas\<^sub>T a e\<^sub>1 e\<^sub>2) = {(t,t'). (top t') = (top t) (Glb a :=\<^sub>s ev\<^sub>E t e\<^sub>2) \<and> st (top t) (Glb a) = ev\<^sub>E t e\<^sub>1}" |
+    "beh\<^sub>i (cas\<^sub>F a e\<^sub>1) = {(t,t'). (top t') = (top t) \<and> st (top t) (Glb a) \<noteq> ev\<^sub>E t e\<^sub>1}" |
+    "beh\<^sub>i (op r e) = {(t,t').(top t') = (top t)(r :=\<^sub>s ev\<^sub>E t e)}" |
+    "beh\<^sub>i (cmp b) = {(t,t'). (top t') = (top t) \<and> ev\<^sub>B t b}" |
+    "beh\<^sub>i (cacheUpd c g) = {(t,t'). (base t') = (base t)(Glb c :=\<^sub>s Some g) }" |  (* fix me *) 
+    "beh\<^sub>i _ = Id" 
 
 text \<open>Variables modified by an operation, except cache variable \<close>
 fun wr :: "('v,'r) subop \<Rightarrow> ('v,'r) var set"
