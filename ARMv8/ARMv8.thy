@@ -58,17 +58,12 @@ type_synonym ('v,'r,'a) auxop = "('v,('v,'r) var) subop \<times> ('v,'r,'a) auxf
 fun beh\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) state rel"
   where "beh\<^sub>a (\<alpha>,f) = beh\<^sub>i \<alpha> O {(m,m'). m' = m(aux: f)}"
 *)
-(*
-fun beh\<^sub>a :: "('v,'r,'a) stateTree \<Rightarrow>('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) state rel"
-  where "beh\<^sub>a t (\<alpha>,f) = (beh\<^sub>i t \<alpha>) O {(m,m'). m' = 
-                (top (tree_upd t (Base (m\<lparr>state_rec.more := f m\<rparr>)))) } "
-*)
 
 (* like beh\<^sub>i this fun returns a relation over stateTrees! *)
 
 fun beh\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) stateTree rel"
-  where "beh\<^sub>a (\<alpha>,f) = (beh\<^sub>i \<alpha>) O {(t,t'). 
-                                 t' = tree_upd t (Base ((top t)\<lparr>state_rec.more := f (top t)\<rparr>)) } "
+  where "beh\<^sub>a (\<alpha>,f) = (beh\<^sub>i \<alpha>) O 
+                          {(t,t'). t' = tree_upd t (Base ((top t)\<lparr>state_rec.more := f (top t)\<rparr>)) } "
 
 
 fun re\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> bool" 
@@ -77,14 +72,12 @@ fun re\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow>
 fun fwd\<^sub>a :: "('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) auxop" 
   where "fwd\<^sub>a (\<alpha>,f) \<beta> = (fwd\<^sub>i \<alpha> (fst \<beta>),f)"
 
-
-
 section \<open>Sub-Instruction Specification Language\<close>
 
 text \<open>
 To instantiate the abstract theory, we must couple each sub-operation with its precondition/vc
 and behaviour in a tuple\<close>
-type_synonym ('v,'r,'a) subbasic = "(('v,'r,'a) auxop, ('v,'r,'a) state) basic"
+type_synonym ('v,'r,'a) subbasic = "(('v,'r,'a) auxop, ('v,'r,'a) stateTree) basic"
 
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
 fun fwd\<^sub>s :: "('v,'r,'a) subbasic \<Rightarrow> ('v,'r,'a) auxop \<Rightarrow> ('v,'r,'a) subbasic" 
@@ -93,12 +86,18 @@ fun fwd\<^sub>s :: "('v,'r,'a) subbasic \<Rightarrow> ('v,'r,'a) auxop \<Rightar
  *)
 
 text \<open>Lift an operation with vc specification \<close>
-definition liftg :: "('v,'r,'a) pred \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) subbasic" 
+(*
+definition liftg :: "('v,'r,'a) pred \<Rightarrow> ('v,'r) subop \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) subbasic"
+  ("\<lfloor>_,_,_\<rfloor>" 100)
+  where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
+*)
+definition liftg :: "('v,'r,'a) predTree \<Rightarrow> ('v,('v,'r) var) subop \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) subbasic"
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
+
 text \<open>Lift an operation without vc specification\<close>
-definition liftl :: "('v,'r) subop \<Rightarrow> ('v,'r,'a) subbasic" 
+definition liftl :: "('v,('v,'r) var) subop \<Rightarrow> ('v,'r,'a) subbasic" 
   ("\<lfloor>_\<rfloor>" 100)
   where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
 
@@ -118,5 +117,6 @@ datatype ('v,'r,'a) com_armv8 =
   | CAS "('v,'r,'a) pred" "'v set" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
   | Seq "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
   | If "('v,'r) bexp" "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
+  | Capture "'v"
 
 end

@@ -189,6 +189,11 @@ end
 
 type_synonym ('v,'r,'a) stateTree = "(('v,('v,'r) var,'a) state_rec_scheme) tree"
 
+type_synonym ('v,'r,'a) predTree = "('v,'r,'a) stateTree set"
+
+type_synonym ('v,'r,'a) gstateTree = "(('v,'v,'a) state_rec_scheme) tree"
+type_synonym ('v,'a) gpredTree = "('v,'v,'a) gstateTree set"
+
 
 
 subsection \<open>Tree base, top and lookup and tree update\<close>
