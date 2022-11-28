@@ -19,7 +19,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   where
   basic[intro]:   "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:     "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
-  seq[intro]:     "R,G \<turnstile> Q { c\<^sub>2 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } M" |
+  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
   loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
   thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
@@ -29,8 +29,9 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                     R',G' \<turnstile> P' { c } Q'"  |
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
-                    R,G \<turnstile> P {Capture s c} Q"
-
+                    R,G \<turnstile> P {Capture s c} Q" |
+  interr[intro]:  "G'\<subseteq> G \<Longrightarrow> stable G' P \<Longrightarrow> R,G' \<turnstile> P {c\<^sub>1} _ \<Longrightarrow> R,G \<turnstile> P {c\<^sub>2} Q \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2} Q" 
+                                   (* for interr the wmm should be set to sc in instantiation *)
 subsection \<open>Properties\<close>
 
 lemma nilE [elim!]:
@@ -86,7 +87,23 @@ qed
 lemma seqE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ 
+(*  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ *)
+  using assms
+proof (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2)
+  case (seq R G Q c\<^sub>2 M P c\<^sub>1)
+  then show ?case by blast
+next
+  case (conseq R G P Q P' R' G' Q')
+  then show ?case by blast
+next
+  case (inv R G P Q R' I)
+  then show ?case by blast
+next
+  case (interr G' G P R c\<^sub>1 uu c\<^sub>2 Q)
+  then show ?case 
+    
+   
+qed 
 
 lemma captureE:
   assumes "R,G \<turnstile> P {Capture s c} Q"
@@ -162,7 +179,7 @@ lemma stable_preE:
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
 
-(*
+
 text \<open> Combining choice with capture to provide the choice over some var that is "hidden" \<close>
 
 abbreviation univ_capture  ("\<forall>\<^sub>c _")
@@ -174,9 +191,9 @@ abbreviation univ_capture  ("\<forall>\<^sub>c _")
 text \<open>Universal quantification of top-most stack frame\<close>
 lemma univ_captureI:
   assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
-  shows "R,G \<turnstile> P {\<forall>\<^sub>c c} Q"
+  shows "R,G \<turnstile> P {univ_capture c} Q"
   using assms by (intro choice allI capture) simp
-*)
+
 
 (*
 lemma falseI:

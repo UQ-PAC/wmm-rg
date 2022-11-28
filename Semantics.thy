@@ -54,9 +54,13 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   where
   act[intro]: "Basic \<alpha> \<mapsto>[\<alpha>,[]] Nil" |
   ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2" |
-  ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>' \<Longrightarrow> c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
+  ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>' \<Longrightarrow> 
+                                      c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
   cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
-                                            Capture s c \<mapsto>[popbasic s s' \<alpha>',Scope#r] Capture s' c'"  
+                           Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
+  inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"   |
+  inter2[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] Nil" 
+                   (*interrupt can terminate c\<^sub>1 at any time (with a last silent step) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
 fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow> ('a,'b) basic set"
@@ -74,8 +78,6 @@ inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) co
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
-
-
 
 
 text \<open>Small step semantics for a silent step\<close>
@@ -96,14 +98,18 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   thr[intro]:     "c \<leadsto> c' \<Longrightarrow> Thread c \<leadsto> Thread c'" |
   thrE[intro]:    "Thread Nil \<leadsto> Nil"  |
   capE[intro]:    "Capture k Nil \<leadsto> Nil" |
-  capS[intro]:    "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'" 
+  capS[intro]:    "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'" |
+  intr1[intro]:   "c \<leadsto> c' \<Longrightarrow>  (\<triangle>c) \<leadsto> (\<triangle>c')" |
+  intrE[intro]:    "(\<triangle> Nil) \<leadsto> Nil" 
+
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 
 text \<open>A local execution step implies the program has changed\<close>
 lemma execute_neq:
   assumes "c \<mapsto>[\<alpha>'',r] c'"
   shows "c \<noteq> c'"
-  using assms by (induct) auto
+  using assms by (induct) auto 
+
 lemma [simp]:
   "c \<mapsto>[\<alpha>'',r] c = False"
   using execute_neq by blast
@@ -113,6 +119,7 @@ lemma gexecute_neq:
   assumes "c \<mapsto>[g] c'"
   shows "c \<noteq> c'"
   using assms by (induct) auto
+
 lemma [simp]:
   "c \<mapsto>[g] c = False"
   using gexecute_neq by blast
@@ -120,10 +127,7 @@ lemma [simp]:
 text \<open>An execution step will not introduce parallelism\<close>
 lemma local_execute:
   "c \<mapsto>[\<alpha>'',r] c' \<Longrightarrow> local c \<Longrightarrow> local c'"
-  by (induct rule: lexecute.induct) (auto)
-
-
-
+ by (induct rule: lexecute.induct) (auto) 
 
 text \<open>A silent step will not introduce parallelism\<close>
 lemma local_silent:
@@ -196,12 +200,6 @@ lemma obs_act:
   using assms unfolding obs_def 
   by clarsimp (meson list.set_intros(1) obs_trace.intros(1,3))
 
-lemma obs_act2:
-  assumes "c \<mapsto>[\<alpha>',r] c'"
-  shows "obs c \<supseteq> obs c'"
-  using assms unfolding obs_def 
-  using obs_exec semantics.obs_def by blast
-
 lemma obs_nil [simp]:
   "obs Nil = {}"
   by (auto simp: obs_def elim: obs_trace.cases)
@@ -210,8 +208,6 @@ lemma obs_seq:
   assumes "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2"
   shows "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)"
   using assms obs_act by auto 
-
-
 
 lemma obs_trace_NilE [elim!]:
   assumes "obs_trace t com.Nil"
@@ -303,8 +299,8 @@ lemma obs_par [simp]:
 lemma obs_gex:
   assumes "c \<mapsto>[g] c'"
   shows "obs c \<supseteq> obs c'"
-  unfolding obs_def using assms obs_sil obs_act2
-    obs_thread obs_par  obs_act2 obs_def by (induct) auto 
+  unfolding obs_def using assms obs_sil obs_exec
+    obs_thread obs_par obs_def by (induct) auto 
 
 (*
 

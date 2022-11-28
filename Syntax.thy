@@ -38,6 +38,8 @@ be expressed as an Isabelle datatype. To mimic a set, choice takes a function fr
 'labels' to arbitrary commands, where it may select any command in the function's range.
 The state encoding is reused to express the notion of a label (but maybe this is a bad idea).
 \<close>
+(* added interrupt op *)
+
 datatype ('a,'b) com =
   Nil
   | Basic "('a,'b) basic"
@@ -47,6 +49,8 @@ datatype ('a,'b) com =
   | Parallel "('a,'b) com" "('a,'b) com"          (infixr "||" 150)
   | Thread "('a,'b) com"
   | Capture 'b "('a,'b) com"
+  |  Interrupt "('a,'b) com"                      ("\<triangle> _" 80)          (* as unary *)
+(*  | Interrupt "('a,'b) com" "('a,'b) wmm" "('a,'b) com"  ("_ \<triangle>\<^sub>_ _ " [90,0,90] 80)  as binary*)
 
 abbreviation univ_stack ("\<forall>\<^sub>c _" 100)
   where "univ_stack c \<equiv> \<Sqinter>s. Capture s c"
@@ -64,7 +68,9 @@ inductive local :: "('a,'b) com \<Rightarrow> bool"
     "local c\<^sub>1 \<Longrightarrow> local c\<^sub>2  \<Longrightarrow> local (c\<^sub>1 ;\<^sub>r c\<^sub>2)" |
     "\<forall>s. local (f s) \<Longrightarrow> local (Choice f)" |
     "local c \<Longrightarrow> local (c*\<^sub>w)" | 
-    "local c \<Longrightarrow> local (Capture k c)"
+    "local c \<Longrightarrow> local (Capture k c)" |
+    "local c \<Longrightarrow> local (\<triangle>c)"
+(*    "local c\<^sub>1 \<Longrightarrow> local c\<^sub>2 \<Longrightarrow> local (c\<^sub>1 \<triangle>\<^sub>w c\<^sub>2)" *)
 
 lemma local_simps [simp]:
   "local Nil = True"
@@ -73,6 +79,7 @@ lemma local_simps [simp]:
   "local (Choice f) = (\<forall>s. local (f s))"
   "local (c*\<^sub>w) = local c"
   "local (Capture k c) = local c"
+  "local (\<triangle>c) = (local c)"
   "local (c\<^sub>1 || c\<^sub>2) = False"
   "local (Thread c) = False"
   by (auto intro: local.intros elim: local.cases)

@@ -91,7 +91,8 @@ definition liftg :: "('v,'r,'a) pred \<Rightarrow> ('v,'r) subop \<Rightarrow> (
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 *)
-definition liftg :: "('v,'r,'a) predTree \<Rightarrow> ('v,('v,'r) var) subop \<Rightarrow> ('v,'r,'a) auxfn \<Rightarrow> ('v,'r,'a) subbasic"
+definition liftg :: "('v,'r,'a) predTree \<Rightarrow> ('v,('v,'r) var) subop \<Rightarrow> ('v,'r,'a) auxfn 
+                                                                     \<Rightarrow> ('v,'r,'a) subbasic"
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
@@ -117,6 +118,6 @@ datatype ('v,'r,'a) com_armv8 =
   | CAS "('v,'r,'a) pred" "'v set" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
   | Seq "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
   | If "('v,'r) bexp" "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
-  | Capture "'v"
+  | Spec "('v,'r,'a) com_armv8"
 
 end
