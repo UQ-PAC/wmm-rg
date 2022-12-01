@@ -30,7 +30,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "G'\<subseteq> G \<Longrightarrow> stable G' P \<Longrightarrow> R,G' \<turnstile> P {c\<^sub>1} _ \<Longrightarrow> R,G \<turnstile> P {c\<^sub>2} Q \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2} Q" 
+  interr[intro]:  "G\<subseteq> G' \<Longrightarrow> trans G' \<Longrightarrow> stable G' P \<Longrightarrow> R,G' \<turnstile> P {c\<^sub>1} _ \<Longrightarrow> R,G \<turnstile> P {c\<^sub>2} Q 
+                                                             \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2} Q" 
                                    (* for interr the wmm should be set to sc in instantiation *)
 subsection \<open>Properties\<close>
 
@@ -58,6 +59,7 @@ next
     by (metis Int_commute inf_mono order_refl stabilise_inter_RP stabilise_stable subset_trans)
 qed
 
+
 lemma basicE [elim!]:
   assumes "R,G \<turnstile> P {Basic \<beta>} Q"
   obtains Q' where "R,G \<turnstile>\<^sub>A stabilise R P {\<beta>} Q'" "Q' \<subseteq> Q"
@@ -84,8 +86,24 @@ next
   qed
 qed
 
+  
+lemma stab_guar_basicTrans:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 
+  shows "R,(G\<^sup>*) \<turnstile> P {Basic \<alpha>} P" using assms atomic_stab_guar rules.basic by blast
+
+lemma stab_guar_basic:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 
+  shows "R, G \<turnstile> P {Basic \<alpha>} P" using assms atomic_stab_guar rules.basic by blast
+
+lemma stab_guar_com:
+  assumes "R,G \<turnstile> P {c} Q" "stable R P" "stable G P" "G \<subseteq> G'" "trans G'"
+  shows "R, G' \<turnstile> P {c} P" using assms atomic_conseqI atomic_stab_guar 
+       stab_guar_basic sorry
+
+
+
 lemma seqE [elim]:
-  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
+  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q" "G\<subseteq> G'" "stable G' P" "trans G'"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
 (*  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ *)
   using assms
@@ -94,15 +112,20 @@ proof (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^s
   then show ?case by blast
 next
   case (conseq R G P Q P' R' G' Q')
-  then show ?case by blast
+  then show ?case sorry
 next
   case (inv R G P Q R' I)
-  then show ?case by blast
+  then show ?case sorry
 next
   case (interr G' G P R c\<^sub>1 uu c\<^sub>2 Q)
-  then show ?case 
-    
-   
+  then show ?case using assms 
+  proof - 
+    have a1:"R,G' \<turnstile> P {c\<^sub>1} P" using interr(4) assms stab_guar_basic stab_guar_com 
+      atomic_conseqI 
+
+      
+      show ?case sorry
+  qed   
 qed 
 
 lemma captureE:

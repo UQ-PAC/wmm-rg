@@ -92,6 +92,7 @@ lemma "P \<subseteq> (R\<^sup>*) `` P"
 unfolding wp_def
 by auto
 
+
 lemma "stable R ((R\<^sup>*) `` P)"
 unfolding stable_def
 by (meson Image_iff rtrancl.rtrancl_into_rtrancl)
@@ -99,10 +100,18 @@ by (meson Image_iff rtrancl.rtrancl_into_rtrancl)
 
 section \<open>Guarantee Properties\<close>
 
+lemma "G \<subseteq> G\<^sup>*" by auto
+
 lemma guar_conseqI [intro]:
   assumes "guar pre post G" "G \<subseteq>  G'"
   shows "guar pre post G'"
   using assms by (auto simp: guar_def)
+
+lemma guar_trancl [intro]:
+  assumes "guar pre post G" 
+  shows "guar pre post (G\<^sup>*)"
+  using assms guar_conseqI by (auto simp: guar_def)
+
 
 section \<open>Thread-Local State\<close>
 

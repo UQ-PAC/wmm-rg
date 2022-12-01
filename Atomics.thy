@@ -158,6 +158,53 @@ lemma [simp]:
   "stabilise R {} = {}"
   by (auto simp: stabilise_def)
 
+text \<open> P stabilised over transitive closure G is maintained \<close>
+
+
+lemma "P \<subseteq> (stabilise (G\<^sup>*) P)"
+unfolding stabilise_def  wp_def by auto
+
+lemma stabilise_rtrancl_mono:
+ "(stabilise (G) P) \<subseteq> (stabilise (G\<^sup>*) P)" using stabilise_mono 
+  by (simp add: stabilise_rtrancl)
+
+
+lemma atomic_stab_pre [intro]:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R (stabilise (G\<^sup>*) P)"
+  shows "R,(G\<^sup>*) \<turnstile>\<^sub>A P {\<alpha>} (stabilise (G\<^sup>*) P)"
+proof -
+  have a0:"P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms atomic_rule_def by fast
+  have a1a:"stable R P" using assms atomic_rule_def by fast
+  have a1:"guar\<^sub>\<alpha> \<alpha> G" using assms atomic_rule_def by blast
+  have a2:"(vc \<alpha>) \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> (m,m') \<in> G))}" 
+     using assms guar2.simps guar_def atomic_rule_def case_prodI mem_Collect_eq subset_eq 
+     by (smt (verit))
+  have a3:"P \<subseteq> (vc \<alpha>) \<inter> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q))}" using a0 wp_def by force 
+  have a4:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> (m,m') \<in> G))} \<inter> 
+                {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q))}" using a2 a3 by auto
+  have a5:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> (stabilise (G) P)))}"
+      using assms a1 stabilise_def stabilise_supset stable_rel stable_stabilise subset_eq
+      by (smt (verit) ImageI a4 le_inf_iff mem_Collect_eq)
+  have a6:"P \<subseteq> (vc \<alpha>) \<inter> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> (stabilise (G) P)))}" 
+      using a3 a1 a2 a5 by simp
+    have a7:"P \<subseteq>  wp\<^sub>\<alpha> \<alpha> (stabilise (G) P)" using a6 wp_def by fast
+    have a8:"P \<subseteq>  wp\<^sub>\<alpha> \<alpha> (stabilise (G\<^sup>*) P)" 
+       using a7 stabilise_rtrancl_mono wp\<^sub>\<alpha>_mono by (simp add: stabilise_rtrancl)
+     thus ?thesis using a1 a1a assms stable_stabilise atomic_rule_def by auto
+   qed
+
+
+lemma atomic_stab_guarTrans [intro]:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 
+  shows "R,(G\<^sup>*) \<turnstile>\<^sub>A P {\<alpha>} P"
+  using assms atomic_stab_pre 
+  by (metis stabilise_rtrancl stabilise_stable stable_rel subset_refl)
+
+lemma atomic_stab_guar:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>} P"
+  using assms by (metis atomic_rule_def atomic_stab_guarTrans)
+
 
 text \<open>Manually computing the strongest postcondition which might hold.\<close>
 
