@@ -118,6 +118,8 @@ datatype ('v,'r,'a) com_armv8 =
   | CAS "('v,'r,'a) pred" "'v set" 'r 'r 'r 'r 'v 'v "('v,'r,'a) auxfn"
   | Seq "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
   | If "('v,'r) bexp" "('v,'r,'a) com_armv8" "('v,'r,'a) com_armv8"
+  | Cap  "'v set"  "('v,'r,'a) com_armv8"
   | Spec "('v,'r,'a) com_armv8"
+  | Intrpt "('v,'r,'a) com_armv8"
 
 end
