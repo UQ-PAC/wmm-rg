@@ -30,9 +30,13 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "G\<subseteq> G' \<Longrightarrow> trans G' \<Longrightarrow> stable G' P \<Longrightarrow> R,G' \<turnstile> P {c\<^sub>1} _ \<Longrightarrow> R,G \<turnstile> P {c\<^sub>2} Q 
+  interr[intro]:  "G\<subseteq> G' \<Longrightarrow> stable G' P \<Longrightarrow> stable R P \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} P" 
+(*  interr[intro]:  "G\<subseteq> G' \<Longrightarrow> trans G' \<Longrightarrow> stable G' P \<Longrightarrow> R,G' \<turnstile> P {c\<^sub>1} _ \<Longrightarrow> R,G \<turnstile> P {c\<^sub>2} Q 
                                                              \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2} Q" 
-                                   (* for interr the wmm should be set to sc in instantiation *)
+   for interr the wmm should be set to sc in instantiation but 
+                                  this parameter will be set accordingly in the instantiation;
+   (\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2   simply build through sequential composition (not as a command "block")
+    make rule that only introduce one construct at a time (i.e., not \<triangle> and ; together)  *)
 subsection \<open>Properties\<close>
 
 lemma nilE [elim!]:
@@ -86,26 +90,11 @@ next
   qed
 qed
 
-  
-lemma stab_guar_basicTrans:
-  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 
-  shows "R,(G\<^sup>*) \<turnstile> P {Basic \<alpha>} P" using assms atomic_stab_guar rules.basic by blast
-
-lemma stab_guar_basic:
-  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 
-  shows "R, G \<turnstile> P {Basic \<alpha>} P" using assms atomic_stab_guar rules.basic by blast
-
-lemma stab_guar_com:
-  assumes "R,G \<turnstile> P {c} Q" "stable R P" "stable G P" "G \<subseteq> G'" "trans G'"
-  shows "R, G' \<turnstile> P {c} P" using assms atomic_conseqI atomic_stab_guar 
-       stab_guar_basic sorry
-
-
 
 lemma seqE [elim]:
-  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q" "G\<subseteq> G'" "stable G' P" "trans G'"
+  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q" "G\<subseteq> G'" "stable G' P" "stable R P"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-(*  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+ *)
+(*  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+  *)
   using assms
 proof (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2)
   case (seq R G Q c\<^sub>2 M P c\<^sub>1)
@@ -116,16 +105,6 @@ next
 next
   case (inv R G P Q R' I)
   then show ?case sorry
-next
-  case (interr G' G P R c\<^sub>1 uu c\<^sub>2 Q)
-  then show ?case using assms 
-  proof - 
-    have a1:"R,G' \<turnstile> P {c\<^sub>1} P" using interr(4) assms stab_guar_basic stab_guar_com 
-      atomic_conseqI 
-
-      
-      show ?case sorry
-  qed   
 qed 
 
 lemma captureE:
@@ -193,6 +172,9 @@ next
 next
   case (capture R G s P c Q)
   thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
+next
+  case (interr G G' P R c uu)
+  then show ?case sorry
 qed auto
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
