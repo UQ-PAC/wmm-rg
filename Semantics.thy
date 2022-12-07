@@ -1,5 +1,5 @@
 theory Semantics
-  imports Atomics CaptureReasoning
+  imports Atomics (* CaptureReasoning *)
 
 begin
 
@@ -58,8 +58,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
                                       c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
   cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
                            Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
-  inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"   |
-  inter2[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] Nil"   (* toDo: needs to uncap *)
+  inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"   
                    (*interrupt can terminate c\<^sub>1 at any time (with a last uncap step) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
@@ -100,7 +99,7 @@ inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   capE[intro]:    "Capture k Nil \<leadsto> Nil" |
   capS[intro]:    "c \<leadsto> c' \<Longrightarrow> Capture k c \<leadsto> Capture k c'" |
   intr1[intro]:   "c \<leadsto> c' \<Longrightarrow>  (\<triangle>c) \<leadsto> (\<triangle>c')" |
-  intrE[intro]:    "(\<triangle> Nil) \<leadsto> Nil" 
+  intrE[intro]:    "(\<triangle> c) \<leadsto> Nil" 
 
 inductive_cases silentE[elim]: "c\<^sub>1 \<leadsto> c\<^sub>1'"
 

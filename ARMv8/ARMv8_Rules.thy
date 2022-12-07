@@ -168,7 +168,8 @@ section \<open>Locale Interpretation\<close>
 
 text \<open>Convert the ARMv8 language into the abstract language expected by the underlying logic\<close> 
 
-fun lift\<^sub>c :: "(('v,'r,'a) auxop, ('v,'r,'a) state) wmm \<Rightarrow> ('v,'r,'a) com_armv8 \<Rightarrow> (('v,'r,'a) auxop, ('v,'r,'a) state) com"
+fun lift\<^sub>c :: "(('v,'r,'a) auxop, ('v,'r,'a) state) wmm \<Rightarrow> ('v,'r,'a) com_armv8 
+                                               \<Rightarrow> (('v,'r,'a) auxop, ('v,'r,'a) state) com"
   where
     "lift\<^sub>c w Skip = com.Nil" |
     "lift\<^sub>c w Fence = Basic (\<lfloor>fence\<rfloor>)" |

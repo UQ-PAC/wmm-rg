@@ -92,20 +92,10 @@ qed
 
 
 lemma seqE [elim]:
-  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q" "G\<subseteq> G'" "stable G' P" "stable R P"
+  assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
   obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
-(*  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+  *)
-  using assms
-proof (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2)
-  case (seq R G Q c\<^sub>2 M P c\<^sub>1)
-  then show ?case by blast
-next
-  case (conseq R G P Q P' R' G' Q')
-  then show ?case sorry
-next
-  case (inv R G P Q R' I)
-  then show ?case sorry
-qed 
+  using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+  
+ 
 
 lemma captureE:
   assumes "R,G \<turnstile> P {Capture s c} Q"
@@ -141,6 +131,17 @@ next
   thus ?case.
 qed
 
+(* lemma interrE1:
+  assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
+  obtains G' where "G\<subseteq> G'" sorry
+*)
+
+
+lemma interrE:
+  assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
+  obtains G' Q' where "G\<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" sorry
+
+
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
 lemma stable_preE':
   assumes "R,G \<turnstile> P {c} Q"
@@ -174,8 +175,9 @@ next
   thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
 next
   case (interr G G' P R c uu)
-  then show ?case sorry
+  thus ?case by (simp add: rules.interr stabilise_stable)
 qed auto
+
 
 text \<open>It is always possible to rephrase a judgement in terms of a stable precondition\<close>
 lemma stable_preE:

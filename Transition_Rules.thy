@@ -37,7 +37,7 @@ next
   then show ?case using Basic(1) \<beta>(1) m''(1) by auto
 next
   case (Seq c\<^sub>1 w' c\<^sub>2)
-  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Seq(4) by fast
+  obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Seq(4) by fast 
   obtain \<alpha>'' where r: "\<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>" "\<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>''" using Seq(7) by auto
   hence i: "inter\<^sub>c w R G c\<^sub>1 \<alpha>''" "inter\<^sub>c w R G c\<^sub>2 \<alpha>" using Seq(6) unfolding inter\<^sub>c.simps by blast+
   show ?case
@@ -56,7 +56,7 @@ section \<open>Transition Rules\<close>
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
-  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r] c'" "inter R G r"
+  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r] c'" "inter R G r" 
   shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {c'} Q"
   using assms(2,1,3)
 proof (induct arbitrary: P R G Q)
@@ -64,7 +64,7 @@ proof (induct arbitrary: P R G Q)
   then show ?case by clarsimp (meson atomic_rule_def nil rules.conseq order_refl)
 next
   case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" by auto
+  then obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" by auto 
   then show ?case using ino(2)[OF m(1) ino(4)] m(2) by blast
 next
   case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
@@ -86,6 +86,10 @@ next
   moreover have "R,G \<turnstile> (poppred' s' M) {Capture s' c'} Q"
     using m(2) push_poppred_subset by blast
   ultimately show ?case by blast
+next
+  case (inter1 c \<alpha>' r c')
+  obtain G' Q' where "G\<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" 
+            using inter1(3) by (rule interrE1) 
 qed
 thm silent.cases[of a b]
 
