@@ -76,7 +76,7 @@ next
   show ?case using reorder_prog[OF m'' m'(1)] i(1) m'(2) ooo(3) by (metis rules.seq)
 next
   case (cap c \<alpha>' r c' s s')
-  let ?R="uncapRely R" and ?G="uncapGuar G" and ?P="uncapPred s P" and ?Q="pushpredAll Q"
+  let ?R="capRely R" and ?G="capGuar G" and ?P="capPred s P" and ?Q="pushpredAll Q"
   have "?R,?G \<turnstile> ?P {c} ?Q" using cap(4) by (rule captureE)
   moreover have "inter ?R ?G r" using cap(5) by simp
   ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {c'} ?Q"
@@ -87,9 +87,14 @@ next
     using m(2) push_poppred_subset by blast
   ultimately show ?case by blast
 next
-  case (inter1 c \<alpha>' r c')
-  obtain G' Q' where "G\<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" 
-            using inter1(3) by (rule interrE1) 
+  case (inter1 c\<^sub>1 \<alpha>' r c\<^sub>2)
+  obtain G' Q' where g0:"G' \<subseteq> G" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'" 
+    using inter1(3) by (rule interrE)  
+  then have a0:"R,G \<turnstile> P {\<triangle> c\<^sub>1} Q" using inter1.prems(1) by simp
+  then have a1:"inter R G r" using inter1(4) by simp  
+  then have a2:"(\<triangle>c\<^sub>1) \<mapsto>[\<alpha>',r] (\<triangle>c\<^sub>2)" using inter1(1) g0 by blast
+  obtain M where "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G' \<turnstile> M {\<triangle> c'} Q" using a0 a1 a2 g0 inter1(2) sorry
+  show ?case sorry 
 qed
 thm silent.cases[of a b]
 
@@ -121,9 +126,9 @@ next
     then show ?case using capture by auto
   next
     case (15 k)
-    hence "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {Nil} pushpredAll Q"
+    hence "capRely R,capGuar G \<turnstile> capPred s P {Nil} pushpredAll Q"
       using capture(1) by simp
-    hence t: "stabilise (uncapRely R) (uncapPred s P) \<subseteq> pushpredAll Q"
+    hence t: "stabilise (capRely R) (capPred s P) \<subseteq> pushpredAll Q"
       using nilE2 by simp
     have "R,G \<turnstile> stabilise R P {Nil} stabilise R P"
       by (simp add: rules.rules.nil stable_stabilise)

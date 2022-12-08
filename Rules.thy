@@ -28,15 +28,12 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                     R',G' \<turnstile> P' { c } Q'"  |
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
-  capture[intro]: "uncapRely R,uncapGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
+  capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "G\<subseteq> G' \<Longrightarrow> stable G' P \<Longrightarrow> stable R P \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} P" 
-(*  interr[intro]:  "G\<subseteq> G' \<Longrightarrow> trans G' \<Longrightarrow> stable G' P \<Longrightarrow> R,G' \<turnstile> P {c\<^sub>1} _ \<Longrightarrow> R,G \<turnstile> P {c\<^sub>2} Q 
-                                                             \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2} Q" 
-   for interr the wmm should be set to sc in instantiation but 
-                                  this parameter will be set accordingly in the instantiation;
-   (\<triangle>c\<^sub>1) ;\<^sub>w c\<^sub>2   simply build through sequential composition (not as a command "block")
-    make rule that only introduce one construct at a time (i.e., not \<triangle> and ; together)  *)
+  interr[intro]:  "G' \<subseteq> G \<Longrightarrow> stable G' P \<Longrightarrow> stable R P \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} P" 
+(*   for interr the wmm should be set to sc in instantiation but this parameter
+     will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
+
 subsection \<open>Properties\<close>
 
 lemma nilE [elim!]:
@@ -60,7 +57,8 @@ next
 next
   case (inv R G P Q R' I)
   then show ?case 
-    by (metis Int_commute inf_mono order_refl stabilise_inter_RP stabilise_stable subset_trans)
+    by (metis Int_commute inf_mono order_refl stabilise_inter_RP stabilise_stable 
+        subset_trans)
 qed
 
 
@@ -99,7 +97,7 @@ lemma seqE [elim]:
 
 lemma captureE:
   assumes "R,G \<turnstile> P {Capture s c} Q"
-  shows "uncapRely R,uncapGuar G \<turnstile> uncapPred s P {c} pushpredAll Q"
+  shows "capRely R, capGuar G \<turnstile> capPred s P {c} pushpredAll Q"
 using assms
 proof (induct R G P "Capture s c" Q arbitrary: s c)
   case (conseq R G P Q P' R' G' Q')
@@ -131,15 +129,10 @@ next
   thus ?case.
 qed
 
-(* lemma interrE1:
-  assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
-  obtains G' where "G\<subseteq> G'" sorry
-*)
-
 
 lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
-  obtains G' Q' where "G\<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" sorry
+  obtains G' Q' where "G' \<subseteq> G" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" sorry
 
 
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
@@ -202,27 +195,6 @@ lemma univ_captureI:
   using assms by (intro choice allI capture) simp
 
 
-(*
-lemma falseI:
-  "local c \<Longrightarrow> \<forall>\<beta> \<in> obs c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
-proof (induct c arbitrary: R G)
-  case (Basic x)
-  thus ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
-next
-  case (Choice x)
-  thus ?case
-    by (intro choice allI Choice(1)) auto
-next
-  case (Seq c1 w c2)
-  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
-  then show ?case by auto
-next
-  case (Capture s c)
-  hence "\<forall>\<beta>\<in>overbasic c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
-  hence "\<forall>\<beta>\<in>overbasic c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
-  thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp)
-qed (auto) 
-*)
 
 end
 

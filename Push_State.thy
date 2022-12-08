@@ -384,34 +384,6 @@ lemma domain_pushrel: "Domain (pushrel s s' R) = pushpred s (Domain R)"
 unfolding pushrel_def pushpred_def
 by auto
 
-(* lemma "(pushrelSame R)\<^sup>* = pushrelSame (R\<^sup>* )"
-proof (intro antisym subrelI, goal_cases)
-  case (1 p p')
-  then obtain m m' s where mm': "p = push m s" "p' = push m' s"
-    apply (induct, auto)
-    by (metis push_pop, metis push_inj pushrelSame_inE)
-  show ?case using 1
-  proof (induct)
-    case base
-    have "(m,m) \<in> R\<^sup>*" by simp
-    then show ?case using mm' by (simp add: pushrelSame_in_eq)
-    case (step y z)
-    then show ?case unfolding pushrelSame_def apply auto
-    by (metis (no_types, lifting) local.push_inj rtrancl.rtrancl_into_rtrancl)
-  qed
-next
-  case (2 p p')
-  then obtain m m' s where mm': "p = push m s" "p' = push m' s" "(m,m') \<in> R\<^sup>*"
-    by (rule pushrelSame_inE)
-  with mm'(3) show ?case
-  proof (induct)
-    case base
-    then show ?case 
-  next
-    case (step y z)
-    then show ?case 
-  qed
-qed *)
 
 end
 
@@ -510,23 +482,25 @@ lemma [simp]:
   "pushpredAll {} = {}"
   by (auto simp: pushpredAll_def)
 
-abbreviation (input) uncapBeh where
-"uncapBeh s B \<equiv> pushrel s B" 
+(* Name changes: uncap \<leftrightarrow> cap *)
 
-abbreviation (input) capGuar where
-"capGuar G \<equiv> poprel G"
+abbreviation (input) capBeh where
+"capBeh s B \<equiv> pushrel s B" 
 
 abbreviation (input) uncapGuar where
-"uncapGuar G \<equiv> pushrelAll G"
+"uncapGuar G \<equiv> poprel G"
 
-abbreviation (input) uncapPred where
-"uncapPred s P \<equiv> pushpred s P"
+abbreviation (input) capGuar where
+"capGuar G \<equiv> pushrelAll G"
 
 abbreviation (input) capPred where
-"capPred P \<equiv> poppred P"
+"capPred s P \<equiv> pushpred s P"
 
-abbreviation (input) uncapRely where
-"uncapRely R \<equiv> pushrelSame R"
+abbreviation (input) uncapPred where
+"uncapPred P \<equiv> poppred P"
+
+abbreviation (input) capRely where
+"capRely R \<equiv> pushrelSame R"
 
 
 end

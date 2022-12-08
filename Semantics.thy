@@ -59,7 +59,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
   cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
                            Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
   inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"   
-                   (*interrupt can terminate c\<^sub>1 at any time (with a last uncap step) *) 
+                   (*interrupt can terminate c\<^sub>1 at any time (with a silent step, see below) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
 fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow> ('a,'b) basic set"
@@ -300,64 +300,6 @@ lemma obs_gex:
   shows "obs c \<supseteq> obs c'"
   unfolding obs_def using assms obs_sil obs_exec
     obs_thread obs_par obs_def by (induct) auto 
-
-(*
-
-lemma obs_lexec:
-  assumes "lexecute c \<alpha> r c'" 
-  shows "\<alpha> \<in> (obs c)"
-  using assms obs_act by auto
-
-
-lemma obs_basic:
-  "{\<alpha>} = obs (Basic \<alpha>)" 
-proof - 
-  have a0:"{\<alpha>} \<subseteq> obs (Basic \<alpha>)" using obs_act obs_exec obs_nil 
-    by (meson act bot.extremum insert_subsetI semantics.obs_act)
-  have a1:"obs (Basic \<alpha>) \<subseteq> {\<alpha>}" using lexecute.intros(1) obs_act obs_nil 
-     obs_trace.intros(1,3) list.set_intros obs_def apply simp sorry
-  thus ?thesis using a0 by auto
-qed
-   
-lemma obs_lexec:
-  assumes "lexecute c \<alpha> r c'" shows "(beforeReord \<alpha> r) \<inter> (obs c) \<noteq> {}"
-  using assms
-proof (induct)
-  case (act \<alpha>)
-  then show ?case using assms obs_act beforeReord.simps(1)
-    by (metis insert_disjoint(1) semantics.act) 
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then show ?case proof - 
-    have a0: "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2" using ino.hyps by blast
-    hence a1: "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)" by (meson obs_act)
-    hence ?thesis using a0 a1 ino.hyps(2) obs_subset by blast
-next
-  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
-  then have a0:"c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" by auto
-  then show ?case using ooo  sorry
-next
-  case (cap c \<alpha>' r c' s s')
-  assume a2:" beforeReord \<alpha>' r \<inter> obs c \<noteq> {}" 
-  have p: "poppableBasic s s' \<alpha>'" using cap.hyps(3) by auto
-  have a0:"pushpred s (poppred' s (vc \<alpha>')) = vc \<alpha>'" using p by (meson poppable_push_poppred')
-  have a1:"pushrel s s' (poprel' s s' (beh \<alpha>')) = beh \<alpha>'" using p poppable_push_poprel' by blast 
-  have a3:"beforeReord \<alpha>' r \<subseteq> \<Union> {beforeReord (pushbasic sa s'a (popbasic s s' \<alpha>')) r |sa s'a. True}" 
-    using a0 a1
-    by (metis (mono_tags, lifting) Sup_upper fst_conv mem_Collect_eq prod.exhaust_sel snd_conv)
-  show ?case using cap unfolding beforeReord.simps a3 Union_disjoint eq_snd_iff 
-    sorry      
-qed
-
-
-
-lemma obs_gexecute: 
-  assumes "gexecute c g c'" 
-  shows "\<exists>\<alpha> r. (beforeReord \<alpha> r) \<inter> (obs c) \<noteq> {} \<and> g = beh \<alpha>" 
-  using assms obs_lexec by blast
-*)
-
-
 
 end
 

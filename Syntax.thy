@@ -50,7 +50,6 @@ datatype ('a,'b) com =
   | Thread "('a,'b) com"
   | Capture 'b "('a,'b) com"
   |  Interrupt "('a,'b) com"                      ("\<triangle> _" 80)          (* as unary *)
-(*  | Interrupt "('a,'b) com" "('a,'b) wmm" "('a,'b) com"  ("_ \<triangle>\<^sub>_ _ " [90,0,90] 80)  as binary*)
 
 abbreviation univ_stack ("\<forall>\<^sub>c _" 100)
   where "univ_stack c \<equiv> \<Sqinter>s. Capture s c"
@@ -70,7 +69,6 @@ inductive local :: "('a,'b) com \<Rightarrow> bool"
     "local c \<Longrightarrow> local (c*\<^sub>w)" | 
     "local c \<Longrightarrow> local (Capture k c)" |
     "local c \<Longrightarrow> local (\<triangle>c)"
-(*    "local c\<^sub>1 \<Longrightarrow> local c\<^sub>2 \<Longrightarrow> local (c\<^sub>1 \<triangle>\<^sub>w c\<^sub>2)" *)
 
 lemma local_simps [simp]:
   "local Nil = True"

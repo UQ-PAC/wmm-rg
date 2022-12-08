@@ -231,7 +231,7 @@ by auto (metis ImageI pop_push)
 
 text \<open>Definitions and lemmas for capturing guarantee and stability properties.\<close>
 
-lemma stable_uncap: "stable (uncapRely R) (uncapPred s P) \<Longrightarrow> stable R P"
+lemma stable_cap: "stable (capRely R) (capPred s P) \<Longrightarrow> stable R P"
 unfolding stable_def pushrelSame_def pushpred_def
 by (auto, metis pop_push)
 
@@ -254,19 +254,21 @@ by blast
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
 unfolding guar_def by fast
 
-lemma guar_uncapE:
-  "guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) (uncapGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
+
+lemma guar_capE:
+  "guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) (capGuar G) \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
 unfolding guar\<^sub>\<alpha>_rel
 proof -
-  assume assms: "Id_on (vc (pushbasic s s' \<alpha>)) O beh (pushbasic s s' \<alpha>) \<subseteq> uncapGuar G"
-  have "capGuar (Id_on (uncapPred s (vc \<alpha>)) O uncapBeh s s' (beh \<alpha>)) = Id_on (vc \<alpha>) O beh \<alpha>"
+  assume assms: "Id_on (vc (pushbasic s s' \<alpha>)) O beh (pushbasic s s' \<alpha>) \<subseteq> capGuar G"
+  have "uncapGuar (Id_on (capPred s (vc \<alpha>)) O capBeh s s' (beh \<alpha>)) = Id_on (vc \<alpha>) O beh \<alpha>"
     by (simp add: poprel_relcomp_pushpred)
   thus "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
     using poprel_mono[OF assms] by simp
 qed
 
-lemma guar_uncapI:
-  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) (uncapGuar G)"
+
+lemma guar_capI:
+  "guar\<^sub>\<alpha> \<alpha> G \<Longrightarrow> guar\<^sub>\<alpha> (pushbasic s s' \<alpha>) (capGuar G)"
 unfolding guar\<^sub>\<alpha>_rel
 proof -
   assume "Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G"
@@ -276,7 +278,7 @@ proof -
     by (rule pushrel_relcomp_id)
   hence "Id_on (pushpred s (vc \<alpha>)) O pushrel s s' (beh \<alpha>) \<subseteq> pushrel s s' G" 
     using subset by simp
-  thus "Id_on (vc (pushbasic s s' \<alpha>)) O beh (pushbasic s s' \<alpha>) \<subseteq> uncapGuar G"
+  thus "Id_on (vc (pushbasic s s' \<alpha>)) O beh (pushbasic s s' \<alpha>) \<subseteq> capGuar G"
     using pushrel_in_pushrelAll[of s s'] by auto
 qed
 
@@ -408,8 +410,8 @@ proof (intro conjI)
     using assms unfolding atomic_rule_def by auto
     
   show "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using poppred_mono[OF a(1)] poppred_wp_subset by fastforce
-  show "guar\<^sub>\<alpha> \<alpha> G" using guar_uncapE[OF a(2)] by simp
-  show "stable R P" "stable R Q" using a(3,4) stable_uncap by auto
+  show "guar\<^sub>\<alpha> \<alpha> G" using guar_capE[OF a(2)] by simp
+  show "stable R P" "stable R Q" using a(3,4) stable_cap by auto
 qed*)
 
 
@@ -463,7 +465,7 @@ next
   then show ?case using assms help3 by (auto simp: atomic_rule_def)
 next
   case 3
-  then show ?case using assms stable_uncap by (auto simp: atomic_rule_def)
+  then show ?case using assms stable_cap by (auto simp: atomic_rule_def)
 next
   case 4
   then show ?case using assms help1 by (auto simp: atomic_rule_def)
