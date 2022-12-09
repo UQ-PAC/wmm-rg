@@ -54,6 +54,35 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
+lemma help_inter:
+  assumes "R,G \<turnstile> P {\<triangle> c} Q" "inter R G r" "(\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"
+          "R,G \<turnstile> P {c} Q \<and> c \<mapsto>[\<alpha>',r] c' \<and> inter R G r 
+                \<Longrightarrow> \<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {c'} Q"
+        shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {\<triangle>c'} Q" 
+proof -
+   obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" 
+    using assms(1) by (rule interrE)  
+  obtain M where "R,G \<turnstile>\<^sub>A  P {\<alpha>'} M" using assms(1,3) g0(3) stabilise_stable basicE sorry
+  then show ?thesis sorry
+qed
+
+(*
+proof -
+  assume "c\<^sub>o=(\<triangle>c)" "c\<^sub>o'=(\<triangle>c')"
+  then have "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {\<triangle>c'} Q" using assms by simp
+  then show ?thesis sorry
+
+   obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" 
+    using assms(1) by (rule interrE)  
+  have a0:"(c) \<mapsto>[\<alpha>',r] (c')" using lexecuteE assms(3) by blast
+  have a1:"inter R G' r" sorry
+  then have p:"P = stabilise R P" using g0(3) stabilise_stable by auto
+  obtain M where m:"R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G' \<turnstile> M {c'} Q'"
+    using g0(4) a0 assms(4)
+  then show ?thesis using stable_stabilise assms(4) 
+qed
+*)
+
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
   assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r] c'" "inter R G r" 
@@ -88,15 +117,31 @@ next
   ultimately show ?case by blast
 next
   case (inter1 c\<^sub>1 \<alpha>' r c\<^sub>2)
-  obtain G' Q' where g0:"G' \<subseteq> G" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'" 
+  obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'" 
+    using inter1(3) by (rule interrE)  
+  let ?R="R" and ?G="G'" and ?P="P" and ?Q="Q'"
+  have "?R,?G \<turnstile> ?P {c\<^sub>1} ?Q" using inter1(4) g0(4) by simp
+  moreover have "inter ?R ?G r" using inter1(4) sorry
+  ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {c\<^sub>2} ?Q"
+    using inter1(2) by force
+  
+  
+  then show ?case using help_inter by (meson semantics.inter1)
+qed
+thm silent.cases[of a b]
+
+(*
+  obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'" 
     using inter1(3) by (rule interrE)  
   then have a0:"R,G \<turnstile> P {\<triangle> c\<^sub>1} Q" using inter1.prems(1) by simp
-  then have a1:"inter R G r" using inter1(4) by simp  
+  then have a1:"inter R G' r" using inter1(4) g0(1) sorry  
   then have a2:"(\<triangle>c\<^sub>1) \<mapsto>[\<alpha>',r] (\<triangle>c\<^sub>2)" using inter1(1) g0 by blast
-  obtain M where "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G' \<turnstile> M {\<triangle> c'} Q" using a0 a1 a2 g0 inter1(2) sorry
+  obtain M where "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G' \<turnstile> M {c\<^sub>2} Q" using inter1(2)[OF g0(4)] a1 
   show ?case sorry 
 qed
 thm silent.cases[of a b]
+*)
+
 
 lemma test:
   assumes "pushpred s (stabilise R P) \<subseteq> pushpredAll Q" "x \<in> stabilise R P" 
