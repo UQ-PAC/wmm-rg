@@ -75,6 +75,10 @@ proof -
   ultimately show ?thesis by simp
 qed
 
+lemma inter_monoG:
+  assumes "G \<subseteq> G'" "inter R G r"
+  shows "inter R G' r" sorry
+
 end
 
 end

@@ -54,34 +54,15 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
-lemma help_inter:
-  assumes "R,G \<turnstile> P {\<triangle> c} Q" "inter R G r" "(\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"
-          "R,G \<turnstile> P {c} Q \<and> c \<mapsto>[\<alpha>',r] c' \<and> inter R G r 
-                \<Longrightarrow> \<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {c'} Q"
-        shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {\<triangle>c'} Q" 
-proof -
-   obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" 
-    using assms(1) by (rule interrE)  
-  obtain M where "R,G \<turnstile>\<^sub>A  P {\<alpha>'} M" using assms(1,3) g0(3) stabilise_stable basicE sorry
-  then show ?thesis sorry
-qed
 
-(*
-proof -
-  assume "c\<^sub>o=(\<triangle>c)" "c\<^sub>o'=(\<triangle>c')"
-  then have "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {\<triangle>c'} Q" using assms by simp
-  then show ?thesis sorry
+lemma atomic_subG:
+  assumes "R,G' \<turnstile>\<^sub>A P {\<alpha>'} Q" "G \<subseteq> G'"
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>'} Q" sorry
 
-   obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" 
-    using assms(1) by (rule interrE)  
-  have a0:"(c) \<mapsto>[\<alpha>',r] (c')" using lexecuteE assms(3) by blast
-  have a1:"inter R G' r" sorry
-  then have p:"P = stabilise R P" using g0(3) stabilise_stable by auto
-  obtain M where m:"R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G' \<turnstile> M {c'} Q'"
-    using g0(4) a0 assms(4)
-  then show ?thesis using stable_stabilise assms(4) 
-qed
-*)
+lemma inter_subG:
+  assumes "R,G' \<turnstile> P {c} Q" "G \<subseteq> G'"
+  shows "R,G \<turnstile> P {c} Q" sorry
+
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
@@ -119,19 +100,29 @@ next
   case (inter1 c\<^sub>1 \<alpha>' r c\<^sub>2)
   obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'" 
     using inter1(3) by (rule interrE)  
+  have c:"R,G \<turnstile> P {\<triangle> c\<^sub>1} P" using g0 by (rule rules.interr)
   let ?R="R" and ?G="G'" and ?P="P" and ?Q="Q'"
   have "?R,?G \<turnstile> ?P {c\<^sub>1} ?Q" using inter1(4) g0(4) by simp
-  moreover have "inter ?R ?G r" using inter1(4) sorry
-  ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {c\<^sub>2} ?Q"
-    using inter1(2) by force
-  
-  
-  then show ?case using help_inter by (meson semantics.inter1)
+  moreover have "inter ?R ?G r" using inter1(4) inter_monoG g0(1) by auto
+(*  ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {\<triangle>c\<^sub>2} ?Q"
+    using inter1(2) sorry *)
+  have p:"?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} P" "?R,?G \<turnstile> P {\<triangle>c\<^sub>2} ?Q" sorry
+  have a:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} ?P" using atomic_subG[OF p(1) g0(1)] g0(2) 
+    by (metis)
+  have d:"(\<triangle>c\<^sub>1) \<mapsto>[\<alpha>',r] (\<triangle>c\<^sub>2)" sorry
+  have g:"stable G P" sorry
+  moreover have "R,G \<turnstile> P {\<triangle> c\<^sub>2} P" using inter_subG[OF p(2) g0(1)] g0(2) 
+  ultimately show ?case using inter1(3) using a 
+    by (meson inter1.hyps(1) inter1.hyps(2) inter1.prems(2) lexecute.inter1)
 qed
 thm silent.cases[of a b]
 
+
 (*
-  obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'" 
+  then show ?case using help_inter by (meson semantics.inter1)
+
+
+  obtain G' Q' where g0:"G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c\<^sub>1} Q'"
     using inter1(3) by (rule interrE)  
   then have a0:"R,G \<turnstile> P {\<triangle> c\<^sub>1} Q" using inter1.prems(1) by simp
   then have a1:"inter R G' r" using inter1(4) g0(1) sorry  
