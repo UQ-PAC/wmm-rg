@@ -24,6 +24,24 @@ definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow
   where "inter\<^sub>\<alpha> R G \<alpha>' \<beta> \<alpha> \<equiv> \<forall>P M Q. R,G \<turnstile>\<^sub>A P {\<beta>} M \<longrightarrow> R,G \<turnstile>\<^sub>A M {\<alpha>} Q \<longrightarrow> 
                                   (\<exists>M'. R,G \<turnstile>\<^sub>A P {\<alpha>'} M' \<and> R,G \<turnstile>\<^sub>A M' {\<beta>} Q)"
 
+(*
+lemma what:
+  assumes "guar\<^sub>\<alpha> \<alpha> G" "G \<subseteq> G'"
+  shows "guar\<^sub>\<alpha> \<alpha> G'" using assms unfolding guar_def by auto
+
+lemma what2:
+  assumes "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "G \<subseteq> G'"
+  shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def what by blast
+
+lemma interG:
+  assumes "inter\<^sub>\<alpha> R G \<alpha>' \<beta> \<alpha>"  "G \<subseteq> G'"
+  shows "inter\<^sub>\<alpha> R G' \<alpha>' \<beta> \<alpha>" 
+proof -
+  obtain P M Q where a:"R,G \<turnstile>\<^sub>A P {\<beta>} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" using assms sorry
+  have "R,G' \<turnstile>\<^sub>A P {\<beta>} M" "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms(2) what2 a try0
+*)
+
+
 text \<open>
 Independence of program c and instruction \<alpha> under environment R/G and memory model w,
 such that the early execution of \<alpha> cannot invalidate sequential reasoning.

@@ -471,4 +471,5 @@ next
   then show ?case using assms help1 by (auto simp: atomic_rule_def)
 qed
 
+
 end
