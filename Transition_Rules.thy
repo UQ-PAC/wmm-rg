@@ -3,7 +3,7 @@ theory Transition_Rules
 begin
 
 context rules
-begin
+begin 
 
 text \<open>
 A series of lemmas that demonstrate the logic's rules are preserved across the semantic steps and
@@ -59,13 +59,29 @@ lemma atomic_subG:
   assumes "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} Q" "P \<subseteq> Q" "G' \<subseteq> G" 
   shows "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P" sorry
 
+lemma stable_domran:
+  assumes "stable G Q" "Q \<subseteq> Domain G" "G \<noteq> {}" "Q \<noteq> {}"
+  shows "Range G \<subseteq> Q" 
+
 lemma guar_stable:
   assumes "guar\<^sub>\<alpha> \<alpha> G" "stable G Q" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> M"  "P \<subseteq> Q"
   shows "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
 proof -
+  let ?A="{(m,m'). m \<in> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>}" and ?VA="{m. m \<in> vc \<alpha>}"
+  have a1:"?A \<subseteq> G" using assms(1) guar_def by blast 
+  have a2:"stable ?A Q" using a1 assms(2) by blast
+  have a3:"P \<subseteq> ?VA" using assms(3) by (simp add: wp_def)
+  have a7:"Q \<subseteq> ?VA" sorry
+  have a4:"Q \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using a2 a7 wp_def sorry
+  have a6:"stable ?A P" sorry
+  have a5:"P \<subseteq> wp\<^sub>\<alpha> \<alpha> P" using a6 assms(3) a3 stable_wpI[of "?A" "P"] sorry
+  have a8:"Q \<subseteq> Domain ?A \<Longrightarrow> Q \<subseteq> Range ?A" using a2 unfolding stable_def 
+  then show ?thesis using a4 assms(4) by auto
+qed
+
 (*  assume a:"m \<in> vc \<alpha>" "(m,m') \<in> beh \<alpha>" "m' \<in> M" *)
 (*  assume a:"m \<in> P"  "(m,m') \<in> beh \<alpha>" *)
-  then have a2:"m \<in> vc \<alpha>" using wp_def[of "vc \<alpha>" "beh \<alpha>" "M"] assms(3) by auto
+(*  then have a2:"m \<in> vc \<alpha>" using wp_def[of "vc \<alpha>" "beh \<alpha>" "M"] assms(3) by auto
   then have a3:"m \<in> Q" using a(1) assms(4) by auto
   then have a0:"(m,m') \<in> G" using assms(1) a(2) guar_def[of "vc \<alpha>" "beh \<alpha>" "G"] by blast
   then have a4:"m' \<in> Q" using assms(2) a3 a0 stable_def by force
@@ -73,6 +89,7 @@ proof -
     sorry
   show ?thesis sorry
 qed 
+*)
 
 lemma stable_G:
   assumes "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "stable G' Q" "stable R Q" "P \<subseteq> Q"
