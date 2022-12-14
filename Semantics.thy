@@ -58,9 +58,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
                                       c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
   cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
                            Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
-  inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"   (* \<alpha>' on RHS needs to the popbasic \<alpha>'? *)  
-(*  inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> vc(\<alpha>'') \<subseteq> vc \<alpha>' \<Longrightarrow> beh \<alpha>'' \<subseteq> beh \<alpha>' \<Longrightarrow> 
-                                            (\<triangle>c) \<mapsto>[\<alpha>'',r] (\<triangle>c')"   *)
+  inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',[]] (\<triangle>c')"   (* \<alpha>' on RHS needs to the popbasic \<alpha>'? *)  
                    (*interrupt can terminate c\<^sub>1 at any time (with a silent step, see below) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 

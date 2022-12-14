@@ -30,7 +30,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "G \<subseteq> G' \<Longrightarrow> stable G' P \<Longrightarrow> stable R P  \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} P" 
+  interr[intro]:  "P \<subseteq> Q \<Longrightarrow> G' \<subseteq> G \<Longrightarrow> stable G' Q \<Longrightarrow> stable R Q  
+                          \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> rif R G' c \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} Q" 
 (*   for interr the wmm should be set to sc in instantiation but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
@@ -132,14 +133,17 @@ qed
 
 lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
-  obtains G' Q' where "G \<subseteq> G'" "stable G' P" "stable R P" "R,G' \<turnstile> P {c} Q'" sorry
-(*  using assms 
+  obtains G' Q' where "P \<subseteq> Q" "G' \<subseteq> G" "stable G' Q" "stable R Q" 
+                           "R,G' \<turnstile> P {c} Q'" "rif R G' c"  
+  using assms 
 proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
   case (conseq R G P Q P' R' G' Q')
   show ?case 
   proof (rule conseq(2), goal_cases)
-    case (1 G' Q')
-    then show ?case using rules.conseq[of "R" "G'" "P" "c" "Q'"] 
+    case (1 P'' G'' Q'')
+    then show ?case
+      using conseq
+      using rules.conseq[of "R" "G'" "P" "c" "Q'"]
                           stable_conseqI[of "R" "P"] sorry
   qed
 next
@@ -149,8 +153,11 @@ next
     case (1 G' Q')
     then show ?case sorry
   qed
+next
+  case (interr G' G P R c uu)
+  then show ?case sorry
 qed 
-*)
+
 
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
 lemma stable_preE':
@@ -185,7 +192,7 @@ next
   thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
 next
   case (interr G G' P R c uu)
-  thus ?case by (simp add: rules.interr stabilise_stable)
+  thus ?case apply (simp add: rules.interr stabilise_stable) sorry
 qed auto
 
 
