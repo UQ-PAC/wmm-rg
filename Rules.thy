@@ -31,7 +31,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
   interr[intro]:  "P \<subseteq> Q \<Longrightarrow> G' \<subseteq> G \<Longrightarrow> stable G' Q \<Longrightarrow> stable R Q  
-                          \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> rif R G' c \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} Q" 
+                          \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> rif R G' c 
+                          \<Longrightarrow> stable R P \<Longrightarrow> stable G' P \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} Q" 
 (*   for interr the wmm should be set to sc in instantiation but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
@@ -135,12 +136,13 @@ lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
   obtains G' Q' where "P \<subseteq> Q" "G' \<subseteq> G" "stable G' Q" "stable R Q" 
                            "R,G' \<turnstile> P {c} Q'" "rif R G' c"  
+                           "stable R P" "stable G' P" 
   using assms 
 proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
   case (conseq R G P Q P' R' G' Q')
   show ?case 
   proof (rule conseq(2), goal_cases)
-    case (1 P'' G'' Q'')
+    case (1 G'' Q'')   (* P'' *)
     then show ?case
       using conseq
       using rules.conseq[of "R" "G'" "P" "c" "Q'"]

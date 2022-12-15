@@ -30,7 +30,11 @@ text \<open>Equivalent definitions for stable and wp using relation operations.\
 
 lemma stable_rel:
   "stable R P = (R `` P \<subseteq> P)"
-unfolding stable_def by auto
+  unfolding stable_def by auto
+
+lemma stable_rel2:
+  assumes "stable R P"
+  shows "(Id_on P) O R \<subseteq> (P \<times> P)" using assms unfolding stable_def by blast
 
 (*
 lemma wp_rel_partial:
@@ -65,6 +69,7 @@ lemma stable_conseqI [intro]:
   assumes "stable R' P" "R \<subseteq> R'" 
   shows "stable R P"
   using assms rtrancl_mono unfolding stable_def by blast
+
 
 lemma stable_conjI [intro]:
   assumes "stable R P" "stable R' P'"
