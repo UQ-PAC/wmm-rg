@@ -36,6 +36,30 @@ lemma stable_rel2:
   assumes "stable R P"
   shows "(Id_on P) O R \<subseteq> (P \<times> P)" using assms unfolding stable_def by blast
 
+(**)
+
+definition stablePQ :: "('b) pred \<Rightarrow> ('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
+  where "stablePQ P R Q \<equiv> (Id_on P) O R \<subseteq> (P \<times> Q)"
+
+lemma stablePQ_subP :
+  assumes "stablePQ P R Q" "P' \<subseteq> P"
+  shows "stablePQ P' R Q" using assms stablePQ_def 
+  by (smt (verit, best) Id_onE Id_onI mem_Sigma_iff prod.simps(1) relcomp.intros relcompE subset_eq)
+
+lemma stablePQ_supQ :
+  assumes "stablePQ P R Q" "Q \<subseteq> Q'"
+  shows "stablePQ P R Q'" using assms stablePQ_def 
+  by (smt (verit, best) mem_Sigma_iff relcompE subsetD subsetI)
+
+lemma stablePQ_both :
+  assumes "stablePQ P R Q" "P' \<subseteq> P" "Q \<subseteq> Q'"
+  shows "stablePQ P' R Q'" using assms stablePQ_subP stablePQ_supQ by metis
+
+lemma stablePQ_subR :
+  assumes "stablePQ P R Q" "R' \<subseteq> R" 
+  shows "stablePQ P R' Q" using assms mem_Sigma_iff relcomp.intros relcompE subset_eq 
+  unfolding stablePQ_def by blast
+
 (*
 lemma wp_rel_partial:
   "wp pre post Q = pre \<inter> Domain post \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q)}"
@@ -57,7 +81,8 @@ fun guar2 :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred \<Rightarrow
 "guar2 pre post G = (pre \<subseteq> {m. (\<forall>m'. ((m,m') \<in> post \<longrightarrow> (m,m') \<in> G))})"
 
 lemma "guar pre post G = guar2 pre post G"
-by (auto simp add: guar_def)
+  by (auto simp add: guar_def)
+
 
 text \<open>Shorthand for the weakest-precondition of an environment step\<close>
 abbreviation wp\<^sub>e :: "'b rpred \<Rightarrow> 'b pred \<Rightarrow> 'b pred"
