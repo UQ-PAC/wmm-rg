@@ -54,6 +54,11 @@ lemma atomic_pre:
   shows "R,G \<turnstile>\<^sub>A P' {\<alpha>} Q"
   using assms unfolding atomic_rule_def by fast
 
+lemma atomic_post:
+  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "Q \<subseteq> Q'" "stable R Q'"
+  shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q'"
+  using assms wp\<^sub>\<alpha>_mono unfolding atomic_rule_def by fast
+
 text \<open>Strengthen the rely and weaken the guarantee for an atomic judgement\<close>
 lemma atomic_conseqI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "R' \<subseteq> R" "G \<subseteq> G'"
@@ -212,6 +217,7 @@ text \<open>Manually computing the strongest postcondition which might hold.\<cl
 
 definition sp :: "('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> 'b pred" where
   "sp \<alpha> P \<equiv> beh \<alpha> `` (P)"
+
 
 lemma wp_sp: "P \<subseteq> vc \<alpha> \<Longrightarrow> P \<subseteq> wp\<^sub>\<alpha> \<alpha> (sp \<alpha> P)"
 unfolding sp_def wp_def

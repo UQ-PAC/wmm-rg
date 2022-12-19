@@ -32,7 +32,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                     R,G \<turnstile> P {Capture s c} Q" |
   interr[intro]:  "P \<subseteq> Q \<Longrightarrow> G' \<subseteq> G \<Longrightarrow> stable G' Q \<Longrightarrow> stable R Q  
                           \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> rif R G' c 
-                          \<Longrightarrow> stable R P \<Longrightarrow> stable G' P \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} Q" 
+                          \<Longrightarrow> stable G' P \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} Q" 
 (*   for interr the wmm should be set to sc in instantiation but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
@@ -135,8 +135,9 @@ qed
 lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
   obtains G' Q' where "P \<subseteq> Q" "G' \<subseteq> G" "stable G' Q" "stable R Q" 
-                           "R,G' \<turnstile> P {c} Q'" "rif R G' c"  
-                           "stable R P" "stable G' P" 
+                      "R,G' \<turnstile> P {c} Q'" 
+                      "rif R G' c" 
+                      "stable G' P" 
   using assms 
 proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
   case (conseq R G P Q P' R' G' Q')
@@ -193,8 +194,9 @@ next
   case (capture R G s P c Q)
   thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
 next
-  case (interr G G' P R c uu)
-  thus ?case apply (simp add: rules.interr stabilise_stable) sorry
+  case (interr P Q G' G R c uu)
+  have "stable G' (stabilise R P)" "(stabilise R P) \<subseteq> Q" sorry
+  thus ?case using interr by (simp add: rules.interr stabilise_stable)
 qed auto
 
 
@@ -204,6 +206,7 @@ lemma stable_preE:
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
+
 
 text \<open> Combining choice with capture to provide the choice over some var that is "hidden" \<close>
 
@@ -220,6 +223,10 @@ lemma univ_captureI:
   using assms by (intro choice allI capture) simp
 
 
+lemma com_stab_guar:
+  assumes "R,G \<turnstile> P {c} Q" "stable R P" "stable G P" 
+  shows "R,G \<turnstile> P {c} P"
+  using assms oops
 
 end
 
