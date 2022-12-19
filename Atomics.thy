@@ -19,6 +19,13 @@ text \<open>Specification check, ensuring an instruction conforms to a relation\
 abbreviation guar\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'b rpred \<Rightarrow> bool"
   where "guar\<^sub>\<alpha> \<alpha> G \<equiv> guar (vc \<alpha>) (beh \<alpha>) G"
 
+lemma wp_relcomp:
+  assumes "(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) \<subseteq> (P \<times> Q)" "vc \<alpha> \<noteq> {}" "beh \<alpha> \<noteq> {}" "P \<subseteq> vc \<alpha>"
+  shows  "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms wp_def sorry
+(*    by (smt (verit, ccfv_threshold) Id_onI IntE IntI inf.orderE mem_Collect_eq mem_Sigma_iff 
+        relcomp.relcompI subsetI)
+*)
+
 section \<open>Atomic Rule\<close>
 
 text \<open>Rule for an atomic operation\<close>

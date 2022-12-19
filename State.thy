@@ -36,7 +36,7 @@ lemma stable_rel2:
   assumes "stable R P"
   shows "(Id_on P) O R \<subseteq> (P \<times> P)" using assms unfolding stable_def by blast
 
-(**)
+(* new *)
 
 definition stablePQ :: "('b) pred \<Rightarrow> ('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
   where "stablePQ P R Q \<equiv> (Id_on P) O R \<subseteq> (P \<times> Q)"
