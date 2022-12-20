@@ -138,7 +138,7 @@ lemma interrE:
   obtains G' Q' where "P \<subseteq> Q" "G' \<subseteq> G" "stable G' Q" "stable R Q" 
                       "R,G' \<turnstile> P {c} Q'" 
                       "rif R G' c" 
-                      "stablePQ (stabilise R P) G' Q" "stable R P" 
+                      "stablePQ P G' Q" "stable R P" 
   using assms 
 proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
   case (conseq R G P Q P' R' G' Q')

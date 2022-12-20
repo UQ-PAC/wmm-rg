@@ -28,6 +28,13 @@ definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightar
 
 text \<open>Equivalent definitions for stable and wp using relation operations.\<close>
 
+(*  "r `` s = {y. \<exists>x\<in>s. (x, y) \<in> r}"  *)
+
+lemma wp_rel:
+  "wp pre post Q = pre \<inter> -(post\<inverse> `` (-Q))"
+  unfolding wp_def by auto
+
+
 lemma stable_rel:
   "stable R P = (R `` P \<subseteq> P)"
   unfolding stable_def by auto
@@ -66,11 +73,6 @@ lemma wp_rel_partial:
 unfolding wp_def by auto
 *)
 
-(*  "r `` s = {y. \<exists>x\<in>s. (x, y) \<in> r}"  *)
-
-lemma wp_rel:
-  "wp pre post Q = pre \<inter> -(post\<inverse> `` (-Q))"
-  unfolding wp_def by auto
 
 
 text \<open>Guarantee check for a pre-condition and post-relation\<close>

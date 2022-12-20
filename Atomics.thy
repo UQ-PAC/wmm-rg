@@ -25,6 +25,19 @@ lemma wp_relcomp:
   using  Id_onI IntE IntI inf.orderE mem_Collect_eq mem_Sigma_iff 
         relcomp.relcompI subsetI  by (smt (verit, del_insts))
 
+lemma relcomp_wp:
+  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
+  shows "(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) \<subseteq> (P \<times> Q)"
+  using assms unfolding wp_def
+proof -
+  have a0:"(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) = 
+      {(m,m'). m \<in> (P \<inter> (vc \<alpha>)) \<and> (m,m') \<in> (beh \<alpha>)}" using relcompE Id_on_def Id_onE by auto
+  have a1:"P \<subseteq> vc \<alpha>" using assms wp_def by fast
+  have a2:"P \<subseteq> (vc \<alpha>) \<inter> {m.\<forall> m'. (m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q}" using assms wp_def sorry
+  show ?thesis sorry
+qed
+  
+
 section \<open>Atomic Rule\<close>
 
 text \<open>Rule for an atomic operation\<close>
@@ -228,6 +241,9 @@ definition sp :: "('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> 'b pred" whe
 lemma wp_sp: "P \<subseteq> vc \<alpha> \<Longrightarrow> P \<subseteq> wp\<^sub>\<alpha> \<alpha> (sp \<alpha> P)"
 unfolding sp_def wp_def
 by auto
+
+lemma wp_spR: "P \<subseteq> vc \<alpha> \<Longrightarrow> P \<subseteq> wp\<^sub>\<alpha> \<alpha> (stabilise R (sp \<alpha> P))"
+  by (metis Image_subset_eq le_infI sp_def stabilise_supset wp_rel)
 
 lemma sp_wp: "sp \<alpha> (wp\<^sub>\<alpha> \<alpha> Q) \<subseteq> Q"
 unfolding sp_def wp_def
