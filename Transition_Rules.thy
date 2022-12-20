@@ -54,6 +54,7 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
+(* only used if we want to show "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P" in help_inter
 lemma stable_G:
   assumes "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M"  "stable G' P" "stable R P"
   shows "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P" 
@@ -66,7 +67,9 @@ proof -
   have a3:"stable R (stabilise R P)" using stable_stabilise by auto
   then show ?thesis using a1 a2 a3 assms(3) a6 by auto
 qed
+*)
 
+(*
 lemma stable_G2:
   assumes "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M"  "stable G' (stabilise R P)" 
   shows "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} stabilise R P"
@@ -75,6 +78,8 @@ proof -
   then show ?thesis using assms a0 stable_G 
     by (simp add: atomic_stab_guar)
 qed
+*)
+
 
 lemma stable_G3:
   assumes "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M"  "stablePQ (stabilise R P) G' Q" "stable R Q"
@@ -86,7 +91,12 @@ proof -
   have a1:"stabilise R P \<subseteq> wp\<^sub>\<alpha> \<alpha>' M" using assms(1) atomic_rule_def by fast
   have a2:"stablePQ (stabilise R P) (Id_on (vc \<alpha>') O (beh \<alpha>')) Q" using a01 assms(2) 
       stablePQ_subR by blast
-  have a3:"(stabilise R P) \<subseteq> wp\<^sub>\<alpha> \<alpha>' Q" using a2 stablePQ_def wp_relcomp by metis 
+  have a6:"(Id_on (stabilise R P)) O ((Id_on (vc \<alpha>') O (beh \<alpha>'))) \<subseteq> ((stabilise R P) \<times> Q)" 
+    using a2 stablePQ_def by metis
+  have a5:"stabilise R P \<subseteq> (vc \<alpha>')" using assms(1) atomic_rule_def wp_def 
+    by (metis (no_types, lifting) le_inf_iff)
+  have a3:"(stabilise R P) \<subseteq> wp\<^sub>\<alpha> \<alpha>' Q" using a2 a6 a5 wp_relcomp stablePQ_def wp_def
+    by (metis (no_types, lifting))
   have a4:"stable R (stabilise R P)" using stable_stabilise by auto
   then show ?thesis using a0 a1 a2 a3 assms(3) by auto
 qed
@@ -124,28 +134,32 @@ lemma help_inter:
 proof -
   obtain G' Q' where g:
         "P \<subseteq> Q"  "G' \<subseteq> G"  "stable G' Q"  "stable R Q"  "R,G' \<turnstile> P {c} Q'" "rif R G' c"  
-                            "stablePQ (stabilise R P) G' Q" "stable R P"
+                            "stablePQ P G' Q" "stable R P"
     using assms(3) by (rule interrE)  
   have i1:"inter R G' r"  using assms(1) g(6) interference.indep_stepI by blast
   have i2:"rif R G' c'" using assms(1) g(6) interference.indep_stepI rif_def by blast
-  obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c'} Q'" 
-    using assms(2)[OF g(5) i1] by auto
+  have p1:"P = stabilise R P" using g(8) stabilise_stable by auto
+  obtain M where m: "R,G' \<turnstile>\<^sub>A P {\<alpha>'} M" "R,G' \<turnstile> M {c'} Q'" 
+    using p1 assms(2)[OF g(5) i1] by auto
 
-  obtain P'' where p: "P''=stabilise R (sp \<alpha>' P)" "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P''" "P'' \<subseteq> M"
-    using m(1) atomic_spI by (metis g(8) stabilise_stable)
+  obtain P'' where p: "P''=stabilise R (sp \<alpha>' P)" "R,G' \<turnstile>\<^sub>A P {\<alpha>'} P''" "P'' \<subseteq> M"
+    using m(1) atomic_spI by metis
 
-  have a2:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P''" using p(2) g(1,2) by blast
+  have a2:"R,G \<turnstile>\<^sub>A P {\<alpha>'} P''" using p(2) g(1,2) by blast
   have s1:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
-  have s3:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
-  have s4:"R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} Q" using m(1) g(7,4) stable_G3 by blast
-  have s5:"P'' \<subseteq> Q" using s4 p(2) p(3) atomic_spI(2) p(1) p(3) by (metis g(8) stabilise_stable)
+  have s4:"R,G' \<turnstile>\<^sub>A P {\<alpha>'} Q" using p1 m(1) g(7,4) stable_G3 by metis
+  have s5:"P'' \<subseteq> Q" using p1 s4 atomic_spI(2) p by metis
   have s6:"R,G' \<turnstile> P'' {c'} Q'" using m(2) p(3) apply (rule rules.conseq) by auto
+(*  have s9:"stable G' P" using g(7) sorry
+  have s10: "R,G' \<turnstile>\<^sub>A P {\<alpha>'} P" using p1 m(1) s9 g(8) stable_G by metis
+  have s11:"P'' \<subseteq> P" using s10 p(1,2) g(8) atomic_spI(2) stabilise_stable by blast
+  have s7:"stablePQ P'' G' Q" using s11 g(7) stablePQ_subP by blast *)
   have s7:"stablePQ P'' G' Q" sorry
   have s8:"stable R P''" using stable_stabilise p(1) by auto
   have p3:"R,G \<turnstile> P'' {\<triangle>c'} Q" using s5 g(2,3,4) s6 i2 s7 s8 by (rule rules.interr) 
 
 
-  then show ?thesis using a2 p3 by auto
+  then show ?thesis using p1 a2 p3 by auto 
 qed
 
 
