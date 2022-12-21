@@ -30,11 +30,12 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "P \<subseteq> Q \<Longrightarrow> G' \<subseteq> G \<Longrightarrow> stable G' Q \<Longrightarrow> stable R Q  
+  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G' \<subseteq> G \<Longrightarrow> stable G' I \<Longrightarrow> stable R I 
                           \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> rif R G' c
-                          \<Longrightarrow> stablePQ P G' Q
-                          \<Longrightarrow> stable R P \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} Q" 
-(*   for interr the wmm should be set to sc in instantiation but this parameter
+                          \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} I" 
+(* G' = G \<inter> (I \<Zinj>I)  could replace assms(2,3) *)
+
+(*   for interr the wmm should be set to sc but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
 subsection \<open>Properties\<close>
@@ -134,24 +135,24 @@ qed
 
 
 lemma interrE:
-  assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
-  obtains G' Q' where "P \<subseteq> Q" "G' \<subseteq> G" "stable G' Q" "stable R Q" 
+  assumes "R,G \<turnstile> P {(\<triangle>c)} I"
+  obtains G' Q' where "P \<subseteq> I" "G' \<subseteq> G" "stable G' I" "stable R I" 
                       "R,G' \<turnstile> P {c} Q'" 
                       "rif R G' c" 
-                      "stablePQ P G' Q" "stable R P" 
-  using assms 
-proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
-  case (conseq R G P Q P' R' G' Q')
+  using assms
+proof (induct R G P "(\<triangle>c)" I arbitrary: c)
+  print_cases
+  case (conseq R G P I P' R' G' Q')
   show ?case 
   proof (rule conseq(2), goal_cases)
-    case (1 G'' Q'')   (* P'' *)
+    case (1 G'' Q'')
     then show ?case
-      using conseq
+      using conseq(3-7)
       using rules.conseq[of "R" "G'" "P" "c" "Q'"]
-                          stable_conseqI[of "R" "P"] sorry
+            stable_conseqI[of "G'" "Q" "G''"] sorry 
   qed
 next
-  case (inv R G P Q R' I)
+  case (inv R G P I R' I2)
   show ?case 
   proof (rule inv(2), goal_cases)
     case (1 G' Q')

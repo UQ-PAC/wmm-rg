@@ -26,6 +26,7 @@ definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightar
   where "wp pre post Q \<equiv>
     pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q) }"
 
+
 text \<open>Equivalent definitions for stable and wp using relation operations.\<close>
 
 (*  "r `` s = {y. \<exists>x\<in>s. (x, y) \<in> r}"  *)
@@ -43,7 +44,11 @@ lemma stable_rel2:
   assumes "stable R P"
   shows "(Id_on P) O R \<subseteq> (P \<times> P)" using assms unfolding stable_def by blast
 
-(* new *)
+text \<open> product set which also includes the complement of the domain (different to Id_on);
+       stable predicate that mixes differing pre- and post set \<close>
+
+definition impProd :: "('c) set \<Rightarrow> ('c) set \<Rightarrow> ('c) rel"  (infixr "\<Zinj>" 35)
+  where "impProd A B \<equiv> {(m,m'). m \<in> A \<longrightarrow> m' \<in> B}"
 
 definition stablePQ :: "('b) pred \<Rightarrow> ('b) rpred \<Rightarrow> ('b) pred \<Rightarrow> bool"
   where "stablePQ P R Q \<equiv> (Id_on P) O R \<subseteq> (P \<times> Q)"
@@ -258,26 +263,6 @@ proof (clarsimp, goal_cases)
   hence "n' \<in> P" using 1 assms by (auto simp: stable_def)
   then show ?case using a(1) by auto
 qed
-
-(*
-lemma aux_wp [intro]:
-  assumes "P \<subseteq> wp v b Q"
-  shows "aux\<^sub>P r P \<subseteq> wp (aux\<^sub>P r v) (aux\<^sub>R r b) (aux\<^sub>P r Q)"
-  unfolding wp_def aux\<^sub>P_def
-proof (clarsimp, (intro conjI; clarsimp), goal_cases)
-  case (1 n m')
-  then show ?case using assms by (auto simp: wp_def aux\<^sub>P_def)
-next
-  case (2 n m')
-  then show ?case using assms
-  proof (intro conjI, goal_cases)
-    case 1
-    then show ?case unfolding aux\<^sub>R_def wp_def by fast
-  next
-    case 2
-    then show ?case 
-  qed 
-oops *)
 
 lemma aux_guar [intro]:
   assumes "guar v b G" 

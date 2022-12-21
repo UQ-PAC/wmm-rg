@@ -19,25 +19,6 @@ text \<open>Specification check, ensuring an instruction conforms to a relation\
 abbreviation guar\<^sub>\<alpha> :: "('a,'b) basic \<Rightarrow> 'b rpred \<Rightarrow> bool"
   where "guar\<^sub>\<alpha> \<alpha> G \<equiv> guar (vc \<alpha>) (beh \<alpha>) G"
 
-lemma wp_relcomp:
-  assumes "(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) \<subseteq> (P \<times> Q)" "P \<subseteq> vc \<alpha>" 
-  shows  "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms wp_def 
-  using  Id_onI IntE IntI inf.orderE mem_Collect_eq mem_Sigma_iff 
-        relcomp.relcompI subsetI  by (smt (verit, del_insts))
-
-lemma relcomp_wp:
-  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" 
-  shows "(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) \<subseteq> (P \<times> Q)"
-  using assms unfolding wp_def
-proof -
-  have a0:"(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) = 
-      {(m,m'). m \<in> (P \<inter> (vc \<alpha>)) \<and> (m,m') \<in> (beh \<alpha>)}" using relcompE Id_on_def Id_onE by auto
-  have a1:"P \<subseteq> vc \<alpha>" using assms wp_def by fast
-  have a2:"P \<subseteq> (vc \<alpha>) \<inter> {m.\<forall> m'. (m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q}" using assms wp_def sorry
-  show ?thesis sorry
-qed
-  
-
 section \<open>Atomic Rule\<close>
 
 text \<open>Rule for an atomic operation\<close>
@@ -67,6 +48,12 @@ text \<open>the postcondition may be weakened (i.e. made larger, accepting more 
 lemma wp\<^sub>\<alpha>_mono: "Q \<subseteq> Q' \<Longrightarrow> wp\<^sub>\<alpha> \<alpha> Q \<subseteq> wp\<^sub>\<alpha> \<alpha> Q'"
 unfolding wp_def by auto
 
+lemma wp_relcomp:
+  assumes "(Id_on P) O ((Id_on (vc \<alpha>) O (beh \<alpha>))) \<subseteq> (P \<times> Q)" "P \<subseteq> vc \<alpha>" 
+  shows  "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms wp_def 
+  using  Id_onI IntE IntI inf.orderE mem_Collect_eq mem_Sigma_iff 
+        relcomp.relcompI subsetI  by (smt (verit, del_insts))
+ 
 text \<open>Re-establish an atomic judgement over a stronger stable precondition\<close>
 lemma atomic_pre:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "P' \<subseteq> P" "stable R P'"
