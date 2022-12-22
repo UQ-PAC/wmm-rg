@@ -30,7 +30,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G' \<subseteq> G \<Longrightarrow> stable G' I \<Longrightarrow> stable R I 
+  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G'= G \<inter> (I \<Zinj> I) \<Longrightarrow> stable R I 
                           \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow> rif R G' c
                           \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} I" 
 (* G' = G \<inter> (I \<Zinj>I)  could replace assms(2,3) *)
@@ -136,7 +136,7 @@ qed
 
 lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} I"
-  obtains G' Q' where "P \<subseteq> I" "G' \<subseteq> G" "stable G' I" "stable R I" 
+  obtains G' Q' where "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "stable R I" 
                       "R,G' \<turnstile> P {c} Q'" 
                       "rif R G' c" 
   using assms
