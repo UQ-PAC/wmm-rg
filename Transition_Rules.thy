@@ -94,11 +94,7 @@ proof -
 qed
 
 lemma interCom:
-  assumes "c \<mapsto>[\<alpha>,r] c'"
-    "P \<subseteq> I"  
-    "G \<subseteq>(I \<Zinj> I)" 
-    "stable R I"  
-    "R,G \<turnstile> P {c} Q" 
+  assumes "c \<mapsto>[\<alpha>,r] c'" "P \<subseteq> I" "G \<subseteq>(I \<Zinj> I)" "stable R I" "R,G \<turnstile> P {c} UNIV" 
   shows "inter R G r" 
   using assms
 proof (induct)
@@ -108,41 +104,32 @@ next
   case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
   then show ?case 
   proof -
-    have a0:"R,G \<turnstile> P {c\<^sub>1} Q" sorry 
+    have a0:"R,G \<turnstile> P {c\<^sub>1} UNIV" using assms ino rules.conseq by auto
     then show ?case
-      using ino.hyps(2) ino.prems(1) ino.prems(2) ino.prems(3) by auto
+      using ino.hyps(2)   ino.prems(1) ino.prems(2) ino.prems(3) by auto
   qed
 next
   case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w) 
-  then show ?case sorry
+  then show ?case 
+  proof -
+    have a0:"R,G \<turnstile> I {c\<^sub>1} UNIV" using assms ooo sorry
+    have a1:"R,G \<turnstile> P {c\<^sub>1} UNIV" using assms(2) rules.conseq a0 by simp
+    have a2:"inter R G r" using a1 ooo.hyps(2) ooo.prems by auto
+    have a3:"inter\<^sub>c w R G c\<^sub>2 \<alpha>'" sorry
+    then show ?case
+      using ooo.prems ooo.hyps a3 a2 by simp
+  qed
 next
   case (cap c \<alpha>' r c' s s')
-  then show ?case sorry
-next
-  case (inter1 c \<alpha>' r c')
-  then show ?case sorry
-qed
-
-
-
-(*
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a r)
   then show ?case 
-  proof (induct a)
-    case (Reorder \<alpha>' w c2)
-    then show ?case 
-    proof -
-      obtain c1 c1' where "c = c2 ;\<^sub>w c1" "\<alpha> < c2 <\<^sub>w \<alpha>'" "c1 \<mapsto>[\<alpha>',r] c1'"
-        using Reorder.prems(2) lexecuteE[OF Reorder.prems(2)] apply auto
-  next
-    case Scope
-    then show ?case sorry
+  proof -
+    have a1:"R,G \<turnstile> P {c} UNIV" using assms sorry
+    have a2:"inter R G r" using a1 cap.hyps(2) cap.prems by auto
+    have a3:"inter (pushrelSame R) (pushrelAll G) r" sorry
+    then show ?case
+      using cap.prems cap.hyps a3 a2 by simp
   qed
-qed
-*)
+qed simp
 
 
 lemma help_inter_try:
@@ -153,18 +140,15 @@ lemma help_inter_try:
   shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {\<triangle> c'} I"
 proof -
   obtain G' Q' where g:
-    "P \<subseteq> I"  
-    "G' = G \<inter> (I \<Zinj> I)" 
-    "stable R I"  
-    "R,G' \<turnstile> P {c} Q'" 
-    (*"rif R G' c"*) 
+    "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "stable R I" "R,G' \<turnstile> P {c} Q'" 
     using assms(3) by (rule interrE) 
-  have i0:"rif R G' c" sorry
-  have i1:"inter R G' r"  using assms(1) i0 interference.indep_stepI by blast
-(*  have i2:"rif R G' c'" using assms(1) g(5) interference.indep_stepI rif_def by blast *)
-  obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c'} Q'" using assms(2)[OF g(4) i1] by auto
-  obtain P'' where p: "P''=stabilise R (sp \<alpha>' (stabilise R P))" "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} P''" "P'' \<subseteq> M"
-    using m(1) atomic_spI by metis
+  have i0:"R,G' \<turnstile> P {c} UNIV" using g(4) rules.conseq by auto
+  have i00:"G' \<subseteq> (I \<Zinj> I)" using g(2) by simp
+  have i1:"inter R G' r"  using assms(1) g(1) i00 g(3) i0 interCom by simp
+  obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c'} Q'" 
+    using assms(2)[OF g(4) i1] by auto
+  obtain P'' where p: "P''=stabilise R (sp \<alpha>' (stabilise R P))" "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} P''" 
+    "P'' \<subseteq> M" using m(1) atomic_spI by metis
 
   have a2:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P''" using p(2) g(1,2) by blast
   have s1:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
