@@ -24,15 +24,16 @@ definition inter\<^sub>\<alpha> :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow
   where "inter\<^sub>\<alpha> R G \<alpha>' \<beta> \<alpha> \<equiv> \<forall>P M Q. R,G \<turnstile>\<^sub>A P {\<beta>} M \<longrightarrow> R,G \<turnstile>\<^sub>A M {\<alpha>} Q \<longrightarrow> 
                                   (\<exists>M'. R,G \<turnstile>\<^sub>A P {\<alpha>'} M' \<and> R,G \<turnstile>\<^sub>A M' {\<beta>} Q)"
 
-(*
-lemma what:
+
+lemma guar_sub:
   assumes "guar\<^sub>\<alpha> \<alpha> G" "G \<subseteq> G'"
   shows "guar\<^sub>\<alpha> \<alpha> G'" using assms unfolding guar_def by auto
 
-lemma what2:
+
+lemma atomic_subG:
   assumes "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "G \<subseteq> G'"
-  shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def what by blast
-*)
+  shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def guar_sub by blast
+
 
 lemma invarIQ:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
