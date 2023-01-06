@@ -168,9 +168,6 @@ next
   then show ?case sorry
 qed
 
-lemma inner_rif:
-  assumes "rif R G c" "R,G \<turnstile> P {(\<triangle>c)} I" "R,G' \<turnstile> P {c} Q'" 
-  shows "rif R G' c" sorry
 
 lemma help_interAlpha:
   assumes "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'"
@@ -178,20 +175,38 @@ lemma help_interAlpha:
 
 
 lemma help_interC:
-  assumes "inter\<^sub>c w R G c\<^sub>2 \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" 
+  assumes "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" "inter\<^sub>c w R G c\<^sub>2 \<alpha>" 
   shows "inter\<^sub>c w R G' c\<^sub>2 \<alpha>" 
   using assms
-proof (induct c\<^sub>2)
+proof (induct c\<^sub>2 arbitrary: w \<alpha> P Q' c\<^sub>1)
   case (Basic x)
   then show ?case 
   proof -
-    have b0:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>)" using Basic(1) by auto
+    have b0:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>)" using Basic(4) by auto
     have b1:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>)" using help_interAlpha b0 Basic by auto
     thus ?case using b1 by auto  
   qed
 next
-  case (Seq c\<^sub>21 x2a c\<^sub>22)
-  then show ?case sorry
+  case (Seq c1 w' c2)
+  then show ?case using Seq
+  proof -
+    obtain M where a00:"R,G' \<turnstile> P {c1 ;\<^sub>w' c2} M" "R,G' \<turnstile> M {c\<^sub>1} Q'"  
+        using Seq(5) apply (rule seqE) by auto
+    obtain M' where a02:"R,G' \<turnstile> M' {c2} M" using a00(1) apply (rule seqE) by auto
+    obtain c\<^sub>1 Q'' where a03:"R,G' \<turnstile> M' {c2 ;\<^sub>w c\<^sub>1} Q''" using a02 a00(2) rules.seq by auto
+    fix \<alpha>'
+    have  a0:"\<forall> \<alpha>'. \<alpha>' < c2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R G c1 \<alpha>' \<and> inter\<^sub>c w R G c2 \<alpha>)" 
+      using Seq(6) unfolding inter\<^sub>c.simps by auto
+    have a1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c1 \<alpha>'" using a0 by blast
+    have a2:"inter\<^sub>c w R G c1 \<alpha>' \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using Seq(3,4) a00 Seq.hyps(1) by blast
+    have a3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using a1 a2 by auto
+    have b1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c2 \<alpha>" using a0 by blast
+    have b2:"inter\<^sub>c w R G c2 \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using Seq(3,4) a03 Seq.hyps(2) by blast
+    have b3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using b1 b2 by auto
+    have c1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> (inter\<^sub>c w R G' c1 \<alpha>' \<and> inter\<^sub>c w R G' c2 \<alpha>)" using a3 b3 by simp
+     then show ?thesis 
+       by (meson Seq.hyps(1) Seq.prems(1) a0 a00(1) assms(2) b2 inter\<^sub>c.simps(2) rules.seqE seq)
+  qed
 qed auto
 
 
@@ -199,26 +214,39 @@ lemma help_interSub:
   assumes "inter R G r" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c} Q'"
   shows "inter R G' r" sorry
 
-lemma help_reord:
+lemma inner_inter:
   assumes   
-    "inter R G (Reorder \<alpha> w c\<^sub>2 # r)" 
+    "c \<mapsto>[\<alpha>',r] c'"
+    "inter R G ( r)" 
     "P \<subseteq> I"
     "G' = G \<inter> (I \<Zinj> I)"
-    "c \<mapsto>[\<alpha>',Reorder \<alpha> w c\<^sub>2  # r] c'"
     "R,G' \<turnstile> P {c} Q'"
   shows   
-    "inter R G' (Reorder \<alpha> w c\<^sub>2 # r)" 
-proof -
-  obtain c\<^sub>1 c\<^sub>1' \<alpha>' where a4:"c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1'" "\<alpha>' < c\<^sub>2 <\<^sub>w \<alpha>" 
-                            "c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>',Reorder \<alpha> w c\<^sub>2  # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" 
-    using assms(4) lexecuteE lexecute.simps lexecute.induct sorry
-  have a3:"R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" using a4 assms(5) sorry
-  have a0:"inter\<^sub>c w R G c\<^sub>2 \<alpha>" "inter R G r" using assms(1) by auto
-  have a5:"inter\<^sub>c w R G' c\<^sub>2 \<alpha>" using help_interC a0(1) assms(2,3) a3 by auto
-  have a6:"inter R G' r" using help_interSub a0(2) assms(2,3,5) by auto
-  thus ?thesis using a5 a6 by auto
-qed 
-  
+    "inter R G' (r)" 
+  using assms
+proof (induct arbitrary: P Q')
+  case (act \<alpha>)
+  then show ?case by auto
+next
+  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
+  then show ?case by auto
+next
+  case (ooo c\<^sub>1 \<alpha> r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
+  have a3:"R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" using ooo assms(5) by auto
+  have a0:"inter\<^sub>c w R G c\<^sub>2 \<alpha>" "inter R G r" using ooo by auto
+  have a5:"inter\<^sub>c w R G' c\<^sub>2 \<alpha>" using help_interC a0(1) ooo by auto
+  have a6:"inter R G' r" using help_interSub a0(2) ooo by auto
+  thus ?case using a5 a6 by auto
+next
+  case (cap c \<alpha>' r c' s s')
+  then show ?case apply simp
+    apply (drule captureE)
+    sorry
+next
+  case (inter1 c \<alpha>' r c')
+  then show ?case by (auto elim!: interrE)
+qed
+
 
 
 lemma help_scope:
@@ -229,27 +257,6 @@ lemma help_scope:
     "R,G' \<turnstile> P {c} Q'"
   shows 
     "inter R G' (Scope # r)" sorry
-
-lemma inner_inter:
-  assumes "inter R G r" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "c \<mapsto>[\<alpha>',r] c'" "R,G' \<turnstile> P {c} Q'"
-  shows "inter R G' r" 
-  using assms
-proof (induct r)
-  case Nil
-  then show ?case using inter.cases by auto
-next
-  case (Cons a r)
-  then show ?case 
-  proof (induct a arbitrary: r)
-    case (Reorder x1 x2 x3)
-    then show ?case using help_reord by metis
-  next
-    case Scope
-    then show ?case using help_scope Cons.hyps assms(3) by metis 
-  qed
-qed
-
-
 
 lemma help_inter_try:
  assumes "c \<mapsto>[\<alpha>',r] c'" 
