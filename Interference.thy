@@ -30,10 +30,13 @@ lemma guar_sub:
   shows "guar\<^sub>\<alpha> \<alpha> G'" using assms unfolding guar_def by auto
 
 
-lemma atomic_subG:
+lemma atomic_supG:
   assumes "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "G \<subseteq> G'"
   shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def guar_sub by blast
 
+lemma atomic_subG:
+  assumes "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "guar\<^sub>\<alpha> \<alpha> G'"
+  shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def by metis
 
 lemma invarIQ:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
@@ -93,7 +96,7 @@ qed
 lemma interAtom2:
   assumes "G = (I \<Zinj> I)" "P \<subseteq> I" "stable R I" 
           "I \<subseteq> (vc \<beta>)" "I \<subseteq> (vc \<alpha>)" "I \<subseteq> Q"
-  shows "inter\<^sub>A R G \<alpha>' \<beta> \<alpha>" using assms interAtom sorry
+  shows "inter\<^sub>\<alpha> R G \<alpha>' \<beta> \<alpha>" using assms interAtom inter\<^sub>\<alpha>_def sorry
 
 
 

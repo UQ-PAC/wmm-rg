@@ -131,51 +131,101 @@ next
   qed
 qed simp
 
-lemma allAtomGuar:
-  assumes "R,G' \<turnstile> P {c} Q'"
-  shows "\<forall> \<alpha>. \<alpha> \<in> basics(c) \<longrightarrow> guar\<^sub>\<alpha> \<alpha> G'"
-  using assms
-proof (induct c)
+(*-----------------------------------------------------*)
+lemma obs_seq_asso:
+  assumes "\<alpha> \<in> obs (c11 ;\<^sub>w' (c12 ;\<^sub>w c2))"
+  shows "\<alpha> \<in> obs ((c11 ;\<^sub>w' c12) ;\<^sub>w c2)"
+proof -
+  fix c1 r c' \<alpha>' c1' c2' \<alpha>''
+  have a0:"(c1 ;\<^sub>w' c2)  \<mapsto>[\<alpha>',r] c' \<Longrightarrow> 
+        (c1 \<mapsto>[\<alpha>',r] c1') | (c2  \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c1) #r] c2')" 
+    apply (erule lexecuteE) apply blast 
+          
+
+
+
+
+
+
+
+
+lemma obs_seq2:
+  assumes "\<alpha> \<in> obs(c2)"
+  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" using assms
+proof (induct c1 arbitrary: w c2)
   case Nil
-  then show ?case by simp
+  then show ?case using silent.intros(3) by (meson obs_sil subsetD)
 next
   case (Basic x)
-  then show ?case
-  proof -
-    have "guar\<^sub>\<alpha> x G'" using Basic basicE atomic_rule_def by metis
-    thus ?case by auto
-  qed
+  then show ?case using obs_exec by (meson act in_mono ino obs_sil seqE1) 
 next
-  case (Seq c1 x2a c2)
-  then show ?case sorry
+  case (Seq c11 w' c12)
+  then show ?case using Seq
+  proof -
+    have s0:"\<alpha> \<in> obs (c12 ;\<^sub>w c2 )" using Seq(2,3) by auto
+    have s1:"\<alpha> \<in> obs (c11 ;\<^sub>w' (c12 ;\<^sub>w c2))" using Seq.hyps(1) Seq(2)[OF s0] by (simp add: Seq.hyps(1) s0)
+    have s2:"\<alpha> \<in> obs ((c11 ;\<^sub>w' c12) ;\<^sub>w c2 )" using s1 obs_seq_asso by auto
+    thus ?thesis by auto
+  qed
 next
   case (Choice x)
   then show ?case sorry
 next
-  case (Loop c x2a)
+  case (Loop c1 x2a)
   then show ?case sorry
 next
-  case (Parallel c1 c2)
+  case (Parallel c11 c12)
+  then show ?case using obs_par obs_exec sorry
+next
+  case (Thread c1)
   then show ?case sorry
 next
-  case (Thread c)
+  case (Capture x1 c1)
   then show ?case sorry
 next
-  case (Capture x1 c)
-  then show ?case sorry
-next
-  case (Interrupt c)
+  case (Interrupt c1)
   then show ?case sorry
 qed
 
+lemma obs_guar:
+  assumes "R,G \<turnstile> P {c } Q" "\<alpha> \<in> obs(c)"
+  shows "guar\<^sub>\<alpha> \<alpha> G" sorry
 
 lemma help_interAlpha:
-  assumes "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'"
-  shows "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>" sorry
+  assumes "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" 
+          "R,G' \<turnstile> P {Basic x ;\<^sub>w c\<^sub>1 } Q'" "inter\<^sub>c w R G (Basic x) \<alpha>" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'"
+  shows "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>" 
+proof -
+  obtain M where m:"R,G' \<turnstile> P {Basic x} M" using assms(4) seqE by metis
+  have a0:"guar\<^sub>\<alpha> x G'" using m atomic_rule_def by blast
+  have b1:"\<alpha> \<in> obs(Basic x ;\<^sub>w c\<^sub>1)" using assms(6) obs_act obs_seq2 by auto
+  have b0:"guar\<^sub>\<alpha> \<alpha> G'" using assms(4) b1 obs_guar by auto
+  have c1:"w \<alpha>' x \<alpha> \<Longrightarrow> Basic x ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>',(Reorder \<alpha> w (Basic x)) # r] Basic x ;\<^sub>w c\<^sub>1'" 
+    using assms(6) obs_def lexecute.intros(3) by simp
+  have c2:"w \<alpha>' x \<alpha> \<Longrightarrow> \<alpha>' \<in> obs(Basic x ;\<^sub>w c\<^sub>1)" using c1 obs_act by auto
+  have c0:"w \<alpha>' x \<alpha> \<Longrightarrow> guar\<^sub>\<alpha> \<alpha>' G'" using assms(4,6) c2 obs_guar obs_act seqE by meson
+
+  have a1:"w \<alpha>' x \<alpha> \<Longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" using assms(1) by auto
+  fix P' M' Q' 
+  have a2:"w \<alpha>' x \<alpha> \<Longrightarrow> R,G \<turnstile>\<^sub>A P' {x} M' \<Longrightarrow> R,G \<turnstile>\<^sub>A M' {\<alpha>} Q' \<Longrightarrow>
+            (\<exists>M''. R,G \<turnstile>\<^sub>A P' {\<alpha>'} M'' \<and> R,G \<turnstile>\<^sub>A M'' {x} Q')" using a1 inter\<^sub>\<alpha>_def by auto
+  have d1:"R,G \<turnstile>\<^sub>A P' {x} M \<Longrightarrow> R,G' \<turnstile>\<^sub>A P' {x} M" using atomic_subG a0 by metis
+  have d2:"R,G \<turnstile>\<^sub>A M' {\<alpha>} Q' \<Longrightarrow> R,G' \<turnstile>\<^sub>A M' {\<alpha>} Q'" using atomic_subG b0 by metis
+  have d3:"w \<alpha>' x \<alpha> \<Longrightarrow> R,G \<turnstile>\<^sub>A P' {\<alpha>'} M'' \<Longrightarrow> R,G' \<turnstile>\<^sub>A P' {\<alpha>'} M''" using atomic_subG c0 by metis
+  have d4:"R,G \<turnstile>\<^sub>A M'' {x} Q' \<Longrightarrow> R,G' \<turnstile>\<^sub>A M'' {x} Q'" using atomic_subG a0 by metis
+
+  have a4:"w \<alpha>' x \<alpha> \<Longrightarrow> R,G' \<turnstile>\<^sub>A P' {x} M' \<Longrightarrow> R,G' \<turnstile>\<^sub>A M' {\<alpha>} Q' \<Longrightarrow>
+            (\<exists>M''. R,G' \<turnstile>\<^sub>A P' {\<alpha>'} M'' \<and> R,G' \<turnstile>\<^sub>A M'' {x} Q')" using a2 d1 d2 d3 d4 
+    by (metis Int_lower1 a0 assms(3) atomic_subG atomic_supG c0) 
+  have a5:"w \<alpha>' x \<alpha> \<Longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>" using inter\<^sub>\<alpha>_def 
+    by (smt (verit, best) Int_lower1 a0 a1 assms(3) atomic_subG atomic_supG c0)
+  thus ?thesis by auto
+qed
+
 
 
 lemma help_interC:
-  assumes "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" "inter\<^sub>c w R G c\<^sub>2 \<alpha>" 
+  assumes "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" "inter\<^sub>c w R G c\<^sub>2 \<alpha>" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'"
   shows "inter\<^sub>c w R G' c\<^sub>2 \<alpha>" 
   using assms
 proof (induct c\<^sub>2 arbitrary: w \<alpha> P Q' c\<^sub>1)
@@ -215,14 +265,8 @@ lemma help_interSub:
   shows "inter R G' r" sorry
 
 lemma inner_inter:
-  assumes   
-    "c \<mapsto>[\<alpha>',r] c'"
-    "inter R G ( r)" 
-    "P \<subseteq> I"
-    "G' = G \<inter> (I \<Zinj> I)"
-    "R,G' \<turnstile> P {c} Q'"
-  shows   
-    "inter R G' (r)" 
+  assumes "c \<mapsto>[\<alpha>',r] c'" "inter R G ( r)"  "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c} Q'"
+  shows "inter R G' (r)" 
   using assms
 proof (induct arbitrary: P Q')
   case (act \<alpha>)

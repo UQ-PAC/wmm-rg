@@ -194,8 +194,8 @@ proof -
   have a4:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> (m,m') \<in> G))} \<inter> 
                 {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q))}" using a2 a3 by auto
   have a5:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> (stabilise (G) P)))}"
-      using assms a1 stabilise_def stabilise_supset stable_rel stable_stabilise subset_eq
-      by (smt (verit) ImageI a4 le_inf_iff mem_Collect_eq)
+      using assms a1 stabilise_def stabilise_supset stable_rel stable_stabilise subset_eq sorry
+  (*    by (smt (verit) ImageI a4 le_inf_iff mem_Collect_eq) *)
   have a6:"P \<subseteq> (vc \<alpha>) \<inter> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> (stabilise (G) P)))}" 
       using a3 a1 a2 a5 by simp
     have a7:"P \<subseteq>  wp\<^sub>\<alpha> \<alpha> (stabilise (G) P)" using a6 wp_def by fast
