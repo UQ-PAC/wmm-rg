@@ -19,9 +19,9 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   where
   basic[intro]:   "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:     "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
-  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
+  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
-  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
+  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
   thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
   par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
@@ -30,11 +30,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G'= G \<inter> (I \<Zinj> I) \<Longrightarrow> stable R I 
-                          \<Longrightarrow> R,G' \<turnstile> P {c} _ 
-                          \<Longrightarrow> R,G \<turnstile> P {(\<triangle>c)} I" 
-(* G' = G \<inter> (I \<Zinj>I)  could replace assms(2,3) *)
-
+  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G'= G \<inter> (I \<Zinj> I) \<Longrightarrow> stable R I \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow>
+                    R,G \<turnstile> P {(\<triangle>c)} I" 
 (*   for interr the wmm should be set to sc but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
@@ -95,7 +92,7 @@ qed
 
 lemma seqE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
-  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
+  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q" "wlf w"
   using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+  
  
 
@@ -222,6 +219,66 @@ lemma univ_captureI:
   assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
   shows "R,G \<turnstile> P {univ_capture c} Q"
   using assms by (intro choice allI capture) simp
+
+
+lemma seq_guar:
+  assumes " R,G \<turnstile> M {c\<^sub>2} Q" "\<forall>\<alpha>\<in>obs c\<^sub>2. guar\<^sub>\<alpha> \<alpha> G"
+    "R,G \<turnstile> P {c\<^sub>1} M" "\<forall>\<alpha>\<in>obs c\<^sub>1. guar\<^sub>\<alpha> \<alpha> G" "wlf w"
+  shows "\<forall>\<alpha>\<in>obs (c\<^sub>1 ;\<^sub>w c\<^sub>2 ). guar\<^sub>\<alpha> \<alpha> G" 
+proof -
+  fix \<alpha>
+  have a0:"\<alpha> \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2 ) \<Longrightarrow> 
+       \<alpha> \<in>  obs(c\<^sub>1) \<or> \<alpha> \<in> obs(c\<^sub>2) \<or> \<alpha> \<in>{\<alpha>'. \<alpha> \<in> obs(c\<^sub>2) \<and> \<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>}" 
+    using obs_seq3 by blast
+   have a3:"\<alpha> \<in>{\<alpha>'. \<alpha> \<in> obs(c\<^sub>2) \<and> \<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>} \<and> wlf w \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
+     using assms(5) wlf_def assms(2) by auto
+   thus ?thesis using a0 a3 by (metis UnE assms(4) mem_Collect_eq obs_seq3)
+qed
+
+lemma cap_guar:
+  assumes "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpredAll Q"
+          "\<forall>\<alpha>\<in>obs c. guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
+        shows "\<forall>\<alpha>\<in>obs (Capture s c). guar\<^sub>\<alpha> \<alpha> G" using obs_capture assms(2) 
+  by (metis (no_types, lifting) emptyE mem_Collect_eq obs_nil obs_seq3 obs_sil 
+        seqE1 subset_eq sup_bot_left)
+
+lemma inter_guar:
+  assumes "G' = G \<inter> (I \<Zinj> I)" "\<forall>\<alpha>\<in>obs c. guar\<^sub>\<alpha> \<alpha> G'"
+  shows "\<forall>\<alpha>\<in>obs (\<triangle> c). guar\<^sub>\<alpha> \<alpha> G" using assms guar_sub obs_inter by auto
+
+
+lemma guar_com:
+  assumes "R,G \<turnstile> P {c} Q"
+  shows "\<forall> \<alpha> \<in> obs(c). guar\<^sub>\<alpha> \<alpha> G" using assms
+proof (induct)
+  case (basic R G P \<alpha> Q)
+  then show ?case using obs_basic by (metis atomic_rule_def emptyE insertE)
+next
+  case (nil R P G)
+  then show ?case by simp
+next
+  case (seq R G M c\<^sub>2 Q P c\<^sub>1 w)
+  then show ?case using seq_guar by blast
+next
+  case (choice R G P S Q)
+  then show ?case using assms obs_choice by blast
+next
+  case (loop R P G c w)
+  then show ?case using assms obs_loop by blast
+next
+  case (thread R G P c Q)
+  then show ?case using obs_thread by auto
+next
+  case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
+  then show ?case using obs_par by auto
+next
+  case (capture R G s P c Q)
+  then show ?case using cap_guar by auto
+next
+  case (interr P I G' G R c uu)
+  then show ?case using inter_guar by blast
+qed auto
+
 
 
 lemma com_stab_guar:

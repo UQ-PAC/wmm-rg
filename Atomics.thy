@@ -217,6 +217,20 @@ lemma atomic_stab_guar:
   using assms by (metis atomic_rule_def atomic_stab_guarTrans)
 
 
+lemma guar_sub:
+  assumes "guar\<^sub>\<alpha> \<alpha> G" "G \<subseteq> G'"
+  shows "guar\<^sub>\<alpha> \<alpha> G'" using assms unfolding guar_def by auto
+
+
+lemma atomic_supG:
+  assumes "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "G \<subseteq> G'"
+  shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def guar_sub by blast
+
+lemma atomic_subG:
+  assumes "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "guar\<^sub>\<alpha> \<alpha> G'"
+  shows "R,G' \<turnstile>\<^sub>A M {\<alpha>} Q" using assms atomic_rule_def by metis
+
+
 text \<open>Manually computing the strongest postcondition which might hold.\<close>
 
 (*  "r `` s = {y. \<exists>x\<in>s. (x, y) \<in> r}"  *)
@@ -296,6 +310,7 @@ proof -
   thus "Id_on (vc (pushbasic s s' \<alpha>)) O beh (pushbasic s s' \<alpha>) \<subseteq> capGuar G"
     using pushrel_in_pushrelAll[of s s'] by auto
 qed
+
 
 (*
 lemma guar_mix:

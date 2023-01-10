@@ -37,6 +37,13 @@ text \<open> (w \<alpha>' \<beta> \<alpha>) is an abstract reordering relation t
           \<alpha> can reorder over \<beta> to become \<alpha>' under WMM w; it is carried around 
           as a subscript to reordering relation _ < _ < _  \<close>
 
+text \<open> wellformedness condition on the reordering semantics
+        (allows us to deduce some information on forwarded instructions of which we otherwise
+         don't know anyting) \<close>
+
+definition wlf 
+  where  "wlf w \<equiv> \<forall> \<alpha>' \<beta> \<alpha>. w \<alpha>' \<beta> \<alpha> \<longrightarrow> (\<forall> G. guar\<^sub>\<alpha> \<alpha> G \<longrightarrow> guar\<^sub>\<alpha> \<alpha>' G)"
+
 text \<open>Extend a reordering relation recursively over a program\<close>
 fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) wmm \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   ("_ < _ <\<^sub>_ _" [100,0,0,100] 100)
@@ -208,6 +215,11 @@ lemma obs_seq:
   shows "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)"
   using assms obs_act by auto 
 
+lemma obs_seq2:
+  assumes "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1 ;\<^sub>w c\<^sub>2'"
+  shows "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)"
+  using assms obs_act by auto 
+
 lemma obs_trace_NilE [elim!]:
   assumes "obs_trace t com.Nil"
   obtains "t = []"
@@ -220,7 +232,7 @@ lemma obs_trace_BasicE [elim!]:
   using assms
   by (induct t "Basic \<alpha>") auto
 
-lemma [simp]:
+lemma obs_basic [simp]:
   "obs (Basic \<alpha>) = {\<alpha>}"
   unfolding obs_def apply (auto)
   apply (intro exI conjI)
@@ -281,14 +293,10 @@ next
   qed
 qed (auto intro: obs_trace.intros)
 
- 
-
 lemma obs_thread [simp]:
   "obs (Thread c) = obs c"
   unfolding obs_def using obs_trace_ThreadE
   by (auto intro: obs_trace.intros)
-
- 
 
 lemma obs_par [simp]:
   "obs (c\<^sub>1 || c\<^sub>2) = obs c\<^sub>1 \<union> obs c\<^sub>2"
@@ -300,6 +308,30 @@ lemma obs_gex:
   shows "obs c \<supseteq> obs c'"
   unfolding obs_def using assms obs_sil obs_exec
     obs_thread obs_par obs_def by (induct) auto 
+
+
+lemma obsE:
+  assumes "obs_trace (\<alpha>#t) c"
+  obtains c' r where "c \<mapsto>[\<alpha>,r] c' \<Longrightarrow> obs_trace t c'"
+  using assms by blast
+
+
+lemma obs_seq3:
+  "obs(c1 ;\<^sub>w c2) = obs(c\<^sub>1) \<union> obs(c\<^sub>2) \<union> {\<alpha>'. \<alpha> \<in> obs(c\<^sub>2) \<and> \<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>}" sorry
+
+lemma obs_choice:
+  "obs(Choice S) = obs(S l)" unfolding obs_def sorry
+
+lemma obs_loop:
+  "obs(c*\<^sub>w) = obs(c) \<union> {\<alpha>'. \<alpha> \<in> obs(c) \<and> \<alpha>' < c <\<^sub>w \<alpha>}" sorry
+
+lemma obs_capture:
+  " \<alpha> \<in> obs(c) \<Longrightarrow> (popbasic s s' \<alpha>) \<in> obs(Capture s c)" sorry
+
+lemma obs_inter:
+  "obs(\<triangle> c) = obs(c)" sorry
+
+
 
 end
 

@@ -151,8 +151,10 @@ proof -
 
 lemma obs_seq2:
   assumes "\<alpha> \<in> obs(c2)"
-  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" using assms
-proof (induct c1 arbitrary: w c2)
+  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" 
+  sorry
+
+(*proof (induct c1 arbitrary: w c2)
   case Nil
   then show ?case using silent.intros(3) by (meson obs_sil subsetD)
 next
@@ -186,6 +188,7 @@ next
   case (Interrupt c1)
   then show ?case sorry
 qed
+*)
 
 lemma obs_guar:
   assumes "R,G \<turnstile> P {c } Q" "\<alpha> \<in> obs(c)"
@@ -263,6 +266,7 @@ qed auto
 lemma help_interSub:
   assumes "inter R G r" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c} Q'"
   shows "inter R G' r" sorry
+
 
 lemma inner_inter:
   assumes "c \<mapsto>[\<alpha>',r] c'" "inter R G ( r)"  "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c} Q'"
