@@ -220,6 +220,36 @@ lemma univ_captureI:
   shows "R,G \<turnstile> P {univ_capture c} Q"
   using assms by (intro choice allI capture) simp
 
+text \<open> to derive guar predicate from judgement \<close>
+
+lemma guar_com:
+  assumes "obs_trace t c" "\<alpha> \<in> set t" "R,G \<turnstile> P {c} Q" 
+  shows "guar\<^sub>\<alpha> \<alpha> G"  using assms
+proof (induct t)
+  case Nil
+  then show ?case by auto
+next
+  case (Cons a t)
+  then show ?case 
+  proof (cases)
+    assume c0:"\<alpha> = a"
+    obtain r c' where c1:"c \<mapsto>[\<alpha>,r] c'" "obs_trace t c'" using c0 Cons(2) obsE by blast
+    show ?thesis sorry
+  next
+    assume "\<alpha> \<noteq> a" 
+    show ?thesis sorry
+  qed
+qed 
+
+
+end
+
+end
+
+
+
+
+(* old:
 
 lemma seq_guar:
   assumes " R,G \<turnstile> M {c\<^sub>2} Q" "\<forall>\<alpha>\<in>obs c\<^sub>2. guar\<^sub>\<alpha> \<alpha> G"
@@ -248,14 +278,14 @@ lemma inter_guar:
 
 
 lemma guar_com:
-  assumes "R,G \<turnstile> P {c} Q"
-  shows "\<forall> \<alpha> \<in> obs(c). guar\<^sub>\<alpha> \<alpha> G" using assms
+  assumes "R,G \<turnstile> P {c} Q" "\<alpha> \<in> obs(c)"
+  shows "guar\<^sub>\<alpha> \<alpha> G"  using assms
 proof (induct)
   case (basic R G P \<alpha> Q)
   then show ?case using obs_basic by (metis atomic_rule_def emptyE insertE)
 next
   case (nil R P G)
-  then show ?case by simp
+  then show ?case by auto
 next
   case (seq R G M c\<^sub>2 Q P c\<^sub>1 w)
   then show ?case using seq_guar by blast
@@ -278,14 +308,5 @@ next
   case (interr P I G' G R c uu)
   then show ?case using inter_guar by blast
 qed auto
+*)
 
-
-
-lemma com_stab_guar:
-  assumes "R,G \<turnstile> P {c} Q" "stable R P" "stable G P" 
-  shows "R,G \<turnstile> P {c} P"
-  using assms oops
-
-end
-
-end

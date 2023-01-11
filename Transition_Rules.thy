@@ -47,7 +47,7 @@ next
     show ?case 
     proof (rule Seq(1)[OF _ c1 outer(1) i(1) r(2)], goal_cases inner)
       case (inner M'')
-      then show ?case using Seq(3) outer by auto
+      then show ?case using Seq(3) outer using Seq.prems(2) by blast
     qed
   qed
 qed auto 
@@ -74,6 +74,7 @@ proof -
   then show ?thesis using a0 a1 a2 a3 assms(3) by auto
 qed
 
+
 lemma stable_PI:
   assumes "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>} P''" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "guar\<^sub>\<alpha> \<alpha> G'" "stable R I"
   shows "stablePQ (stabilise R P) G' I"
@@ -93,6 +94,7 @@ proof -
   show ?thesis using assms(3) b7 stablePQ_subR by blast
 qed
 
+(*
 lemma interCom:
   assumes "c \<mapsto>[\<alpha>,r] c'" "P \<subseteq> I" "G \<subseteq>(I \<Zinj> I)" "stable R I" "R,G \<turnstile> P {c} UNIV" 
   shows "inter R G r" 
@@ -130,69 +132,18 @@ next
       using cap.prems cap.hyps a3 a2 by simp
   qed
 qed simp
-
+*)
 (*-----------------------------------------------------*)
-lemma obs_seq_asso:
-  assumes "\<alpha> \<in> obs (c11 ;\<^sub>w' (c12 ;\<^sub>w c2))"
-  shows "\<alpha> \<in> obs ((c11 ;\<^sub>w' c12) ;\<^sub>w c2)"
-proof -
-  fix c1 r c' \<alpha>' c1' c2' \<alpha>''
-  have a0:"(c1 ;\<^sub>w' c2)  \<mapsto>[\<alpha>',r] c' \<Longrightarrow> 
-        (c1 \<mapsto>[\<alpha>',r] c1') | (c2  \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c1) #r] c2')" 
-    apply (erule lexecuteE) apply blast 
-          
-
-
-
-
-
-
 
 
 lemma obs_seq2:
   assumes "\<alpha> \<in> obs(c2)"
-  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" 
-  sorry
+  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" using assms obs_seq3 by blast
 
-(*proof (induct c1 arbitrary: w c2)
-  case Nil
-  then show ?case using silent.intros(3) by (meson obs_sil subsetD)
-next
-  case (Basic x)
-  then show ?case using obs_exec by (meson act in_mono ino obs_sil seqE1) 
-next
-  case (Seq c11 w' c12)
-  then show ?case using Seq
-  proof -
-    have s0:"\<alpha> \<in> obs (c12 ;\<^sub>w c2 )" using Seq(2,3) by auto
-    have s1:"\<alpha> \<in> obs (c11 ;\<^sub>w' (c12 ;\<^sub>w c2))" using Seq.hyps(1) Seq(2)[OF s0] by (simp add: Seq.hyps(1) s0)
-    have s2:"\<alpha> \<in> obs ((c11 ;\<^sub>w' c12) ;\<^sub>w c2 )" using s1 obs_seq_asso by auto
-    thus ?thesis by auto
-  qed
-next
-  case (Choice x)
-  then show ?case sorry
-next
-  case (Loop c1 x2a)
-  then show ?case sorry
-next
-  case (Parallel c11 c12)
-  then show ?case using obs_par obs_exec sorry
-next
-  case (Thread c1)
-  then show ?case sorry
-next
-  case (Capture x1 c1)
-  then show ?case sorry
-next
-  case (Interrupt c1)
-  then show ?case sorry
-qed
-*)
 
 lemma obs_guar:
   assumes "R,G \<turnstile> P {c } Q" "\<alpha> \<in> obs(c)"
-  shows "guar\<^sub>\<alpha> \<alpha> G" sorry
+  shows "guar\<^sub>\<alpha> \<alpha> G" using assms guar_com by blast
 
 lemma help_interAlpha:
   assumes "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" 
@@ -246,19 +197,20 @@ next
     obtain M where a00:"R,G' \<turnstile> P {c1 ;\<^sub>w' c2} M" "R,G' \<turnstile> M {c\<^sub>1} Q'"  
         using Seq(5) apply (rule seqE) by auto
     obtain M' where a02:"R,G' \<turnstile> M' {c2} M" using a00(1) apply (rule seqE) by auto
-    obtain c\<^sub>1 Q'' where a03:"R,G' \<turnstile> M' {c2 ;\<^sub>w c\<^sub>1} Q''" using a02 a00(2) rules.seq by auto
+    obtain c\<^sub>1 Q'' where a03:"R,G' \<turnstile> M' {c2 ;\<^sub>w c\<^sub>1} Q''" using a02 a00(2) rules.seq
+      by (meson Seq.prems(3) rules.seqE)
     fix \<alpha>'
     have  a0:"\<forall> \<alpha>'. \<alpha>' < c2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R G c1 \<alpha>' \<and> inter\<^sub>c w R G c2 \<alpha>)" 
       using Seq(6) unfolding inter\<^sub>c.simps by auto
     have a1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c1 \<alpha>'" using a0 by blast
-    have a2:"inter\<^sub>c w R G c1 \<alpha>' \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using Seq(3,4) a00 Seq.hyps(1) by blast
+    have a2:"inter\<^sub>c w R G c1 \<alpha>' \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using Seq(3,4) a00 Seq.hyps(1) sorry (*by blast*)
     have a3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using a1 a2 by auto
     have b1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c2 \<alpha>" using a0 by blast
-    have b2:"inter\<^sub>c w R G c2 \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using Seq(3,4) a03 Seq.hyps(2) by blast
+    have b2:"inter\<^sub>c w R G c2 \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using Seq(3,4) a03 Seq.hyps(2) sorry (*by blast*)
     have b3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using b1 b2 by auto
     have c1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> (inter\<^sub>c w R G' c1 \<alpha>' \<and> inter\<^sub>c w R G' c2 \<alpha>)" using a3 b3 by simp
-     then show ?thesis 
-       by (meson Seq.hyps(1) Seq.prems(1) a0 a00(1) assms(2) b2 inter\<^sub>c.simps(2) rules.seqE seq)
+     then show ?thesis sorry
+     (*  by (meson Seq.hyps(1) Seq.prems(1) a0 a00(1) assms(2) b2 inter\<^sub>c.simps(2) rules.seqE seq) *)
   qed
 qed auto
 
@@ -296,16 +248,6 @@ next
 qed
 
 
-
-lemma help_scope:
-  assumes 
-   "inter R G (Scope # r)"
-    "G' = G \<inter> (I \<Zinj> I)"
-    "c \<mapsto>[\<alpha>',Scope # r] c'"
-    "R,G' \<turnstile> P {c} Q'"
-  shows 
-    "inter R G' (Scope # r)" sorry
-
 lemma help_inter_try:
  assumes "c \<mapsto>[\<alpha>',r] c'" 
         "(\<And>P R G Q. R,G \<turnstile> P {c} Q \<Longrightarrow> inter R G r 
@@ -320,11 +262,6 @@ proof -
     "stable R I"  
     "R,G' \<turnstile> P {c} Q'" 
     using assms(3) by (rule interrE) 
-(*  have i00: "rif R G c" sorry
-  have i0:"rif R G' c" using inner_rif g(4) i00 assms(3) by auto 
-  have i1:"inter R G' r"  using assms(1) i0 interference.indep_stepI by blast
-  have i2:"rif R G' c'" using assms(1) g(5) interference.indep_stepI rif_def by blast 
-*)
   have i1:"inter R G' r"  using assms(1,4) g(1,2,4) inner_inter by auto
   obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c'} Q'" using assms(2)[OF g(4) i1] by auto
   obtain P'' where p: "P''=stabilise R (sp \<alpha>' (stabilise R P))" "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} P''" "P'' \<subseteq> M"
@@ -343,7 +280,7 @@ proof -
   show ?thesis using a2 p3 by auto
 qed
 
-
+(* old version with additional prereq:
 lemma help_inter:
  assumes "c \<mapsto>[\<alpha>',r] c'" 
         "(\<And>P R G Q. R,G \<turnstile> P {c} Q \<Longrightarrow> inter R G r 
@@ -372,6 +309,8 @@ proof -
 
   show ?thesis using a2 p3 by auto
 qed
+*)
+
 
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
@@ -384,7 +323,7 @@ proof (induct arbitrary: P R G Q)
 next
   case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
   then obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} Q" by auto 
-  then show ?case using ino(2)[OF m(1) ino(4)] m(2) by blast
+  then show ?case using ino(2)[OF m(1) ino(4)] m(2) using ino.prems(1) by blast
 next
   case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>2} M'" "R,G \<turnstile> M' {c\<^sub>1} Q" using ooo(4) by (rule seqE)
@@ -392,7 +331,8 @@ next
   obtain M where m': "R,G \<turnstile>\<^sub>A stabilise R M' {\<alpha>'} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
     using ooo(2)[OF m(2) i(2)] by auto
   have m'': "R,G \<turnstile> P {c\<^sub>2} stabilise R M'" using m(1) stabilise_supset[of M' R] by auto
-  show ?case using reorder_prog[OF m'' m'(1)] i(1) m'(2) ooo(3) by (metis rules.seq)
+  show ?case using reorder_prog[OF m'' m'(1)] i(1) m'(2) ooo(3) 
+    by (metis (mono_tags, lifting) ooo.prems(1) seq seqE)
 next
   case (cap c \<alpha>' r c' s s')
   let ?R="capRely R" and ?G="capGuar G" and ?P="capPred s P" and ?Q="pushpredAll Q"
@@ -511,39 +451,3 @@ qed auto
 end
 
 end
-
-(* interesting fun facts:
-  have b6:"{m. (\<exists>m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)} \<subseteq> {m. (\<exists> m'.(m,m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" 
-    by blast
-  have b6:"{m. (\<exists>m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)} \<supseteq> {m. (\<forall> m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)}" 
-    by blast
-  have b6:"{m. (\<exists>m'.(m,m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)} \<supseteq> {m. (\<forall> m'.(m,m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" 
-    by blast
-
-  stable G Q \<Longrightarrow> P \<subseteq> Q \<Longrightarrow> stable G P does not hold
-
-  have b9:"{m. (\<forall> m'.(m,m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)} = {m. (\<forall> m'.(m,m') \<notin> beh \<alpha> \<or> m' \<in> M)}"
-    by blast
-  have b10:"{m. (\<forall> m'.(m,m') \<notin> beh \<alpha> \<or> m' \<in> M)} = 
-              {m. (\<forall> m'.(m,m') \<notin> beh \<alpha> \<or> ((m,m') \<in> beh \<alpha> \<and> m' \<in> M))}" by blast
-  have b11:"{m. (\<forall> m'.(m,m') \<notin> beh \<alpha> \<or> ((m,m') \<in> beh \<alpha> \<and> m' \<in> M))} \<supseteq>
-                 {m. (\<forall> m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)}" by blast    
-  have b12:"{m. (\<forall> m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)} \<subseteq> {m. (\<exists> m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)}" by blast
-
-
-  let ?AV="{(m,m'). m \<in> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>}" and 
-      ?VA="{m. m \<in> vc \<alpha>}" and 
-      ?AM="{m. (\<forall> m'.(m,m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" and
-       ?A="{m. \<exists>m'.(m,m') \<in> beh \<alpha>}"
-  have b0:"P \<subseteq> ?VA" using assms(3) by (simp add: wp_def)
-  have b1:"P \<subseteq> ?AM" using assms(3) by (simp add: wp_def)
-  have b2:"?AV = Id_on (vc \<alpha>) O (beh \<alpha>)" by blast
-  have b3:"(beh \<alpha>) O Id_on M = {(m,m'). (m,m') \<in> beh \<alpha> \<and> m' \<in> M}" by blast
-  have b4:"Domain ((beh \<alpha>) O Id_on M) = {m. (\<exists>m'.(m,m') \<in> beh \<alpha> \<and> m' \<in> M)}" by blast 
-  have b5:"(Id_on (vc \<alpha>) O (beh \<alpha>)) \<subseteq> G" using assms(1) guar\<^sub>\<alpha>_rel by blast
-  have b6:"(Id_on Q) O G \<subseteq> (Q \<times> Q)" using assms(2) unfolding stable_def by blast
-  have b7:"(Id_on Q) O (Id_on (vc \<alpha>) O (beh \<alpha>)) \<subseteq> (Q \<times> Q)" using b6 b5 by blast
-  have b8:"(Id_on P) O (Id_on (vc \<alpha>) O (beh \<alpha>)) \<subseteq> (Q \<times> Q)" using b7 assms(4) by blast
-
-
-*)

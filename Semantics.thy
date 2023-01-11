@@ -312,10 +312,29 @@ lemma obs_gex:
 
 lemma obsE:
   assumes "obs_trace (\<alpha>#t) c"
-  obtains c' r where "c \<mapsto>[\<alpha>,r] c' \<Longrightarrow> obs_trace t c'"
-  using assms by blast
+  obtains c' r where "c \<mapsto>[\<alpha>,r] c'" "obs_trace t c'"
+  using assms 
+proof (induct rule:obs_trace.induct)
+  case (1 c)
+  then show ?case sorry
+next
+  case (2 c c' t)
+  then show ?case sorry
+next
+  case (3 c \<alpha> r c' t)
+  then show ?case sorry
+next
+  case (4 t c)
+  then show ?case sorry
+next
+  case (5 t c c2)
+  then show ?case sorry
+next
+  case (6 t c c2)
+  then show ?case using obs_trace_ParE sorry
+qed 
 
-
+(* these don't hold:
 lemma obs_seq3:
   "obs(c1 ;\<^sub>w c2) = obs(c\<^sub>1) \<union> obs(c\<^sub>2) \<union> {\<alpha>'. \<alpha> \<in> obs(c\<^sub>2) \<and> \<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>}" sorry
 
@@ -325,12 +344,13 @@ lemma obs_choice:
 lemma obs_loop:
   "obs(c*\<^sub>w) = obs(c) \<union> {\<alpha>'. \<alpha> \<in> obs(c) \<and> \<alpha>' < c <\<^sub>w \<alpha>}" sorry
 
+these might hold:
 lemma obs_capture:
   " \<alpha> \<in> obs(c) \<Longrightarrow> (popbasic s s' \<alpha>) \<in> obs(Capture s c)" sorry
 
 lemma obs_inter:
   "obs(\<triangle> c) = obs(c)" sorry
-
+*)
 
 
 end
