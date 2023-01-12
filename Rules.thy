@@ -223,29 +223,121 @@ lemma univ_captureI:
 text \<open> to derive guar predicate from judgement \<close>
 
 lemma guar_com:
-  assumes "obs_trace t c" "\<alpha> \<in> set t" "R,G \<turnstile> P {c} Q" 
+  assumes "c \<mapsto>[\<alpha>,r] c'" "R,G \<turnstile> P {c} Q" 
+  shows "guar\<^sub>\<alpha> \<alpha> G" using assms
+proof (induct arbitrary: P Q R G)
+  print_cases
+  case (act \<alpha>)
+  then show ?case 
+  proof -
+    obtain Q' where a0:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>} Q'" using act basicE by auto
+    then show ?thesis using atomic_rule_def by blast
+  qed
+next
+  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
+  then show ?case 
+  proof -
+    obtain M where a0:"R,G \<turnstile> P {c\<^sub>1} M" using ino(3) seqE by auto
+    then show ?thesis using ino(2) by auto
+    qed
+next
+  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
+  then show ?case 
+  proof -
+    obtain M where m:"R,G \<turnstile> P {c\<^sub>2} M" "R,G \<turnstile> M {c\<^sub>1} Q" "wlf w" using ooo(4) seqE by auto
+    have g1:"guar\<^sub>\<alpha> \<alpha>' G" using ooo(1) ooo(2) m(2) by auto
+    then show ?thesis  using m(3) ooo(3) wlf_def wlf_trans by auto
+    qed
+next
+  case (cap c \<alpha>' r c' s s')
+  then show ?case 
+  proof -
+    have c0:"capRely R, pushrelAll G \<turnstile> capPred s P {c} pushpredAll Q" using captureE cap(4) by auto
+    have c1:"guar\<^sub>\<alpha> \<alpha>' (pushrelAll G)" using c0 cap(2) by auto 
+    then show ?thesis using guar_capE by (simp add: help3)
+  qed
+next
+  case (inter1 c \<alpha>' r c')
+  then show ?case 
+  proof -
+    obtain G' Q' where i0:"G' \<subseteq> G"  "R,G' \<turnstile> P {c} Q'" using interrE inter1(3) by (meson Int_lower1)
+    have i1:"guar\<^sub>\<alpha> \<alpha>' G'" using i0(2) inter1(2) by auto
+    then show ?thesis using guar_sub i0(1) by auto
+  qed
+qed
+
+
+end
+
+end
+
+(*
+lemma guar_com'':
+  assumes "c \<mapsto>[\<alpha>,r] c'" "R,G \<turnstile> P {c} Q" 
+  shows "\<exists> P' Q'. R,G \<turnstile> P' {Basic \<alpha>} Q'" using assms
+proof (induct arbitrary: P Q)
+  print_cases
+  case (act \<alpha>)
+  then show ?case by auto
+next
+  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2) 
+  then show ?case 
+  proof -
+    obtain M where a0:"R,G \<turnstile> P {c\<^sub>1} M" using ino(3) seqE by auto
+    then show ?thesis using ino(2)[of "P" "M"] by auto 
+    qed
+next
+  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
+  then show ?case 
+  proof -
+    obtain M where a0:"R,G \<turnstile> P {c\<^sub>2} M" "R,G \<turnstile> M {c\<^sub>1} Q" "wlf w" using ooo(4) seqE by auto
+    obtain P' Q' where a1:"R,G \<turnstile> P' {Basic \<alpha>'} Q'" using ooo(2)[of "M""Q"] a0(2) by auto
+    obtain Q'' where a2:"R,G \<turnstile>\<^sub>A (stabilise R P') {\<alpha>'} Q''" using basicE a1 by auto
+    have a3:"(stabilise R P') \<subseteq> wp\<^sub>\<alpha> \<alpha>' Q''" "guar\<^sub>\<alpha> \<alpha>' G" "stable R Q''" using atomic_rule_def a2
+      sorry
+    have a4:"guar\<^sub>\<alpha> \<alpha>' G" using a3(2) a0(3) using wlf_def by auto
+    
+    obtain r' where b0:"c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',r'] c\<^sub>2 ;\<^sub>w c\<^sub>1'" using ooo(1,3,4) lexecute.intros(3) by blast
+    then show ?thesis using ooo(2) sorry
+    qed
+next
+  case (cap c \<alpha>' r c' s s')
+  then show ?case sorry
+next
+  case (inter1 c \<alpha>' r c')
+  then show ?case sorry
+qed
+
+
+
+
+
+lemma guar_com':
+  assumes "obs_trace t (Basic x ;\<^sub>w c)" "\<alpha> \<in> set t" "R,G \<turnstile> P {Basic x ;\<^sub>w c} Q" 
   shows "guar\<^sub>\<alpha> \<alpha> G"  using assms
 proof (induct t)
   case Nil
   then show ?case by auto
 next
-  case (Cons a t)
+  case (Cons a t) 
+    consider "\<alpha> = a" "\<alpha> = x" |"\<alpha> = a" "\<alpha> \<noteq> x" | "\<alpha> \<noteq> a" by auto
   then show ?case 
   proof (cases)
-    assume c0:"\<alpha> = a"
-    obtain r c' where c1:"c \<mapsto>[\<alpha>,r] c'" "obs_trace t c'" using c0 Cons(2) obsE by blast
-    show ?thesis sorry
+    case 1
+    obtain r c' where c1:"(Basic x ;\<^sub>w c) \<mapsto>[\<alpha>,r] c'" "obs_trace t c'" using 1 Cons(2) obsE by blast
+    obtain M where b1:"R,G \<turnstile> P {Basic x} M" using 1 assms(3) seqE by metis
+    obtain M' where b2:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>} M'" using 1 b1 basicE sorry
+    then show ?thesis sorry
   next
-    assume "\<alpha> \<noteq> a" 
-    show ?thesis sorry
+    case 2
+    then show ?thesis sorry
+  next
+    case 3
+    then show ?thesis sorry
   qed
-qed 
+qed
 
-
-end
-
-end
-
+*)
 
 
 

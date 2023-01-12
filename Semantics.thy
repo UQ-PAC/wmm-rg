@@ -53,6 +53,10 @@ fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b
     "\<alpha>' < c\<^sub>1 ;\<^sub>w c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
     "_ < _ <\<^sub>c _ = False"
 
+lemma wlf_trans:
+  assumes "\<alpha>' < c <\<^sub>w \<alpha>" "wlf w" "guar\<^sub>\<alpha> \<alpha> G"
+  shows "guar\<^sub>\<alpha> \<alpha>' G" sorry
+
 section \<open>Program Transition Definitions\<close>
 
 text \<open>Small step semantics for a local execution step\<close>

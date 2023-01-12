@@ -94,6 +94,7 @@ proof -
   show ?thesis using assms(3) b7 stablePQ_subR by blast
 qed
 
+
 (*
 lemma interCom:
   assumes "c \<mapsto>[\<alpha>,r] c'" "P \<subseteq> I" "G \<subseteq>(I \<Zinj> I)" "stable R I" "R,G \<turnstile> P {c} UNIV" 
@@ -131,19 +132,24 @@ next
     then show ?case
       using cap.prems cap.hyps a3 a2 by simp
   qed
-qed simp
+qed 
 *)
 (*-----------------------------------------------------*)
 
 
 lemma obs_seq2:
   assumes "\<alpha> \<in> obs(c2)"
-  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" using assms obs_seq3 by blast
+  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" using assms obs_seq3 sorry
 
 
 lemma obs_guar:
-  assumes "R,G \<turnstile> P {c } Q" "\<alpha> \<in> obs(c)"
-  shows "guar\<^sub>\<alpha> \<alpha> G" using assms guar_com by blast
+  assumes "R,G \<turnstile> P {Basic x ;\<^sub>w c\<^sub>1 } Q'" "inter\<^sub>c w R G (Basic x) \<alpha>" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'" 
+          "\<alpha> \<in> obs(Basic x ;\<^sub>w c\<^sub>1)"
+  shows "guar\<^sub>\<alpha> \<alpha> G" using assms 
+proof -
+  show ?thesis sorry
+qed
+
 
 lemma help_interAlpha:
   assumes "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" 
@@ -153,11 +159,11 @@ proof -
   obtain M where m:"R,G' \<turnstile> P {Basic x} M" using assms(4) seqE by metis
   have a0:"guar\<^sub>\<alpha> x G'" using m atomic_rule_def by blast
   have b1:"\<alpha> \<in> obs(Basic x ;\<^sub>w c\<^sub>1)" using assms(6) obs_act obs_seq2 by auto
-  have b0:"guar\<^sub>\<alpha> \<alpha> G'" using assms(4) b1 obs_guar by auto
+  have b2:"inter\<^sub>c w R G' (Basic x) \<alpha>" using assms(3,5) sorry
+  have b0:"guar\<^sub>\<alpha> \<alpha> G'" using assms(4,6) b1 b2 obs_guar by auto
   have c1:"w \<alpha>' x \<alpha> \<Longrightarrow> Basic x ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>',(Reorder \<alpha> w (Basic x)) # r] Basic x ;\<^sub>w c\<^sub>1'" 
     using assms(6) obs_def lexecute.intros(3) by simp
-  have c2:"w \<alpha>' x \<alpha> \<Longrightarrow> \<alpha>' \<in> obs(Basic x ;\<^sub>w c\<^sub>1)" using c1 obs_act by auto
-  have c0:"w \<alpha>' x \<alpha> \<Longrightarrow> guar\<^sub>\<alpha> \<alpha>' G'" using assms(4,6) c2 obs_guar obs_act seqE by meson
+  have c0:"w \<alpha>' x \<alpha> \<Longrightarrow> guar\<^sub>\<alpha> \<alpha>' G'" using assms(4) c1 guar_com by auto  
 
   have a1:"w \<alpha>' x \<alpha> \<Longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" using assms(1) by auto
   fix P' M' Q' 
