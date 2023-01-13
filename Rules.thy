@@ -222,6 +222,11 @@ lemma univ_captureI:
 
 text \<open> to derive guar predicate from judgement \<close>
 
+lemma wlf_trans:
+  assumes "\<alpha>' < c <\<^sub>w \<alpha>" "wlf w" "guar\<^sub>\<alpha> \<alpha> G"
+  shows "guar\<^sub>\<alpha> \<alpha>' G" sorry
+
+
 lemma guar_com:
   assumes "c \<mapsto>[\<alpha>,r] c'" "R,G \<turnstile> P {c} Q" 
   shows "guar\<^sub>\<alpha> \<alpha> G" using assms
@@ -336,12 +341,6 @@ next
     then show ?thesis sorry
   qed
 qed
-
-*)
-
-
-
-(* old:
 
 lemma seq_guar:
   assumes " R,G \<turnstile> M {c\<^sub>2} Q" "\<forall>\<alpha>\<in>obs c\<^sub>2. guar\<^sub>\<alpha> \<alpha> G"

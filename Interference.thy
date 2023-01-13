@@ -36,6 +36,7 @@ fun inter\<^sub>c :: "('a,'b) wmm \<Rightarrow> 'b rpred \<Rightarrow> 'b rpred 
     "inter\<^sub>c w R G (Nil) \<alpha> = True" | 
     "inter\<^sub>c w R G _ \<alpha> = False"
 
+
 text \<open>
 Independence implications of the bookkeeping data structure collected 
 via the instrumented semantics.\<close> 
@@ -46,14 +47,13 @@ fun inter :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b) bookkeeping 
     "inter R G [] = True"
 
 
-
-
 text \<open>Compute possible reorderings of the program using the instrumented semantics.\<close>
 inductive reorder_trace
   where 
     "reorder_trace [] c" |
     "c \<leadsto> c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace t c" |
     "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace (r#t) c"
+
 
 text \<open>Ensure all reorderings enforce the necessary interference property\<close>
 definition rif
@@ -83,14 +83,10 @@ lemma inter_monoG:
   assumes "G \<subseteq> G'" "inter R G r"
   shows "inter R G' r" sorry
 
-end
-
-end
 
 
-(*
 
-lemma invarIQ:
+lemma invarIQAtom:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
   shows "R,G \<turnstile>\<^sub>A P {\<alpha>} I" 
 proof -
@@ -107,7 +103,9 @@ proof -
   show ?thesis using a2 a0 a7 assms(4) atomic_rule_def by auto
 qed
 
-lemma invarIP:
+
+
+lemma invarIPAtom:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
   shows "I \<subseteq> (vc \<alpha>) \<longrightarrow> R,G \<turnstile>\<^sub>A I {\<alpha>} I"
 proof -
@@ -124,6 +122,13 @@ proof -
     by (smt (verit, best) Int_Collect basic_trans_rules(31) subsetI wp_def)
   show ?thesis using a8 a0 a7 assms(4) atomic_rule_def by auto
 qed
+
+end
+
+end
+
+
+(*
 
 
 lemma interAtom:
