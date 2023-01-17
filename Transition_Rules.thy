@@ -17,7 +17,7 @@ text \<open>
   interference property.
 \<close>
 lemma reorder_prog:
-  assumes "R,G \<turnstile> P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c w R G c \<alpha>" "\<alpha>' < c <\<^sub>w \<alpha>" 
+  assumes "R,G \<turnstile> P {c} M" "R,G \<turnstile>\<^sub>A M {\<alpha>} Q" "inter\<^sub>c w R c \<alpha>" "\<alpha>' < c <\<^sub>w \<alpha>" 
   obtains M' where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M'" "R,G \<turnstile> M' {c} Q"
   using assms
 proof (induct c arbitrary: R G P M Q \<alpha> \<alpha>')
@@ -39,7 +39,7 @@ next
   case (Seq c\<^sub>1 w' c\<^sub>2)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>1} M'" "R,G \<turnstile> M' {c\<^sub>2} M" using Seq(4) by fast 
   obtain \<alpha>'' where r: "\<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>" "\<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>''" using Seq(7) by auto
-  hence i: "inter\<^sub>c w R G c\<^sub>1 \<alpha>''" "inter\<^sub>c w R G c\<^sub>2 \<alpha>" using Seq(6) unfolding inter\<^sub>c.simps by blast+
+  hence i: "inter\<^sub>c w R c\<^sub>1 \<alpha>''" "inter\<^sub>c w R c\<^sub>2 \<alpha>" using Seq(6) unfolding inter\<^sub>c.simps by blast+
   show ?case
   proof (rule Seq(2)[OF _ m(2) Seq(5) i(2) r(1)], goal_cases outer)
     case (outer N')
@@ -53,357 +53,6 @@ next
 qed auto 
 
 section \<open>Transition Rules\<close>
-
-lemma atomStep_Q:
-  assumes "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} M"  "stablePQ (stabilise R P) G' Q" "stable R Q" 
-  shows "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} Q" 
-proof -
-  have a0:"guar\<^sub>\<alpha> \<alpha>' G'" using assms(1) atomic_rule_def by blast
-  have a00:"{(m, m'). m \<in> (vc \<alpha>') \<and> (m, m') \<in> (beh \<alpha>')} = (Id_on (vc \<alpha>') O (beh \<alpha>'))" by auto
-  have a01:"(Id_on (vc \<alpha>') O (beh \<alpha>')) \<subseteq> G'" using a0 a00 guar_def by blast
-  have a1:"(stabilise R P) \<subseteq> wp\<^sub>\<alpha> \<alpha>' M" using assms(1) atomic_rule_def by fast
-  have a2:"stablePQ  (stabilise R P) (Id_on (vc \<alpha>') O (beh \<alpha>')) Q" using a01 assms(2) 
-      stablePQ_subR by blast
-  have a6:"(Id_on (stabilise R P)) O ((Id_on (vc \<alpha>') O (beh \<alpha>'))) \<subseteq> ((stabilise R P) \<times> Q)" 
-    using a2 stablePQ_def by metis
-  have a5:"(stabilise R P) \<subseteq> (vc \<alpha>')" using assms(1) atomic_rule_def wp_def 
-    by (metis (no_types, lifting) le_inf_iff)
-  have a3:"(stabilise R P) \<subseteq> wp\<^sub>\<alpha> \<alpha>' Q" using a2 a6 a5 wp_relcomp stablePQ_def wp_def
-    by (metis (no_types, lifting))
-  have a4:"stable R (stabilise R P)" using stable_stabilise by auto
-  then show ?thesis using a0 a1 a2 a3 assms(3) by auto
-qed
-
-
-lemma stable_PI:
-  assumes "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>} P''" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "guar\<^sub>\<alpha> \<alpha> G'" "stable R I"
-  shows "stablePQ (stabilise R P) G' I"
-proof -
-  have a0:"stablePQ I (I \<Zinj> I) I" using stablePQ_def impProd_def 
-    by (smt (verit, best) Id_onE case_prodE mem_Collect_eq mem_Sigma_iff prod.simps(1) relcompE subsetI)
-  have a1:"stablePQ P (I \<Zinj> I) I" using assms(2) a0 stablePQ_subP by blast
-  have b0:"(Id_on (vc \<alpha>) O beh \<alpha>) \<subseteq> G'" using assms(4) guar_def by blast
-  have b1:"{m'. \<forall>m. m \<in> (P\<inter>I) \<and> (m,m') \<in> beh \<alpha>} 
-         \<subseteq> {m'. \<forall> m. m \<in> I \<and> (m,m') \<in> (I \<Zinj> I)}" using assms impProd_def by force
-  have b2:"(stabilise R P) \<subseteq> (vc \<alpha>)" using assms(1) atomic_rule_def wp_def 
-    by (metis (no_types, lifting) le_inf_iff)
-  have b3:"{m'. \<forall> m. m \<in> I \<and> (m,m') \<in> (I \<Zinj> I)} \<subseteq> I" by auto
-  have b5:"stabilise R P \<subseteq> stabilise R I" using assms(2) stabilise_def by (simp add: stabilise_mono) 
-  have b6:"stabilise R P \<subseteq> I" using assms(5) stabilise_stable b5 by blast
-  have b7:"stablePQ (stabilise R P) (I \<Zinj> I) I" using b6 a0 stablePQ_subP by blast
-  show ?thesis using assms(3) b7 stablePQ_subR by blast
-qed
-
-
-(*
-lemma interCom:
-  assumes "c \<mapsto>[\<alpha>,r] c'" "P \<subseteq> I" "G \<subseteq>(I \<Zinj> I)" "stable R I" "R,G \<turnstile> P {c} UNIV" 
-  shows "inter R G r" 
-  using assms
-proof (induct)
-  case (act \<alpha>)
-  then show ?case by auto
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then show ?case 
-  proof -
-    have a0:"R,G \<turnstile> P {c\<^sub>1} UNIV" using assms ino rules.conseq by auto
-    then show ?case
-      using ino.hyps(2)   ino.prems(1) ino.prems(2) ino.prems(3) by auto
-  qed
-next
-  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w) 
-  then show ?case 
-  proof -
-    have a0:"R,G \<turnstile> I {c\<^sub>1} UNIV" using assms ooo sorry
-    have a1:"R,G \<turnstile> P {c\<^sub>1} UNIV" using assms(2) rules.conseq a0 by simp
-    have a2:"inter R G r" using a1 ooo.hyps(2) ooo.prems by auto
-    have a3:"inter\<^sub>c w R G c\<^sub>2 \<alpha>'" sorry
-    then show ?case
-      using ooo.prems ooo.hyps a3 a2 by simp
-  qed
-next
-  case (cap c \<alpha>' r c' s s')
-  then show ?case 
-  proof -
-    have a1:"R,G \<turnstile> P {c} UNIV" using assms sorry
-    have a2:"inter R G r" using a1 cap.hyps(2) cap.prems by auto
-    have a3:"inter (pushrelSame R) (pushrelAll G) r" sorry
-    then show ?case
-      using cap.prems cap.hyps a3 a2 by simp
-  qed
-qed 
-*)
-(*-----------------------------------------------------*)
-
-
-lemma obs_seq2:
-  assumes "\<alpha> \<in> obs(c2)"
-  shows "\<alpha> \<in> obs(c1 ;\<^sub>w c2)" using assms obs_seq3 sorry
-
-
-lemma obs_guar:
-  assumes "R,G \<turnstile> P {Basic x ;\<^sub>w c\<^sub>1 } Q'" "inter\<^sub>c w R G (Basic x) \<alpha>" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'" 
-          "\<alpha> \<in> obs(Basic x ;\<^sub>w c\<^sub>1)"
-  shows "guar\<^sub>\<alpha> \<alpha> G" using assms 
-proof -
-  show ?thesis sorry
-qed
-
-
-lemma help_interAlpha:
-  assumes "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" 
-          "R,G' \<turnstile> P {Basic x ;\<^sub>w c\<^sub>1 } Q'" "inter\<^sub>c w R G (Basic x) \<alpha>" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'"
-  shows "w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>" 
-proof -
-  obtain M where m:"R,G' \<turnstile> P {Basic x} M" using assms(4) seqE by metis
-  have a0:"guar\<^sub>\<alpha> x G'" using m atomic_rule_def by blast
-  have b1:"\<alpha> \<in> obs(Basic x ;\<^sub>w c\<^sub>1)" using assms(6) obs_act obs_seq2 by auto
-  have b2:"inter\<^sub>c w R G' (Basic x) \<alpha>" using assms(3,5) sorry
-  have b0:"guar\<^sub>\<alpha> \<alpha> G'" using assms(4,6) b1 b2 obs_guar by auto
-  have c1:"w \<alpha>' x \<alpha> \<Longrightarrow> Basic x ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>',(Reorder \<alpha> w (Basic x)) # r] Basic x ;\<^sub>w c\<^sub>1'" 
-    using assms(6) obs_def lexecute.intros(3) by simp
-  have c0:"w \<alpha>' x \<alpha> \<Longrightarrow> guar\<^sub>\<alpha> \<alpha>' G'" using assms(4) c1 guar_com by auto  
-
-  have a1:"w \<alpha>' x \<alpha> \<Longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>" using assms(1) by auto
-  fix P' M' Q' 
-  have a2:"w \<alpha>' x \<alpha> \<Longrightarrow> R,G \<turnstile>\<^sub>A P' {x} M' \<Longrightarrow> R,G \<turnstile>\<^sub>A M' {\<alpha>} Q' \<Longrightarrow>
-            (\<exists>M''. R,G \<turnstile>\<^sub>A P' {\<alpha>'} M'' \<and> R,G \<turnstile>\<^sub>A M'' {x} Q')" using a1 inter\<^sub>\<alpha>_def by auto
-  have d1:"R,G \<turnstile>\<^sub>A P' {x} M \<Longrightarrow> R,G' \<turnstile>\<^sub>A P' {x} M" using atomic_subG a0 by metis
-  have d2:"R,G \<turnstile>\<^sub>A M' {\<alpha>} Q' \<Longrightarrow> R,G' \<turnstile>\<^sub>A M' {\<alpha>} Q'" using atomic_subG b0 by metis
-  have d3:"w \<alpha>' x \<alpha> \<Longrightarrow> R,G \<turnstile>\<^sub>A P' {\<alpha>'} M'' \<Longrightarrow> R,G' \<turnstile>\<^sub>A P' {\<alpha>'} M''" using atomic_subG c0 by metis
-  have d4:"R,G \<turnstile>\<^sub>A M'' {x} Q' \<Longrightarrow> R,G' \<turnstile>\<^sub>A M'' {x} Q'" using atomic_subG a0 by metis
-
-  have a4:"w \<alpha>' x \<alpha> \<Longrightarrow> R,G' \<turnstile>\<^sub>A P' {x} M' \<Longrightarrow> R,G' \<turnstile>\<^sub>A M' {\<alpha>} Q' \<Longrightarrow>
-            (\<exists>M''. R,G' \<turnstile>\<^sub>A P' {\<alpha>'} M'' \<and> R,G' \<turnstile>\<^sub>A M'' {x} Q')" using a2 d1 d2 d3 d4 
-    by (metis Int_lower1 a0 assms(3) atomic_subG atomic_supG c0) 
-  have a5:"w \<alpha>' x \<alpha> \<Longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>" using inter\<^sub>\<alpha>_def 
-    by (smt (verit, best) Int_lower1 a0 a1 assms(3) atomic_subG atomic_supG c0)
-  thus ?thesis by auto
-qed
-
-
-(*
-lemma help_interC:
-  assumes "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'"
-          "inter\<^sub>c w R G c\<^sub>2 \<alpha>" 
-  shows "inter\<^sub>c w R G' c\<^sub>2 \<alpha>" 
-  using assms
-proof (induct c\<^sub>2 arbitrary: w \<alpha> P Q' c\<^sub>1)
-  case (Basic x)
-  then show ?case 
-  proof -
-    have b0:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>)" using Basic(5) by auto
-    have b1:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>)" using help_interAlpha b0 Basic by auto
-    thus ?case using b1 by auto  
-  qed
-next
-  case (Seq c1 w' c2)
-  then show ?case 
-  proof -
-    obtain M where a00:"R,G' \<turnstile> P {c1 ;\<^sub>w' c2} M" "R,G' \<turnstile> M {c\<^sub>1} Q'"  
-        using Seq(5) apply (rule seqE) by auto
-    obtain M' where a02:"R,G' \<turnstile> M' {c2} M" using a00(1) apply (rule seqE) by auto
-    obtain c\<^sub>1 Q'' where a03:"R,G' \<turnstile> M' {c2 ;\<^sub>w c\<^sub>1} Q''" using a02 a00(2) rules.seq
-      by (meson Seq.prems(3) rules.seqE)
-    fix \<alpha>'
-    have  a0:"\<forall> \<alpha>'. \<alpha>' < c2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R G c1 \<alpha>' \<and> inter\<^sub>c w R G c2 \<alpha>)" 
-      using Seq(7) unfolding inter\<^sub>c.simps by auto
-    have a1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c1 \<alpha>'" using a0 by blast
-    have a2:"inter\<^sub>c w R G c1 \<alpha>' \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using Seq a00 Seq.hyps sorry
-    have a3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using a1 a2 by auto
-    have b1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c2 \<alpha>" using a0 by blast
-(*    have b2:"inter\<^sub>c w R G c2 \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using Seq(3,4) a03 Seq.hyps(2) sorry (*by blast*)
-*)  have b4:"M' \<subseteq> I" sorry
-    have b3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using b1 a03 Seq b4 Seq(2)
-      by (smt (verit, best) a00(2) a02 seq seqE)
-    have c1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> (inter\<^sub>c w R G' c1 \<alpha>' \<and> inter\<^sub>c w R G' c2 \<alpha>)" using a3 b3 by simp
-     then show ?thesis using inter\<^sub>c.simps(2) c1 sorry
-    (*   by (meson Seq.hyps(1) Seq.prems(1) a0 a00(1) assms(2) b2 inter\<^sub>c.simps(2) rules.seqE seq) *)
-  qed
-qed auto
-*)
-
-(*
-lemma help_interC:
-  assumes "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>1'"
-          "inter\<^sub>c w R G c\<^sub>2 \<alpha>" 
-  shows "inter\<^sub>c w R G' c\<^sub>2 \<alpha>" 
-  using assms
-proof (induct c\<^sub>2 arbitrary: w \<alpha> P Q' c\<^sub>1)
-  case (Basic x)
-  then show ?case 
-  proof -
-    have b0:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' x \<alpha>)" using Basic(5) by auto
-    have b1:" (\<forall>\<alpha>'. w \<alpha>' x \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' x \<alpha>)" using help_interAlpha b0 Basic by auto
-    thus ?case using b1 by auto  
-  qed
-next
-  case (Seq c1 w' c2)
-  then show ?case 
-  proof -
-    obtain M where a00:"R,G' \<turnstile> P {c1 ;\<^sub>w' c2} M" "R,G' \<turnstile> M {c\<^sub>1} Q'"  
-        using Seq(5) apply (rule seqE) by auto
-    obtain M' where a02:"R,G' \<turnstile> M' {c2} M" using a00(1) apply (rule seqE) by auto
-    obtain c\<^sub>1 Q'' where a03:"R,G' \<turnstile> M' {c2 ;\<^sub>w c\<^sub>1} Q''" using a02 a00(2) rules.seq
-      by (meson Seq.prems(3) rules.seqE)
-    fix \<alpha>'
-    have  a0:"\<forall> \<alpha>'. \<alpha>' < c2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R G c1 \<alpha>' \<and> inter\<^sub>c w R G c2 \<alpha>)" 
-      using Seq(7) unfolding inter\<^sub>c.simps by auto
-    have a1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c1 \<alpha>'" using a0 by blast
-    have a2:"inter\<^sub>c w R G c1 \<alpha>' \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using Seq a00 Seq.hyps sorry
-    have a3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using a1 a2 by auto
-    have b1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c2 \<alpha>" using a0 by blast
-(*    have b2:"inter\<^sub>c w R G c2 \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using Seq(3,4) a03 Seq.hyps(2) sorry (*by blast*)
-*)  have b4:"M' \<subseteq> I" sorry
-    have b3:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using b1 a03 Seq b4 Seq(2)
-      by (smt (verit, best) a00(2) a02 seq seqE)
-    have c1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> (inter\<^sub>c w R G' c1 \<alpha>' \<and> inter\<^sub>c w R G' c2 \<alpha>)" using a3 b3 by simp
-     then show ?thesis using inter\<^sub>c.simps(2) c1 sorry
-    (*   by (meson Seq.hyps(1) Seq.prems(1) a0 a00(1) assms(2) b2 inter\<^sub>c.simps(2) rules.seqE seq) *)
-  qed
-qed auto
-*)
-
-lemma help_basic:
-  assumes " inter\<^sub>c w R G (Basic \<beta>) \<alpha>"
-    "Basic \<beta> ;\<^sub>w c\<^sub>1  \<mapsto>[\<alpha>'',Reorder \<alpha> w (Basic \<beta>) # r] Basic \<beta> ;\<^sub>w c\<^sub>1'" 
-    "P \<subseteq> I"
-    "G' = G \<inter> (I \<Zinj> I)"
-    "R,G' \<turnstile> P {Basic \<beta> ;\<^sub>w c\<^sub>1 } Q'"
-    "R,G' \<turnstile> P {Basic \<beta>} M"
-    "guar\<^sub>\<alpha> \<alpha> G'"
-    "(\<forall>\<alpha>'. w \<alpha>' \<beta> \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' \<beta> \<alpha>)"
-  shows "(\<forall>\<alpha>'. w \<alpha>' \<beta> \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' \<beta> \<alpha>)"
-  sorry
-
-lemma invarIQ:
-  assumes "R,G \<turnstile> P {c} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
-  shows "R,G \<turnstile> P {c} I" sorry
-
-lemma invarIP:
-  assumes "R,G \<turnstile> P {c} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
-  shows "R,G \<turnstile> I {c} Q" sorry
-
-lemma invarIPQ:
-  assumes "R,G \<turnstile> P {c} Q" "G \<subseteq> (I \<Zinj> I)" "P \<subseteq> I" "stable R I"
-  shows "R,G \<turnstile> I {c} I" sorry
-
-lemma help_inter1:
-  assumes "inter\<^sub>c w R G c\<^sub>2 \<alpha>" "(c\<^sub>2 ;\<^sub>w c\<^sub>1)  \<mapsto>[\<alpha>'', (Reorder \<alpha> w c\<^sub>2 # r)] (c\<^sub>2 ;\<^sub>w c\<^sub>1')" 
-          "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "stable R I" "R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" "R,G' \<turnstile> P {c\<^sub>2} M"
-          "guar\<^sub>\<alpha> \<alpha> G'"
-  shows "inter\<^sub>c w R G' c\<^sub>2 \<alpha>" using assms
-proof (induct c\<^sub>2 arbitrary: w P Q' c\<^sub>1 c\<^sub>1' M)
-  case Nil
-  then show ?case by auto
-next
-  case (Basic \<beta>)
-  then show ?case 
-  proof - 
-    have b1:"(\<forall>\<alpha>'. w \<alpha>' \<beta> \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G \<alpha>' \<beta> \<alpha>)" using Basic(1) by auto
-    have b2:"(\<forall>\<alpha>'. w \<alpha>' \<beta> \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R G' \<alpha>' \<beta> \<alpha>)" 
-            using b1 Basic help_basic by metis
-    then show ?thesis using b2 by auto
-  qed
-next
-  case (Seq c1 w' c2)
-  then show ?case 
-  proof -
-    obtain M' where m1:"R,G' \<turnstile> P {c1} M'" "R,G' \<turnstile> M' {c2} M"  using seqE Seq(9) by auto
-    obtain M'' where m2:"R,G' \<turnstile> M'' {c\<^sub>1} Q'" using Seq(8) seqE by auto
-    have i1:"R,G' \<turnstile> P {c1} I" using m1(1) Seq(6,5,7) invarIQ by auto
-    have i2:"M' \<subseteq> I" sorry
-    have i3:"R,G' \<turnstile> I {c2} I" using m1(2) Seq(6,7) i2 invarIPQ by auto
-    have i4:"M'' \<subseteq> I" sorry
-    have i4:"R,G' \<turnstile> I {c\<^sub>1} Q'" using m2 Seq(6,7) i4 invarIP by auto
-    have w: "wlf w" sorry
-    have g1:"R,G' \<turnstile> I {c2 ;\<^sub>w c\<^sub>1} Q'" using w i3 i4 rules.intros(3) by auto
-    obtain c3 where a0:"(c1 ;\<^sub>w' c3)  \<mapsto>[\<alpha>'',Reorder \<alpha> w' c1 # r] (c1 ;\<^sub>w' c3')" sorry
-    have g2:"R,G' \<turnstile> P {c1 ;\<^sub>w' c3} Q'" sorry
-    have i5:"inter\<^sub>c w' R G c1 \<alpha>" sorry
-    have p1:"inter\<^sub>c w' R G' c1 \<alpha>" using i5 a0 Seq(5,6,7) g2 i1 Seq(10) Seq(1) by blast  
-    have p2:"inter\<^sub>c w R G' c2 \<alpha>" sorry
-    
-    have a1:"(\<forall>\<alpha>'. \<alpha>' < c2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R G c1 \<alpha>' \<and> inter\<^sub>c w R G c2 \<alpha>))"
-      using Seq(3) by auto
-  fix \<alpha>'
-  have s1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c1 \<alpha>'" using a1 by blast
-  have s2:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c1 \<alpha>'" using s1 assms sorry
-  have t1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G c2 \<alpha>" using a1 by blast
-  have t2:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> inter\<^sub>c w R G' c2 \<alpha>" using t1 assms sorry
-  have c1:"\<alpha>' < c2 <\<^sub>w \<alpha> \<Longrightarrow> (inter\<^sub>c w R G' c1 \<alpha>' \<and> inter\<^sub>c w R G' c2 \<alpha>)" using s2 t2 by blast
-  have c2:"(\<forall>\<alpha>'. \<alpha>' < c2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R G' c1 \<alpha>' \<and> inter\<^sub>c w R G' c2 \<alpha>))" 
-      using c1 sorry
-  then show ?thesis using c2 by auto
-  qed
-qed auto
-
-
-
-lemma inner_inter:
-  assumes "c \<mapsto>[\<alpha>',r] c'" "inter R G ( r)"  "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "stable R I" "R,G' \<turnstile> P {c} Q'"
-  shows "inter R G' (r)" 
-  using assms
-proof (induct arbitrary: P Q')
-  case (act \<alpha>)
-  then show ?case by auto
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then show ?case by auto
-next
-  case (ooo c\<^sub>1 \<alpha> r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
-  have a3:"R,G' \<turnstile> P {c\<^sub>2 ;\<^sub>w c\<^sub>1} Q'" using ooo assms(5) by auto
-  obtain M where m:"R,G' \<turnstile> P {c\<^sub>2} M" "R,G' \<turnstile> M {c\<^sub>1} Q'" using a3 seqE by auto
-  have g:"guar\<^sub>\<alpha> \<alpha> G'" using m(2) ooo(1) guar_com by auto
-  have a0:"inter\<^sub>c w R G c\<^sub>2 \<alpha>" "inter R G r" using ooo by auto
-  have s:"(c\<^sub>2 ;\<^sub>w c\<^sub>1)  \<mapsto>[\<alpha>'', (Reorder \<alpha> w c\<^sub>2 # r)] (c\<^sub>2 ;\<^sub>w c\<^sub>1')" 
-    using ooo(1,3) lexecute.intros(3) by auto
-  have a5:"inter\<^sub>c w R G' c\<^sub>2 \<alpha>" using s g a0(1) m(1) ooo(5,6,7,8)  help_inter1 by auto
-  have a7:"inter R G' r" using a0(2) ooo.hyps ooo.prems m by blast
-  thus ?case using a5 a7 by auto
-next
-  case (cap c \<alpha>' r c' s s')
-  then show ?case apply simp
-    apply (drule captureE)
-    sorry
-next
-  case (inter1 c \<alpha>' r c')
-  then show ?case by (auto elim!: interrE)
-qed
-
-
-lemma help_inter_try:
- assumes "c \<mapsto>[\<alpha>',r] c'" 
-        "(\<And>P R G Q. R,G \<turnstile> P {c} Q \<Longrightarrow> inter R G r 
-              \<Longrightarrow> \<exists>M. R,G \<turnstile>\<^sub>A stabilise R P { \<alpha>'} M \<and> R,G \<turnstile> M {c'} Q)" 
-         "R,G \<turnstile> P {(\<triangle>c)} I" 
-         "inter R G r"
-  shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {\<triangle> c'} I"
-proof -
-  obtain G' Q' where g:
-    "P \<subseteq> I"  
-    "G' = G \<inter> (I \<Zinj> I)" 
-    "stable R I"  
-    "R,G' \<turnstile> P {c} Q'" 
-    using assms(3) by (rule interrE) 
-  have i1:"inter R G' r"  using assms(1,4) g(1,2,3,4) inner_inter by auto
-  obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c'} Q'" using assms(2)[OF g(4) i1] by auto
-  obtain P'' where p: "P''=stabilise R (sp \<alpha>' (stabilise R P))" "R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} P''" "P'' \<subseteq> M"
-    using m(1) atomic_spI by metis
-
-  have a2:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} P''" using p(2) g(1,2) by blast
-  have s1:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
-  have s2:"stablePQ (stabilise R P) G' I" using p(2) g(1) g(2) s1 g(3) stable_PI by blast
-  have s3:"R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} M" using m(1) by auto
-  have s4:"R,G' \<turnstile>\<^sub>A (stabilise R P) {\<alpha>'} I" using s3 s2 g(3) atomStep_Q by blast
-  have s5:"P'' \<subseteq> I" using s4 atomic_spI(2) p by metis
-  have s6:"R,G' \<turnstile> P'' {c'} Q'" using m(2) p(3) apply (rule rules.conseq) by auto
-
-  have p3:"R,G \<turnstile> P'' {\<triangle>c'} I" using s5 g(2,3) s6 by (rule rules.interr) 
-
-  show ?thesis using a2 p3 by auto
-qed
 
 (* old version with additional prereq:
 lemma help_inter:
@@ -437,9 +86,30 @@ qed
 *)
 
 
+lemma sp_sub_I:
+  assumes "P \<subseteq> I" "stable R I" "stable G I" "guar\<^sub>\<alpha> \<alpha> G" 
+          "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>} stabilise R (sp \<alpha> (stabilise R P))"
+  shows "stabilise R (sp \<alpha> (stabilise R P)) \<subseteq> I"
+proof -
+  have a0:"G``I \<subseteq> I" using assms(3) by (simp add: stable_rel)
+  have a1:"((beh \<alpha>)``(vc \<alpha>)) \<subseteq> G``(vc \<alpha>)" using assms(4) guar_def by blast
+  have a2:"vc \<alpha> \<subseteq> {m. (\<forall>m'. ((m,m') \<in> beh \<alpha> \<longrightarrow> (m,m') \<in> G))}" using assms(4) guar2.simps
+    by (simp add: guar_def subset_eq)
+  have a3:"\<forall> m m'. m \<in> vc \<alpha> \<and> (m,m') \<in> beh \<alpha> \<longrightarrow> (m,m') \<in> G" using assms(4) guar_def by blast
+  have a4:"\<forall> m'. \<exists> m. m \<in> vc \<alpha> \<and> (m,m') \<in> beh \<alpha> \<longrightarrow> (m,m') \<in> G" using a3 by simp
+  have a3: "(beh \<alpha>) \<subseteq> G" using a1 a2 ImageE  sorry
+  have a2:"(beh \<alpha>``I) \<subseteq> G``I" using a3 Image_mono by blast
+
+  have b0:"(stabilise R P) \<subseteq> I" using assms(1,2) by (simp add: stabilise_min)
+  have b1:"(sp \<alpha> (stabilise R P)) \<subseteq> sp \<alpha> I" using sp_mono b0 by blast
+  have b2:"stabilise R (sp \<alpha> (stabilise R P)) \<subseteq> stabilise R (sp \<alpha> I)" using b1 
+      stable_stabilise stabilise_min  by (simp add: stabilise_mono)
+  then show ?thesis sorry
+qed
+
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
-  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r] c'" "inter R G r" 
+  assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r] c'" "inter R r" 
   shows "\<exists>M. R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<and> R,G \<turnstile> M {c'} Q"
   using assms(2,1,3)
 proof (induct arbitrary: P R G Q)
@@ -452,7 +122,7 @@ next
 next
   case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
   obtain M' where m: "R,G \<turnstile> P {c\<^sub>2} M'" "R,G \<turnstile> M' {c\<^sub>1} Q" using ooo(4) by (rule seqE)
-  have i: "inter\<^sub>c w R G c\<^sub>2 \<alpha>'" "inter R G r" using ooo(5) by auto
+  have i: "inter\<^sub>c w R c\<^sub>2 \<alpha>'" "inter R r" using ooo(5) by auto
   obtain M where m': "R,G \<turnstile>\<^sub>A stabilise R M' {\<alpha>'} M" "R,G \<turnstile> M {c\<^sub>1'} Q"
     using ooo(2)[OF m(2) i(2)] by auto
   have m'': "R,G \<turnstile> P {c\<^sub>2} stabilise R M'" using m(1) stabilise_supset[of M' R] by auto
@@ -462,7 +132,7 @@ next
   case (cap c \<alpha>' r c' s s')
   let ?R="capRely R" and ?G="capGuar G" and ?P="capPred s P" and ?Q="pushpredAll Q"
   have "?R,?G \<turnstile> ?P {c} ?Q" using cap(4) by (rule captureE)
-  moreover have "inter ?R ?G r" using cap(5) by simp
+  moreover have "inter ?R r" using cap(5) by simp
   ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {c'} ?Q"
     using cap(2) by force
   have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic s s' \<alpha>'} poppred' s' M"
@@ -472,10 +142,38 @@ next
   ultimately show ?case by blast
 next
   case (inter1 c\<^sub>1 \<alpha>' r c\<^sub>2)    
-  show ?case using help_inter_try using inter1.hyps(1,2) inter1.prems(1,2) by auto
+  show ?case 
+  proof -
+    obtain I G' Q' where g:
+    "P \<subseteq> I" "stable R I" "stable G' I"  "R,G' \<turnstile> P {c\<^sub>1} Q'" "G' \<subseteq> G" "I \<subseteq> Q"
+      using inter1(3) by (rule interrE)
+    obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c\<^sub>2} Q'" 
+      using  g(4) inter1.prems(2) inter1.hyps(2) by metis
+    have m0:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
+(*    have m0:"R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} I" using m(1) g(3) atomic_stab_guar sorry
+    have m1:"R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<inter> I" using m(1) m0 
+       by (metis actomic_conjI inf.idem) 
+    have m2:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<inter> I" using m1 g(5) rules.conseq by blast
+    have m3:"R,G' \<turnstile> M \<inter> I {c\<^sub>2} Q'" using m(2) rules.conseq by blast 
+    have g1:"M \<inter> I \<subseteq> I" by auto
+    have c2:"R,G' \<turnstile> M \<inter> I {\<triangle>c\<^sub>2} I" using g1 g(2,3) m3 by (rule rules.interr)
+    have c3:"R,G \<turnstile> M \<inter> I {\<triangle>c\<^sub>2} Q" using c2 g(5,6) rules.conseq by blast *)
+    let ?N = "stabilise R (sp \<alpha>' (stabilise R P))"
+    have m1:"R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} ?N" "?N \<subseteq> M" 
+      using m(1) atomic_spI apply blast 
+      using m(1) atomic_spI(2) by blast
+    have m2:"R,G' \<turnstile> ?N {c\<^sub>2} Q'" using m(2) m1(2) rules.conseq by blast
+    have m3:"?N \<subseteq> I" using g(1,2,3) m0 m1 sp_sub_I by blast
+    have c2:"R,G' \<turnstile> ?N {\<triangle>c\<^sub>2} I" using m3 g(2,3) m2 by (rule rules.interr)
+    have c3:"R,G' \<turnstile> ?N {\<triangle>c\<^sub>2} Q" using c2 g(5,6) rules.conseq by blast
+    have d1:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} ?N"  using m1 g(5) rules.conseq by blast
+    have d2:"R,G \<turnstile> ?N {\<triangle>c\<^sub>2} Q" using c3 g(5) rules.conseq by blast
+    then show ?thesis using d1 d2 by auto
+  qed
 qed
-thm silent.cases[of a b]
 
+
+thm silent.cases[of a b]
 
 lemma test:
   assumes "pushpred s (stabilise R P) \<subseteq> pushpredAll Q" "x \<in> stabilise R P" 
@@ -567,7 +265,7 @@ next
   case (thread R G P c Q)
   then obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" "\<alpha>' \<in> obs c" 
     using obs_act by (auto)
-  then obtain M where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
+  then obtain M where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R c''"
     using thread lexecute_ruleI[OF thread(1) e(2)] indep_stepI[OF thread(3) e(2)] by metis
   thus ?case using stabilise_supset[of P R] e unfolding atomic_rule_def 
     by (metis (no_types, lifting) dual_order.trans obs_thread rules.rules.thread)

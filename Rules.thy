@@ -22,7 +22,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
   loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
-  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
+  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
   par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
@@ -30,8 +30,10 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
-  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G'= G \<inter> (I \<Zinj> I) \<Longrightarrow> stable R I \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow>
+  interr[intro]:  "P \<subseteq> I \<Longrightarrow> stable R I \<Longrightarrow> stable G I \<Longrightarrow> R,G \<turnstile> P {c} Q \<Longrightarrow>
                     R,G \<turnstile> P {(\<triangle>c)} I" 
+(*  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G'= G \<inter> (I \<Zinj> I) \<Longrightarrow> stable R I \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow>
+                    R,G \<turnstile> P {(\<triangle>c)} I" *)
 (*   for interr the wmm should be set to sc but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
@@ -132,9 +134,9 @@ qed
 
 
 lemma interrE:
-  assumes "R,G \<turnstile> P {(\<triangle>c)} I"
-  obtains G' Q' where "P \<subseteq> I" "G' = G \<inter> (I \<Zinj> I)" "stable R I" 
-                      "R,G' \<turnstile> P {c} Q'" 
+  assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
+  obtains I Q' G' where "P \<subseteq> I"  "stable R I"  "stable G' I" "R,G' \<turnstile> P {c} Q'" 
+                      "G' \<subseteq> G" "I \<subseteq> Q" 
   using assms
 proof (induct R G P "(\<triangle>c)" I arbitrary: c)
   print_cases
@@ -192,9 +194,9 @@ next
   case (capture R G s P c Q)
   thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
 next
-  case (interr P Q G' G R c uu)
-  have "stable G' (stabilise R P)" "(stabilise R P) \<subseteq> Q" sorry
-  thus ?case using interr by (simp add: rules.interr stabilise_stable)
+  case (interr P Q G R c uu)
+  have "stable G (stabilise R P)" "(stabilise R P) \<subseteq> Q" sorry
+  thus ?case using interr sorry (*by (simp add: rules.interr stabilise_stable)*)
 qed auto
 
 
@@ -265,9 +267,9 @@ next
   case (inter1 c \<alpha>' r c')
   then show ?case 
   proof -
-    obtain G' Q' where i0:"G' \<subseteq> G"  "R,G' \<turnstile> P {c} Q'" using interrE inter1(3) by (meson Int_lower1)
-    have i1:"guar\<^sub>\<alpha> \<alpha>' G'" using i0(2) inter1(2) by auto
-    then show ?thesis using guar_sub i0(1) by auto
+    obtain Q' where i0: "R,G \<turnstile> P {c} Q'" using interrE inter1(3) by (meson Int_lower1)
+    have i1:"guar\<^sub>\<alpha> \<alpha>' G" using i0 inter1(2) by auto
+    then show ?thesis using guar_sub i0 by auto
   qed
 qed
 
