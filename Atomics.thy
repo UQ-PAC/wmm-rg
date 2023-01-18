@@ -182,7 +182,7 @@ lemma stabilise_rtrancl_mono:
 
 lemma atomic_stab_pre [intro]:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R (stabilise (G\<^sup>*) P)"
-  shows "R,(G\<^sup>*) \<turnstile>\<^sub>A P {\<alpha>} (stabilise (G\<^sup>*) P)"
+  shows "R,(G\<^sup>*) \<turnstile>\<^sub>A P {\<alpha>} (stabilise (G\<^sup>*) P)" 
 proof -
   have a0:"P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms atomic_rule_def by fast
   have a1a:"stable R P" using assms atomic_rule_def by fast
@@ -194,8 +194,8 @@ proof -
   have a4:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> (m,m') \<in> G))} \<inter> 
                 {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q))}" using a2 a3 by auto
   have a5:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> (stabilise (G) P)))}"
-      using assms a1 stabilise_def stabilise_supset stable_rel stable_stabilise subset_eq sorry
-  (*    by (smt (verit) ImageI a4 le_inf_iff mem_Collect_eq) *)
+    using assms a1 stabilise_def stabilise_supset stable_rel stable_stabilise 
+     subset_eq by (smt (verit, ccfv_threshold) State.stable_def a4 inf.boundedE mem_Collect_eq)
   have a6:"P \<subseteq> (vc \<alpha>) \<inter> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> (stabilise (G) P)))}" 
       using a3 a1 a2 a5 by simp
     have a7:"P \<subseteq>  wp\<^sub>\<alpha> \<alpha> (stabilise (G) P)" using a6 wp_def by fast
@@ -210,6 +210,7 @@ lemma atomic_stab_guarTrans [intro]:
   shows "R,(G\<^sup>*) \<turnstile>\<^sub>A P {\<alpha>} P"
   using assms atomic_stab_pre 
   by (metis stabilise_rtrancl stabilise_stable stable_rel subset_refl)
+
 
 lemma atomic_stab_guar:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R P" "stable G P" 

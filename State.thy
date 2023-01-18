@@ -11,7 +11,6 @@ Therefore, rules that manipulate the state, such as removal of auxiliary variabl
 and local state require operators over the state to express the necessary transformations.
 \<close>
 
-
 type_synonym ('b) pred = "('b) set"
 type_synonym ('b) rpred = "('b) rel"
 

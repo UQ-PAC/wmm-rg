@@ -130,13 +130,6 @@ lemma push_poppred_subset: "pushpred s (poppred' s P) \<subseteq> P"
 unfolding pushpred_def poppred'_def
 by auto
 
-(*
->>>>>>> capture-push
-lemma pushed_empty: "pushed P = {} \<Longrightarrow> P = {}"
-unfolding pushed_def 
-using push_pop by fastforce 
-*)
-
 
 section \<open>Lemmas for push/pop on predicates/relations\<close>
 
@@ -362,11 +355,6 @@ lemma poppable_empty [simp]: "poppable s {}"
 
 subsection \<open>Correspondences between predicates and Id_on.\<close>
 
-(*
-lemma Id_in_pushrelAll_poppred: "Id_on G \<subseteq> pushrelAll (Id_on (poppred G))"
-using pushpredAll_poppred_supset subsetD
-unfolding pushrelAll_def pushpredAll_def
-by fast *)
 
 lemma poppred_eq_poprel: "Id_on (poppred a) = poprel (Id_on a)"
 unfolding poppred_def poprel_def by auto

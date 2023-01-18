@@ -32,8 +32,6 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                     R,G \<turnstile> P {Capture s c} Q" |
   interr[intro]:  "P \<subseteq> I \<Longrightarrow> stable R I \<Longrightarrow> stable G I \<Longrightarrow> R,G \<turnstile> P {c} Q \<Longrightarrow>
                     R,G \<turnstile> P {(\<triangle>c)} I" 
-(*  interr[intro]:  "P \<subseteq> I \<Longrightarrow> G'= G \<inter> (I \<Zinj> I) \<Longrightarrow> stable R I \<Longrightarrow> R,G' \<turnstile> P {c} _ \<Longrightarrow>
-                    R,G \<turnstile> P {(\<triangle>c)} I" *)
 (*   for interr the wmm should be set to sc but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
@@ -133,21 +131,20 @@ next
 qed
 
 
+(* how could we have got to "R,G \<turnstile> P {(\<triangle>c)} Q", by which rules *)
 lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
   obtains I Q' G' where "P \<subseteq> I"  "stable R I"  "stable G' I" "R,G' \<turnstile> P {c} Q'" 
                       "G' \<subseteq> G" "I \<subseteq> Q" 
   using assms
-proof (induct R G P "(\<triangle>c)" I arbitrary: c)
-  print_cases
+proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
   case (conseq R G P I P' R' G' Q')
   show ?case 
   proof (rule conseq(2), goal_cases)
-    case (1 G'' Q'')
-    then show ?case
-      using conseq(3-7)
-      using rules.conseq[of "R" "G'" "P" "c" "Q'"]
-            stable_conseqI[of "G'" "Q" "G''"] sorry 
+    case (1 I G'' Q'')
+    then show ?case using conseq(3-7)
+              rules.conseq[of "R" "G'" "P" "c" "Q'"]
+              stable_conseqI[of "G'" "Q" "G''"] sorry 
   qed
 next
   case (inv R G P I R' I2)
@@ -194,9 +191,9 @@ next
   case (capture R G s P c Q)
   thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
 next
-  case (interr P Q G R c uu)
-  have "stable G (stabilise R P)" "(stabilise R P) \<subseteq> Q" sorry
-  thus ?case using interr sorry (*by (simp add: rules.interr stabilise_stable)*)
+  case (interr P Q R G c uu)
+  have "(stabilise R P) \<subseteq> Q" using interr(1,2) by (simp add: stabilise_min)
+  thus ?case using interr(2,3,5) rules.interr by blast
 qed auto
 
 
@@ -226,7 +223,20 @@ text \<open> to derive guar predicate from judgement \<close>
 
 lemma wlf_trans:
   assumes "\<alpha>' < c <\<^sub>w \<alpha>" "wlf w" "guar\<^sub>\<alpha> \<alpha> G"
-  shows "guar\<^sub>\<alpha> \<alpha>' G" sorry
+  shows "guar\<^sub>\<alpha> \<alpha>' G" using assms
+proof (induct c arbitrary: \<alpha> \<alpha>' w)
+  case Nil
+  then show ?case using wlf_def reorder_com.simps(1) by auto
+next
+  case (Basic x)
+  then show ?case using wlf_def reorder_com.simps(2) by metis
+next
+  case (Seq c1 w c2)
+  obtain \<alpha>\<^sub>n where a0:"\<alpha>\<^sub>n < c2 <\<^sub>w \<alpha>" "\<alpha>' < c1 <\<^sub>w \<alpha>\<^sub>n"
+    using Seq(3) reorder_com.simps(3) by blast
+  have a1:"guar\<^sub>\<alpha> \<alpha>\<^sub>n G" using a0(1) Seq(2,4,5) by simp
+  then show ?case using a1 a0(2) Seq(1,4,5) by simp
+qed auto
 
 
 lemma guar_com:
@@ -267,7 +277,8 @@ next
   case (inter1 c \<alpha>' r c')
   then show ?case 
   proof -
-    obtain Q' where i0: "R,G \<turnstile> P {c} Q'" using interrE inter1(3) by (meson Int_lower1)
+    obtain Q' where i0: "R,G \<turnstile> P {c} Q'" using interrE inter1(3)
+      by (smt (verit, del_insts) dual_order.refl rules.rules.conseq)
     have i1:"guar\<^sub>\<alpha> \<alpha>' G" using i0 inter1(2) by auto
     then show ?thesis using guar_sub i0 by auto
   qed
@@ -278,128 +289,4 @@ end
 
 end
 
-(*
-lemma guar_com'':
-  assumes "c \<mapsto>[\<alpha>,r] c'" "R,G \<turnstile> P {c} Q" 
-  shows "\<exists> P' Q'. R,G \<turnstile> P' {Basic \<alpha>} Q'" using assms
-proof (induct arbitrary: P Q)
-  print_cases
-  case (act \<alpha>)
-  then show ?case by auto
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2) 
-  then show ?case 
-  proof -
-    obtain M where a0:"R,G \<turnstile> P {c\<^sub>1} M" using ino(3) seqE by auto
-    then show ?thesis using ino(2)[of "P" "M"] by auto 
-    qed
-next
-  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
-  then show ?case 
-  proof -
-    obtain M where a0:"R,G \<turnstile> P {c\<^sub>2} M" "R,G \<turnstile> M {c\<^sub>1} Q" "wlf w" using ooo(4) seqE by auto
-    obtain P' Q' where a1:"R,G \<turnstile> P' {Basic \<alpha>'} Q'" using ooo(2)[of "M""Q"] a0(2) by auto
-    obtain Q'' where a2:"R,G \<turnstile>\<^sub>A (stabilise R P') {\<alpha>'} Q''" using basicE a1 by auto
-    have a3:"(stabilise R P') \<subseteq> wp\<^sub>\<alpha> \<alpha>' Q''" "guar\<^sub>\<alpha> \<alpha>' G" "stable R Q''" using atomic_rule_def a2
-      sorry
-    have a4:"guar\<^sub>\<alpha> \<alpha>' G" using a3(2) a0(3) using wlf_def by auto
-    
-    obtain r' where b0:"c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',r'] c\<^sub>2 ;\<^sub>w c\<^sub>1'" using ooo(1,3,4) lexecute.intros(3) by blast
-    then show ?thesis using ooo(2) sorry
-    qed
-next
-  case (cap c \<alpha>' r c' s s')
-  then show ?case sorry
-next
-  case (inter1 c \<alpha>' r c')
-  then show ?case sorry
-qed
-
-
-
-
-
-lemma guar_com':
-  assumes "obs_trace t (Basic x ;\<^sub>w c)" "\<alpha> \<in> set t" "R,G \<turnstile> P {Basic x ;\<^sub>w c} Q" 
-  shows "guar\<^sub>\<alpha> \<alpha> G"  using assms
-proof (induct t)
-  case Nil
-  then show ?case by auto
-next
-  case (Cons a t) 
-    consider "\<alpha> = a" "\<alpha> = x" |"\<alpha> = a" "\<alpha> \<noteq> x" | "\<alpha> \<noteq> a" by auto
-  then show ?case 
-  proof (cases)
-    case 1
-    obtain r c' where c1:"(Basic x ;\<^sub>w c) \<mapsto>[\<alpha>,r] c'" "obs_trace t c'" using 1 Cons(2) obsE by blast
-    obtain M where b1:"R,G \<turnstile> P {Basic x} M" using 1 assms(3) seqE by metis
-    obtain M' where b2:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>} M'" using 1 b1 basicE sorry
-    then show ?thesis sorry
-  next
-    case 2
-    then show ?thesis sorry
-  next
-    case 3
-    then show ?thesis sorry
-  qed
-qed
-
-lemma seq_guar:
-  assumes " R,G \<turnstile> M {c\<^sub>2} Q" "\<forall>\<alpha>\<in>obs c\<^sub>2. guar\<^sub>\<alpha> \<alpha> G"
-    "R,G \<turnstile> P {c\<^sub>1} M" "\<forall>\<alpha>\<in>obs c\<^sub>1. guar\<^sub>\<alpha> \<alpha> G" "wlf w"
-  shows "\<forall>\<alpha>\<in>obs (c\<^sub>1 ;\<^sub>w c\<^sub>2 ). guar\<^sub>\<alpha> \<alpha> G" 
-proof -
-  fix \<alpha>
-  have a0:"\<alpha> \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2 ) \<Longrightarrow> 
-       \<alpha> \<in>  obs(c\<^sub>1) \<or> \<alpha> \<in> obs(c\<^sub>2) \<or> \<alpha> \<in>{\<alpha>'. \<alpha> \<in> obs(c\<^sub>2) \<and> \<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>}" 
-    using obs_seq3 by blast
-   have a3:"\<alpha> \<in>{\<alpha>'. \<alpha> \<in> obs(c\<^sub>2) \<and> \<alpha>' < c\<^sub>1 <\<^sub>w \<alpha>} \<and> wlf w \<Longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
-     using assms(5) wlf_def assms(2) by auto
-   thus ?thesis using a0 a3 by (metis UnE assms(4) mem_Collect_eq obs_seq3)
-qed
-
-lemma cap_guar:
-  assumes "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpredAll Q"
-          "\<forall>\<alpha>\<in>obs c. guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
-        shows "\<forall>\<alpha>\<in>obs (Capture s c). guar\<^sub>\<alpha> \<alpha> G" using obs_capture assms(2) 
-  by (metis (no_types, lifting) emptyE mem_Collect_eq obs_nil obs_seq3 obs_sil 
-        seqE1 subset_eq sup_bot_left)
-
-lemma inter_guar:
-  assumes "G' = G \<inter> (I \<Zinj> I)" "\<forall>\<alpha>\<in>obs c. guar\<^sub>\<alpha> \<alpha> G'"
-  shows "\<forall>\<alpha>\<in>obs (\<triangle> c). guar\<^sub>\<alpha> \<alpha> G" using assms guar_sub obs_inter by auto
-
-
-lemma guar_com:
-  assumes "R,G \<turnstile> P {c} Q" "\<alpha> \<in> obs(c)"
-  shows "guar\<^sub>\<alpha> \<alpha> G"  using assms
-proof (induct)
-  case (basic R G P \<alpha> Q)
-  then show ?case using obs_basic by (metis atomic_rule_def emptyE insertE)
-next
-  case (nil R P G)
-  then show ?case by auto
-next
-  case (seq R G M c\<^sub>2 Q P c\<^sub>1 w)
-  then show ?case using seq_guar by blast
-next
-  case (choice R G P S Q)
-  then show ?case using assms obs_choice by blast
-next
-  case (loop R P G c w)
-  then show ?case using assms obs_loop by blast
-next
-  case (thread R G P c Q)
-  then show ?case using obs_thread by auto
-next
-  case (par R\<^sub>1 G\<^sub>1 P\<^sub>1 c\<^sub>1 Q\<^sub>1 R\<^sub>2 G\<^sub>2 P\<^sub>2 c\<^sub>2 Q\<^sub>2)
-  then show ?case using obs_par by auto
-next
-  case (capture R G s P c Q)
-  then show ?case using cap_guar by auto
-next
-  case (interr P I G' G R c uu)
-  then show ?case using inter_guar by blast
-qed auto
-*)
 
