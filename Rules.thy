@@ -27,7 +27,8 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                     R',G' \<turnstile> P' { c } Q'"  |
-  inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
+  inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> 
+                    R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
   capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
   interr[intro]:  "P \<subseteq> I \<Longrightarrow> stable R I \<Longrightarrow> stable G I \<Longrightarrow> R,G \<turnstile> P {c} Q \<Longrightarrow>
@@ -131,31 +132,38 @@ next
 qed
 
 
-(* how could we have got to "R,G \<turnstile> P {(\<triangle>c)} Q", by which rules *)
 lemma interrE:
   assumes "R,G \<turnstile> P {(\<triangle>c)} Q"
   obtains I Q' G' where "P \<subseteq> I"  "stable R I"  "stable G' I" "R,G' \<turnstile> P {c} Q'" 
                       "G' \<subseteq> G" "I \<subseteq> Q" 
   using assms
 proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
-  case (conseq R G P I P' R' G' Q')
+  case (conseq R G P Q P' R' G' Q')
   show ?case 
   proof (rule conseq(2), goal_cases)
     case (1 I G'' Q'')
     then show ?case using conseq(3-7)
               rules.conseq[of "R" "G'" "P" "c" "Q'"]
-              stable_conseqI[of "G'" "Q" "G''"] sorry 
+              stable_conseqI[of "G'" "Q" "G''"] 
+              conseq(7)[of "I""G''""Q''"] by blast 
   qed
 next
-  case (inv R G P I R' I2)
+  case (inv R G P Q' R' I2)
   show ?case 
   proof (rule inv(2), goal_cases)
-    case (1 G' Q')
-    then show ?case sorry
+    case (1 I3 G' Q)
+    have a1:"P \<inter> I2 \<subseteq> (I3 \<inter> I2)" using 1(1) by auto
+    have a2:"stable (R \<inter> R') (I3 \<inter> I2)" using  1 inv stable_conjI by blast
+    have b0:"stable G I2" using inv(3,4) stable_conseqI by blast
+    have b1:"stable G' I2" using b0 1(5) stable_conseqI by blast
+    have a5:"stable G' (I3 \<inter> I2)" using 1(3) b1 stable_conjI by blast
+    have a3:"R \<inter> R', G' \<turnstile> P \<inter> I2 {c} Q \<inter> I2" using 1 inv rules.inv by blast 
+    have a0:"I3 \<inter> I2 \<subseteq> Q' \<inter> I2" using 1 inv  by auto
+    then show ?case using inv 1 a0 a1 a2 a3 a5 inv(5) by blast
   qed
 next
-  case (interr G' G P R c uu)
-  then show ?case sorry
+  case (interr P I R G c Q)
+  then show ?case using interr(6)[of "I""G""Q"] by blast
 qed 
 
 
