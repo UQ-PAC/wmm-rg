@@ -9,6 +9,8 @@ type_synonym ('a,'b) Trace = "('b \<times> 'b) set list"
 context security
 begin
 
+(* parameter S equals low equivalence: to be instantiated once I have L, \<Gamma> *)
+
 inductive_set trace :: "(('a,'b) com \<times> ('a,'b) Trace \<times> ('a,'b) com) set"
   and trace_abv :: "('a,'b) com \<Rightarrow> ('a,'b) Trace \<Rightarrow> ('a,'b) com \<Rightarrow> bool" ("_ \<mapsto>\<^sup>*_ _" [50,40,40] 70)
   where
