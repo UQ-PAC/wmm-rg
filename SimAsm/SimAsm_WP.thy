@@ -126,7 +126,7 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
     "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) (lift\<^sub>c c\<^sub>2))" |
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
       (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c\<^sub>1)) (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" |
-    "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c))*) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
+    "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>))*) (lift\<^sub>c c)) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
     "lift\<^sub>c (DoWhile I c b) = (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
 text \<open>Correctness of the guarantee check\<close>
