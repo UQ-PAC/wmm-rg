@@ -123,20 +123,49 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
-    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) (lift\<^sub>c c\<^sub>2))" |
+    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) w (lift\<^sub>c c\<^sub>2))" |
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
-      (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c\<^sub>1)) (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" |
-    "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>))*) (lift\<^sub>c c)) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
-    "lift\<^sub>c (DoWhile I c b) = (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
+      (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>1)) (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>2)))" |
+    "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>))*\<^sub>w) (lift\<^sub>c c)) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
+    "lift\<^sub>c (DoWhile I c b) = (((lift\<^sub>c c ;\<^sub>w (Basic (\<lfloor>cmp b\<rfloor>)))*\<^sub>w) ;\<^sub>w lift\<^sub>c c) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" 
 
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:
   "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow> \<forall>\<beta>\<in>basics (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
-proof (induct c) 
-  case (Op v p)
-  then show ?case by (cases p) (auto simp: liftg_def guar_def wp\<^sub>r_def)
-qed (auto simp: guar_def reflexive_def liftl_def step_def)
+proof (induct c)
+  case Skip
+  then show ?case sorry
+next
+  case (Op pred op aux)
+  then show ?case 
+    apply (cases op) 
+       apply (auto simp: liftg_def guar_def wp\<^sub>r_def) 
+    sorry
+next
+  case (Seq c1 c2)
+  then show ?case sorry
+next
+  case (If x1 c1 c2)
+  then show ?case sorry
+next
+  case (While x1 x2 c)
+  then show ?case sorry
+next
+  case (DoWhile x1 c x3)
+  then show ?case sorry
+qed 
+(* (auto simp: guar_def reflexive_def liftl_def step_def) *)
+ 
 
+(* these two dummy parameters used in the interpretation of rules
+    and help to instantiate the types of auxop and state for ARMv8 *)
+
+abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
+abbreviation "someState :: ('v,'g,'r,'a) state \<equiv> undefined" 
+
+interpretation rules"someAuxOp" "someState" by (unfold_locales)
+
+(*
 interpretation rules fwd\<^sub>s re\<^sub>a 
   apply (unfold_locales)
   apply (auto)
@@ -144,6 +173,7 @@ interpretation rules fwd\<^sub>s re\<^sub>a
   apply auto
   (* apply (auto simp: Let_def) *)
   done
+*)
 
 text \<open>Extract the instruction from an abstract operation\<close>
 abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
