@@ -118,14 +118,19 @@ fun guar\<^sub>c
 
 section \<open>Locale Interpretation\<close>
 
+definition w 
+  where "w \<alpha>' \<beta> \<alpha> \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
+
+
 text \<open>Convert the language into the abstract language expected by the underlying logic\<close> 
 fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com"
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
-    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) w (lift\<^sub>c c\<^sub>2))" |
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
-      (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>1)) (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>2)))" |
+    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) w (lift\<^sub>c c\<^sub>2))" |   (* lang.seq no wmm *)
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> state. if (eval\<^sub>b b state) then (* fix me *)
+                     (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>1)) else 
+                     (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>2))))" |
     "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>))*\<^sub>w) (lift\<^sub>c c)) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
     "lift\<^sub>c (DoWhile I c b) = (((lift\<^sub>c c ;\<^sub>w (Basic (\<lfloor>cmp b\<rfloor>)))*\<^sub>w) ;\<^sub>w lift\<^sub>c c) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" 
 
@@ -163,7 +168,11 @@ qed
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
 abbreviation "someState :: ('v,'g,'r,'a) state \<equiv> undefined" 
 
-interpretation rules"someAuxOp" "someState" by (unfold_locales)
+print_locale rules
+
+interpretation rules "someAuxOp" 
+  by (unfold_locales)
+
 
 (*
 interpretation rules fwd\<^sub>s re\<^sub>a 
@@ -186,7 +195,7 @@ definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
 
 definition wfcom
-  where "wfcom c \<equiv> \<forall>\<beta> \<in> basics c. wfbasic \<beta>"
+  where "wfcom c \<equiv> \<forall>\<beta> \<in> obs c. wfbasic \<beta>"
 
 lemma wfcomI [intro]:
   "wfcom (lift\<^sub>c c)"

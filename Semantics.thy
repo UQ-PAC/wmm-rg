@@ -29,6 +29,8 @@ text \<open> Locale semantics fixes the types 'a and 'b state;
 locale semantics =
   fixes exists_act :: "'a"
   fixes exists_state :: "'b::state"
+(*  fixes w :: "('a,'b) wmm" *)
+
 
 context semantics
 begin
