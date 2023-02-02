@@ -2,7 +2,7 @@ theory Security
   imports Soundness
 begin
 
-locale security = rules 
+locale security  = rules  
 
 type_synonym ('a,'b) Trace = "('b \<times> 'b) set list" 
 

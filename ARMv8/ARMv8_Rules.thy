@@ -192,16 +192,18 @@ fun lift\<^sub>c :: "(('v,'r,'a) auxop, ('v,'r,'a) state) wmm \<Rightarrow> ('v,
         \<lfloor>op r (Val F)\<rfloor>] |v\<^sub>a. v\<^sub>a \<in> d}))" |
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
       (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c\<^sub>1)) 
-      (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" *)
+      (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" 
 *)
+
 
 (* these two dummy parameters used in the interpretation of rules 
     and help to instantiate the types of auxop and state for ARMv8 *)
 
 abbreviation "someAuxOp ::('v,'r,'a) auxop  \<equiv> undefined"
 abbreviation "someState :: ('v,'r,'a) state \<equiv> undefined" 
+abbreviation "someAuxOp_someState ::('v,'r,'a) auxop \<times> ('v,'r,'a) state  \<equiv> undefined"
 
-interpretation rules "someAuxOp" "someState" by (unfold_locales) 
+interpretation rules "someAuxOp_someState" by (unfold_locales) 
 
 abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
   where "rules_abv \<equiv> rules"

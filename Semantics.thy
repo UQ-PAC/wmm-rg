@@ -26,10 +26,14 @@ type_synonym ('a,'b) bookkeeping = "('a,'b) log list"
 text \<open> Locale semantics fixes the types 'a and 'b state; 
         parameters exists_act and exists_state  are used as dummies to do so \<close>
 
+(*
+locale semantics =
+  fixes exists_act_state :: "'a \<times> 'b::state"
+*)
+
 locale semantics =
   fixes exists_act :: "'a"
   fixes exists_state :: "'b::state"
-(*  fixes w :: "('a,'b) wmm" *)
 
 
 context semantics
@@ -189,7 +193,7 @@ inductive obs_trace
     "obs_trace t c \<Longrightarrow> obs_trace t (c || c2)" |
     "obs_trace t c \<Longrightarrow> obs_trace t (c2 || c)"
  
-definition obs
+definition obs :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
   where "obs c \<equiv> {\<alpha>. \<exists>t. \<alpha> \<in> set t \<and> obs_trace t c}"
 
 lemma obs_exec:

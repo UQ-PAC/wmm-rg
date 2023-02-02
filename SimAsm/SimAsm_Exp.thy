@@ -6,14 +6,28 @@ section \<open>Expression Language\<close>
 
 (* first value in Exp is a function used to combine the values from its
 subexpressions into one value. *)
-datatype ('v,'g,'r) exp = Var "('g,'r) var" | Val 'v | Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list"
+datatype ('v,'g,'r) exp = 
+  Var "('g,'r) var" | 
+  Val 'v | 
+  Exp "'v option list \<Rightarrow> 'v option" "('v,'g,'r) exp list" (* some fct over a list of subexpr *) 
 
+
+text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the 
+          innermost scope in which a value is mapped to variable \<close>
+fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v option"
+  where 
+    "ev\<^sub>E m (Var r) = lookup m r" |
+    "ev\<^sub>E _ (Val v) = Some v" |
+    "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
+
+(*
 text \<open>Evaluate an expression given a state\<close>
 fun ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
   where 
     "ev\<^sub>E m (Var r) = st m r" |
     "ev\<^sub>E _ (Val v) = v" |
     "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"
+*)
 
 text \<open>The syntactic dependencies of an expression\<close>
 fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
@@ -22,6 +36,7 @@ fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
     "deps\<^sub>E (Exp _ rs) = \<Union>(deps\<^sub>E ` set rs)" |
     "deps\<^sub>E _ = {}"
 
+
 text \<open>Substitute a variable for an expression\<close>
 fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) exp"
   where
@@ -29,13 +44,24 @@ fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v
     "subst\<^sub>E (Exp f rs) r e = (Exp f (map (\<lambda>x. subst\<^sub>E x r e) rs))" |
     "subst\<^sub>E e _ _ = e"
 
-datatype ('v,'g,'r) bexp = Neg "('v,'g,'r) bexp" | Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'g,'r) exp list"
+datatype ('v,'g,'r) bexp = 
+  Neg "('v,'g,'r) bexp" | 
+  Exp\<^sub>B "'v option list \<Rightarrow> bool" "('v,'g,'r) exp list"
 
+text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
+        innermost scope in which a value exists \<close>
+fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
+  where 
+    "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
+    "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
+
+(*
 text \<open>Evaluate an expression given a state\<close>
 fun ev\<^sub>B :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
   where 
     "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
     "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
+*)
 
 text \<open>The syntactic dependencies of an expression\<close>
 fun deps\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var set"
@@ -58,11 +84,21 @@ datatype ('v,'g,'r) op =
   | nop
 
 text \<open>Operation Behaviour\<close>
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) state rel"
+fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
+  where
+    "beh\<^sub>i (assign a e) = {(t,t'). (top t') = (top t) (a :=\<^sub>s ev\<^sub>E t e)}" |
+    "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
+    "beh\<^sub>i _ = Id"
+
+
+(*
+fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s ev\<^sub>E m e)}" |
     "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> ev\<^sub>B m b}" |
     "beh\<^sub>i _ = Id"
+*)
+
 
 text \<open>Variables written by an operation\<close>
 fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
@@ -101,6 +137,9 @@ section \<open>Rules\<close>
 
 subsection \<open>Expression\<close>
 
+
+
+(*
 lemma ev_subst\<^sub>E [simp]:
   "ev\<^sub>E m (subst\<^sub>E e r f) = ev\<^sub>E (m(r :=\<^sub>s (ev\<^sub>E m f))) e"
 proof (induct e)
@@ -108,6 +147,34 @@ proof (induct e)
   hence [simp]: "map (ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (ev\<^sub>E (m(r :=\<^sub>s ev\<^sub>E m f))) rs" by auto
   show ?case by simp
 qed auto
+*)
+
+(* needs additional assumption that e doesn't evaluate to None
+   - otherwise lookup within ev\<^sub>E fails *)
+lemma ev_subst\<^sub>E [simp]:
+  assumes "(ev\<^sub>E t f) \<noteq> None"
+  shows "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f))) e"
+proof (induct e)
+  case (Var x)
+  then show ?case 
+  proof -
+    have a1:"top_upd t r (ev\<^sub>E t f) = Base (st_upd (top t) r (ev\<^sub>E t f))" using 
+                top_upd_def by metis
+    obtain t' where a2:"t'= tree_upd t (Base (st_upd (top t) r (ev\<^sub>E t f)))" by simp
+    then have a3:"lookup t' r = (ev\<^sub>E t f)" using lookup_upd by (metis assms a1)
+    thus ?case using treeUpd_change
+      by (metis a1 a2 ev\<^sub>E.simps(1) option.sel subst\<^sub>E.simps(1))
+  qed
+  next
+  case (Val x)
+  then show ?case by simp
+next
+  case (Exp fn rs) 
+    hence [simp]: "(map (ev\<^sub>E t \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs) = 
+                      (map (ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f)))) rs)"by simp
+  show ?case by simp
+qed
+
 
 lemma subst_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> subst\<^sub>E e r f = e"
@@ -117,6 +184,9 @@ proof (induct e)
   show ?case by simp
 qed auto
 
+
+
+(*
 lemma ev_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (m(r :=\<^sub>s f)) e = ev\<^sub>E m e"
 proof (induct e)
@@ -124,11 +194,31 @@ proof (induct e)
   hence [simp]: "map (ev\<^sub>E (m(r :=\<^sub>s f))) rs = map (ev\<^sub>E m) rs" by auto
   show ?case by simp
 qed auto
+*)
+lemma ev_nop\<^sub>E [simp]:
+ "r \<notin> deps\<^sub>E e  \<Longrightarrow> ev\<^sub>E (tree_upd t (top_upd t r (the f))) e = ev\<^sub>E t e"
+proof (induct e)
+  case (Var x)
+  hence [simp]: " lookup (tree_upd t (top_upd t r (the f))) x = lookup t x" 
+    using treeUpd_change by (metis deps\<^sub>E.simps(1) singletonI)           
+  then show ?case by auto
+next
+  case (Val x)
+  then show ?case by simp
+next
+  case (Exp x1a x2a)
+  hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r (the f)))) x2a 
+                  = (map (ev\<^sub>E t) x2a)" by simp
+  then show ?case by auto
+qed
+
 
 lemma deps_subst\<^sub>E [simp]:
   "deps\<^sub>E (subst\<^sub>E e x e') = deps\<^sub>E e - {x} \<union> (if x \<in> deps\<^sub>E e then deps\<^sub>E e' else {})"
   by (induct e; auto simp: if_splits)
 
+
+(*
 lemma deps_ev\<^sub>E [intro]:
   "\<forall>x \<in> deps\<^sub>E e. st m x = st m' x \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
 proof (induct e)
@@ -136,14 +226,59 @@ proof (induct e)
   hence [simp]: "map (ev\<^sub>E m) rs = map (ev\<^sub>E m') rs" by (induct rs) auto
   show ?case by simp
 qed auto
+*)
+lemma deps_ev\<^sub>E [intro]:
+  "\<forall>x \<in> deps\<^sub>E e . lookup t x = lookup t' x \<Longrightarrow> ev\<^sub>E t e = ev\<^sub>E t' e"
+proof (induct e)
+  case (Var x)
+  show ?case using deps\<^sub>E.simps(1) ev\<^sub>E.simps(1) 
+  proof -
+    obtain r where "r \<in> deps\<^sub>E (Var x)" by simp
+    thus ?case using lookup.simps ev\<^sub>E.simps(1) using Var by auto
+  qed
+  next
+  case (Val x)
+  then show ?case by auto
+next
+  case (Exp fn rs)
+  hence [simp]: "map (ev\<^sub>E t) rs = map (ev\<^sub>E t') rs" by (induct rs) auto
+  show ?case by simp
+qed
 
+(*
 lemma local_ev\<^sub>E [intro]:
   "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
   apply (intro deps_ev\<^sub>E ballI, case_tac x)
   by (auto simp: rg_def) metis
+*)
+lemma local_ev\<^sub>E [intro]:
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg\<^sub>t t = rg\<^sub>t t' \<Longrightarrow> ev\<^sub>E t e = ev\<^sub>E t' e"
+  apply (intro deps_ev\<^sub>E lookup.simps ballI, case_tac x) apply auto 
+proof (induct t)
+  case (Base x)
+  then show ?case unfolding lookup.simps(1) rg\<^sub>t_def by metis
+next
+  case (Branch t1 t2)
+  then show ?case using rg\<^sub>t_def by metis 
+qed
 
+
+(*
 lemma ev_aux\<^sub>E [simp]:
   "ev\<^sub>E (x(aux: f)) g = ev\<^sub>E x g"
+proof (induct g)
+  case (Var x)
+  then show ?case by (auto simp: aux_upd_def)
+next
+  case (Val x)
+  then show ?case by (auto simp: aux_upd_def)
+next
+  case (Exp x1a x2a)
+  then show ?case by (metis (mono_tags, lifting) ev\<^sub>E.simps(3) map_eq_conv)
+qed
+*)
+lemma ev_aux\<^sub>E [simp]:
+  "ev\<^sub>E ((aux\<^sub>t t)(aux: f)) g = ev\<^sub>E t g"
 proof (induct g)
   case (Var x)
   then show ?case by (auto simp: aux_upd_def)

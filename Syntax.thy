@@ -36,9 +36,12 @@ A While language with non-deterministic choice, iteration and parallel compositi
 Choice is intended to select from an arbitrary set of commands, however, this cannot
 be expressed as an Isabelle datatype. To mimic a set, choice takes a function from
 'labels' to arbitrary commands, where it may select any command in the function's range.
-The state encoding is reused to express the notion of a label (but maybe this is a bad idea).
+The state encoding is reused to express the notion of a label, hence the choice is over
+some set of states (but maybe this is a bad idea).
 \<close>
-(* added interrupt op *)
+
+
+
 
 datatype ('a,'b) com =
   Nil
