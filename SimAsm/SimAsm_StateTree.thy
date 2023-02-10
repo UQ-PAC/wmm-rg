@@ -25,13 +25,14 @@ text \<open> stateTree as data structure in which each leaf is a state record;
 
 datatype  'n tree = Base 'n | Branch "'n tree" "'n tree"
 
-instantiation "tree" :: (state) state
+instantiation "tree" :: (state) state         (* state is a type class 
+        and tree has to define a push operation whose arg is also a (state) *)
 begin
 definition  
       push_rec_def: "push m s = Branch m s"   (* pushes s on top of current tree t *) 
 
-instance proof
-  fix m m' s s':: "'a tree"
+instance proof             (* has to verify that the axiom of the class state holds *)
+  fix m m' s s':: "'a tree"    
   show "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')" 
     by (simp add: push_rec_def)
 qed
@@ -73,8 +74,6 @@ fun tree_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) stateTree \
   "tree_upd (Base s) newTop = newTop" |
   "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
 
-
-
 (*
 (* new tree def: local state on top of tree *)
 definition rgTree :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
@@ -89,7 +88,6 @@ definition glb\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarro
 (* local state of current tree *)
 definition rg\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg\<^sub>t t \<equiv> \<lambda>v. (lookup t) (Reg v)"
-
 
 (* auxiliary component of tree is the aux of its top state *)
 definition aux\<^sub>t 
@@ -167,6 +165,49 @@ next
   qed
 qed
 
+text \<open>InitTree is a tree in which the Base/root is fully initialised, 
+         i.e., st on base node it total \<close>
+
+fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
+  where
+  "total_map f = (\<forall> v. (f v) \<noteq> None)"
+
+fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
+  where
+  "initialised t = total_map (st (base t))"
+
+typedef ('v,'g,'r,'a) initTree = "{t ::('v,'g,'r,'a) stateTree  . initialised t}" 
+proof -
+  let ?s = "\<lambda>x. Some undefined"
+  let ?m = "\<lparr> st = ?s , cap = {}, \<dots> = (p :: 'a) \<rparr>"
+  let ?t  = "(Base ?m)"
+  have "initialised (?t:: ('v,'g,'r,'a) stateTree)" by simp
+  then have "?t \<in> {t. initialised t}" by simp
+  then show ?thesis by blast
+qed
+ 
+subsection \<open>Tree base, top and lookup and tree update\<close>
+
+definition ibase :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) state" where
+  "ibase t = base (Rep_initTree t)"
+
+definition itop :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) state" where
+  "itop t = top (Rep_initTree t)"
+
+text \<open> lookup of var in a stateTree finds the closest (topmost) frame in which var is defined 
+         and returns its value in that frame \<close>
+definition ilookup :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option" where
+  "ilookup t var =  lookup (Rep_initTree t) var"
+
+definition itop_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option \<Rightarrow> ('v,'g,'r,'a) initTree" where
+    "itop_upd t r val = Abs_initTree (top_upd (Rep_initTree t) r val)"
+(*  "itop_upd t r val = Abs_initTree (Base (st_upd (top (Rep_initTree t)) r val))" *)
+
+definition itop_aux_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) initTree" 
+  where "itop_aux_upd t f = Abs_initTree (top_aux_upd (Rep_initTree t) f)"
+
+fun itree_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree"
+  where "itree_upd t\<^sub>1 t\<^sub>2 = Abs_initTree (tree_upd (Rep_initTree t\<^sub>1) (Rep_initTree t\<^sub>2))"
 
 
 end

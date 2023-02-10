@@ -21,6 +21,7 @@ text \<open> A state record is a partial mapping from vars to values, st
        \<close>
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
                            cap :: "'a set"
+
 (*
 (* state record mapping some key (for example a variable name) to values *)
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"

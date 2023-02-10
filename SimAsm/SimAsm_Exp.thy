@@ -14,9 +14,9 @@ datatype ('v,'g,'r) exp =
 
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the 
           innermost scope in which a value is mapped to variable \<close>
-fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v option"
+fun ev\<^sub>E :: "('v,'g, 'r,'a) initTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v option"
   where 
-    "ev\<^sub>E m (Var r) = lookup m r" |
+    "ev\<^sub>E m (Var r) = lookup (Rep_initTree m) r" |
     "ev\<^sub>E _ (Val v) = Some v" |
     "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
 
@@ -50,7 +50,7 @@ datatype ('v,'g,'r) bexp =
 
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
         innermost scope in which a value exists \<close>
-fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
+fun ev\<^sub>B :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
   where 
     "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
     "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
@@ -85,9 +85,9 @@ datatype ('v,'g,'r) op =
 
 (* todo: assignment to cache variable should not sit in top state but at the base *)
 text \<open>Operation Behaviour\<close>
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
+fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) initTree rel"
   where
-    "beh\<^sub>i (assign a e) = {(t,t'). (top t') = (top t) (a :=\<^sub>s ev\<^sub>E t e)}" |
+    "beh\<^sub>i (assign a e) = {(t,t'). (top (Rep_initTree t')) = (top (Rep_initTree t)) (a :=\<^sub>s ev\<^sub>E t e)}" |
     "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
     "beh\<^sub>i _ = Id"
 
@@ -152,9 +152,10 @@ qed auto
 
 (* needs additional assumption that e doesn't evaluate to None
    - otherwise lookup within ev\<^sub>E fails *)
+(*
 lemma ev_subst\<^sub>E [simp]:
   assumes "(ev\<^sub>E t f) \<noteq> None"
-  shows "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f))) e"
+  shows "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (tree_upd t (top_upd t) r (ev\<^sub>E t f)) e"
 proof (induct e)
   case (Var x)
   then show ?case 
@@ -175,7 +176,30 @@ next
                       (map (ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f)))) rs)"by simp
   show ?case by simp
 qed
-
+*)
+lemma ev_subst\<^sub>E [simp]:
+ "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (itree_upd t (itop_upd t r (ev\<^sub>E t f))) e"
+proof (induct e)
+  case (Var x)
+  then show ?case 
+  proof -
+    have a1:"itop_upd t r (ev\<^sub>E t f) = Base (st_upd (itop t) r (ev\<^sub>E t f))" using 
+                itop_upd_def by metis
+    obtain t' where a2:"t'= tree_upd t (Base (st_upd (top t) r (ev\<^sub>E t f)))" by simp
+    then have a3:"(ev\<^sub>E t f) \<noteq> None" sorry
+    then have a4:"lookup t' r = (ev\<^sub>E t f)" using lookup_upd by (metis a1 a3)
+    thus ?case using treeUpd_change
+      by (metis a1 a2 ev\<^sub>E.simps(1) option.sel subst\<^sub>E.simps(1))
+  qed
+  next
+  case (Val x)
+  then show ?case by simp
+next
+  case (Exp fn rs) 
+    hence [simp]: "(map (ev\<^sub>E t \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs) = 
+                      (map (ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f)))) rs)"by simp
+  show ?case by simp
+qed
 
 lemma subst_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> subst\<^sub>E e r f = e"
@@ -867,16 +891,53 @@ lemma beh_substi [simp]:
 
 lemma help_beh:
   assumes "((Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e))),t\<^sub>2) \<in> beh\<^sub>i (assign x11 x12)"
-  shows "(top t\<^sub>1)(x11 :=\<^sub>s ev\<^sub>E t\<^sub>1 (subst\<^sub>E x12 x e)) = 
+  shows   "(top t\<^sub>1)(x11 :=\<^sub>s ev\<^sub>E t\<^sub>1 (subst\<^sub>E x12 x e)) = 
                       (top (updTree (wr (assign x11 x12)) (st (top t\<^sub>2)) t\<^sub>1))"
   sorry
 
 lemma beh_substi [simp]:
-  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+  "beh\<^sub>i (subst\<^sub>i \<alpha> x (e::('v, 'g, 'r) exp)) = 
         {(t\<^sub>1, updTree (wr \<alpha>) (st (top t\<^sub>2)) t\<^sub>1) |t\<^sub>1 t\<^sub>2. 
                     ((Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e))),t\<^sub>2) \<in> beh\<^sub>i \<alpha>}"
 proof (cases \<alpha>)
-  case (assign x11 x12)
+  case (assign x11 x12) 
+  have a0:"beh\<^sub>i (subst\<^sub>i \<alpha> x e) = beh\<^sub>i (assign x11 (subst\<^sub>E x12 x e))"
+    using assign by simp
+  have a1:"... = {(t,t'). (top t') = (top t) (x11 :=\<^sub>s ev\<^sub>E t (subst\<^sub>E x12 x e))}"
+    using beh\<^sub>i.simps(1) by simp
+(* assumes (ev\<^sub>E t e) \<noteq> None *)
+  have a2:"... = {(t,t'). (top t') = (top t) (x11 :=\<^sub>s ev\<^sub>E (tree_upd t (top_upd t x (ev\<^sub>E t e))) x12)}"
+    using ev_subst\<^sub>E 
+
+  have a3:"... = {(t,t'). (top t') = ((top t) (x :=\<^sub>s ev\<^sub>E t e)) (x11 :=\<^sub>s ev\<^sub>E t x12)}"
+    using st_upd_def subst\<^sub>E.simps apply simp     
+
+
+
+(*
+  obtain t\<^sub>1 t\<^sub>2 :: "('v,'g,'r,'a) stateTree"  
+    where bt:"(Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e)),t\<^sub>2) \<in> beh\<^sub>i (assign x11 x12)"
+    using beh\<^sub>i.simps(1) top.simps(1) by fastforce
+  have b0:"(Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e)),
+            Base (((top t\<^sub>1) (x :=\<^sub>s ev\<^sub>E t\<^sub>1 e))(x11 :=\<^sub>s ev\<^sub>E t\<^sub>1 x12))) \<in> beh\<^sub>i (assign x11 x12)"
+   using beh\<^sub>i.simps(1)  sorry
+*)
+
+
+
+(* then have bt2:"(top t\<^sub>2) = (top (Base ((top t\<^sub>1) (x :=\<^sub>s ev\<^sub>E t\<^sub>1 e))))(x11 :=\<^sub>s ev\<^sub>E t\<^sub>1 x12)"
+    using a0 beh\<^sub>i.simps(1) 
+*)
+
+
+    have a1:"... = {(t\<^sub>1, t\<^sub>2).(top t\<^sub>2) = (top t\<^sub>1)(x11 :=\<^sub>s ev\<^sub>E t\<^sub>1 (subst\<^sub>E x12 x e))}"
+      by simp
+    have a2:"... = {(t\<^sub>1, t\<^sub>2). 
+         (Base ((top t\<^sub>1)(x::('g,'r)var :=\<^sub>s ev\<^sub>E t\<^sub>1 e)),t\<^sub>2) \<in> beh\<^sub>i (assign x11 x12) \<longrightarrow>
+         (top t\<^sub>2) = (top (updTree (wr (assign x11 x12)) (st (top t\<^sub>2)) t\<^sub>1))}"
+      using help_beh 
+  
+(*
   then show ?thesis using beh\<^sub>i.simps(1) updTree_def st_upd_def 
   proof -
     have a0:"beh\<^sub>i (subst\<^sub>i \<alpha> x e) = beh\<^sub>i (assign x11 (subst\<^sub>E x12 x e))" 
@@ -885,11 +946,12 @@ proof (cases \<alpha>)
       by simp
     have a2:"... = {(t\<^sub>1, t\<^sub>2). 
          (top t\<^sub>2) = (top (updTree (wr (assign x11 x12)) (st (top t\<^sub>2)) t\<^sub>1))}"
-      sorry
+      using help_beh by (metis (no_types, lifting))
+*)
     then show ?thesis sorry
   qed
 next
-  case (cmp x2)
+  case (cmp x2) 
   then show ?thesis sorry
 qed auto
 
