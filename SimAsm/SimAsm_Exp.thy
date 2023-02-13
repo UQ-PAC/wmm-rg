@@ -9,15 +9,15 @@ subexpressions into one value. *)
 datatype ('v,'g,'r) exp = 
   Var "('g,'r) var" | 
   Val 'v | 
-  Exp "'v option list \<Rightarrow> 'v option" "('v,'g,'r) exp list" (* some fct over a list of subexpr *) 
+  Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list" (* some fct over a list of subexpr *) 
 
 
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the 
           innermost scope in which a value is mapped to variable \<close>
-fun ev\<^sub>E :: "('v,'g, 'r,'a) initTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v option"
+fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
   where 
-    "ev\<^sub>E m (Var r) = lookup (Rep_initTree m) r" |
-    "ev\<^sub>E _ (Val v) = Some v" |
+    "ev\<^sub>E m (Var r) = lookupSome m r" |
+    "ev\<^sub>E _ (Val v) = v" |
     "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
 
 (*
@@ -46,11 +46,11 @@ fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v
 
 datatype ('v,'g,'r) bexp = 
   Neg "('v,'g,'r) bexp" | 
-  Exp\<^sub>B "'v option list \<Rightarrow> bool" "('v,'g,'r) exp list"
+  Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'g,'r) exp list"
 
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
         innermost scope in which a value exists \<close>
-fun ev\<^sub>B :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
+fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
   where 
     "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
     "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
@@ -85,9 +85,9 @@ datatype ('v,'g,'r) op =
 
 (* todo: assignment to cache variable should not sit in top state but at the base *)
 text \<open>Operation Behaviour\<close>
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) initTree rel"
+fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
-    "beh\<^sub>i (assign a e) = {(t,t'). (top (Rep_initTree t')) = (top (Rep_initTree t)) (a :=\<^sub>s ev\<^sub>E t e)}" |
+    "beh\<^sub>i (assign a e) = {(t,t'). (top t') = (top t) (a :=\<^sub>s ev\<^sub>E t e)}" |
     "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
     "beh\<^sub>i _ = Id"
 
@@ -178,13 +178,13 @@ next
 qed
 *)
 lemma ev_subst\<^sub>E [simp]:
- "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (itree_upd t (itop_upd t r (ev\<^sub>E t f))) e"
+ "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (tree_upd t (top_upd t r (ev\<^sub>E t f))) e"
 proof (induct e)
   case (Var x)
   then show ?case 
   proof -
-    have a1:"itop_upd t r (ev\<^sub>E t f) = Base (st_upd (itop t) r (ev\<^sub>E t f))" using 
-                itop_upd_def by metis
+    have a1:"top_upd t r (ev\<^sub>E t f) = Base (st_upd (top t) r (ev\<^sub>E t f))" 
+      using top_upd_def by metis
     obtain t' where a2:"t'= tree_upd t (Base (st_upd (top t) r (ev\<^sub>E t f)))" by simp
     then have a3:"(ev\<^sub>E t f) \<noteq> None" sorry
     then have a4:"lookup t' r = (ev\<^sub>E t f)" using lookup_upd by (metis a1 a3)

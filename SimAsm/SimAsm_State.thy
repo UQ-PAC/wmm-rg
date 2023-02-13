@@ -78,8 +78,8 @@ abbreviation globals
 
 section \<open>Write Operations\<close>
                                            
-definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v option \<Rightarrow> ('v,'a,'b) state_rec_scheme"
-  where "st_upd m a b = m \<lparr> st := ((st m) (a := b)) \<rparr>"
+definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v  \<Rightarrow> ('v,'a,'b) state_rec_scheme"
+  where "st_upd m a b = m \<lparr> st := ((st m) (a := Some b)) \<rparr>"
 
 definition aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> ('v,'r,'a) state_rec_scheme"
   where "aux_upd m f \<equiv> m\<lparr>state_rec.more := f m\<rparr>"
@@ -101,11 +101,11 @@ translations
 section \<open>Simp Lemmas\<close>
 
 lemma [simp]:
-  "st (m(r :=\<^sub>s e)) q = (if r = q then e else st m q)"
+  "st (m(r :=\<^sub>s e)) q = (if r = q then Some e else st m q)"
   by (auto simp: st_upd_def)
 
 lemma [simp]:
-  "st (m(v :=\<^sub>s e)) = (st m)(v := e)"
+  "st (m(v :=\<^sub>s e)) = (st m)(v := Some e)"
   by (auto simp: st_upd_def)
 
 lemma [simp]:
@@ -117,7 +117,7 @@ lemma [simp]:
   by (auto simp: rg_def st_upd_def)
 
 lemma [simp]:
-  "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := e)"
+  "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
   by (auto simp: st_upd_def rg_def)
 
 lemma aux_nop [simp]:

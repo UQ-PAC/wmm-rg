@@ -1,5 +1,5 @@
 theory SimAsm_StateTree
-  imports SimAsm_State "../Push_State"
+  imports SimAsm_State "../Push_State" HOL.Lifting HOL.Lifting_Set "HOL-Library.DAList"
 begin
 
 section \<open>State Trees\<close>
@@ -64,7 +64,17 @@ fun lookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> '
   "lookup (Branch m m') var =
                       (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
 
-definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option \<Rightarrow> ('v,'g,'r,'a) stateTree" where
+(* we will have to add an invariant/wellformedness condition on programs which states 
+   that the variables are initialised and hence the base state is a total mapping  *)
+
+text \<open> lookupSome filters out the lookup calls that result in None \<close>
+
+fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
+  "lookupSome t var = the (lookup t var)"
+
+(* fix me *)
+
+definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v \<Rightarrow> ('v,'g,'r,'a) stateTree" where
   "top_upd t r val = Base (st_upd (top t) r val)"
 
 definition top_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) stateTree" where
@@ -146,7 +156,7 @@ next
 qed
 
 lemma lookup_upd:
-  "val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) r = val"
+  "val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) r = Some val"
 proof (induction t)
   case (Base x)
   then show ?case using lookup.simps(1) tree_upd.simps(1) top_treeUpd topUpd_single
@@ -164,6 +174,13 @@ next
       by (metis (mono_tags, lifting) option.case_eq_if option.collapse top_upd_def)
   qed
 qed
+
+
+(*
+(* This was an attempt to encode a subtype of tree for which we know that the
+Base is a total map; this falls over with the new Branch constructor which wants
+to construct a new element from two of the same type but in an initialised tree
+on the LHS of the tree is an initialised tree, the RHS should be allowed any tree *) 
 
 text \<open>InitTree is a tree in which the Base/root is fully initialised, 
          i.e., st on base node it total \<close>
@@ -185,7 +202,14 @@ proof -
   then have "?t \<in> {t. initialised t}" by simp
   then show ?thesis by blast
 qed
- 
+
+(* constructors for initialised trees *)
+definition iBase:: "(('v,('g,'r) var,'a) state_rec_scheme) \<Rightarrow> ('v,'g,'r,'a) initTree"
+  where "iBase s = Abs_initTree (Base s)"
+
+definition iBranch:: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree"
+  where "iBranch t1 t2 = Abs_initTree (Branch (Rep_initTree t1) (Rep_initTree t2))"
+
 subsection \<open>Tree base, top and lookup and tree update\<close>
 
 definition ibase :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) state" where
@@ -201,13 +225,51 @@ definition ilookup :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g,'r) var \<Righta
 
 definition itop_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option \<Rightarrow> ('v,'g,'r,'a) initTree" where
     "itop_upd t r val = Abs_initTree (top_upd (Rep_initTree t) r val)"
-(*  "itop_upd t r val = Abs_initTree (Base (st_upd (top (Rep_initTree t)) r val))" *)
 
 definition itop_aux_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) initTree" 
   where "itop_aux_upd t f = Abs_initTree (top_aux_upd (Rep_initTree t) f)"
 
 fun itree_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree"
   where "itree_upd t\<^sub>1 t\<^sub>2 = Abs_initTree (tree_upd (Rep_initTree t\<^sub>1) (Rep_initTree t\<^sub>2))"
+
+
+(* obtains the global state of current initialised tree *)
+definition iglb\<^sub>t :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g \<Rightarrow> 'v option)"
+  where "iglb\<^sub>t t \<equiv> \<lambda>v. (ilookup t) (Glb v)"
+
+(* local state of current initialised tree *)
+definition irg\<^sub>t :: "('v,'g,'r,'a) initTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
+  where "irg\<^sub>t t \<equiv> \<lambda>v. (ilookup t) (Reg v)"
+
+(* auxiliary component of an initialised tree is the aux of its top state *)
+definition iaux\<^sub>t
+  where "iaux\<^sub>t t \<equiv> more (top t)"
+
+thm tree.induct 
+
+
+(* this lemma can be used as an induction rule 
+         i.e., instead of proof (induct t) \<longrightarrow> proof (induct rule: induct_iTree) ? *)
+lemma induct_iTree:
+  assumes "\<forall>s.  P (iBase s)"
+  assumes "\<forall>t t1 t2. P (iBranch t1 t2)" 
+  shows "P t"
+  using assms
+proof (induct "Rep_initTree t")
+  case (Base x)
+  hence "Abs_initTree (Base x) =  t" using Rep_initTree_inverse by auto
+  then show ?case using Base(2) unfolding iBase_def by auto
+next
+  case (Branch x1 x2)
+  hence a: "Abs_initTree (Branch x1 x2) = t" using Rep_initTree_inverse by auto
+  then obtain t1 t2 where m1:"Abs_initTree x1 = t1" "Abs_initTree x2 = t2" by auto
+  have i:"x1 \<in> {t. initialised t}" using a 
+    by (metis Branch.hyps(3) Rep_initTree base.simps(2) initialised.simps mem_Collect_eq) 
+  then have "(Branch (Rep_initTree t1) x2) = Branch x1 x2" 
+     using a m1 i Abs_initTree_inverse by auto
+  then show ?case using Branch(5) a m1 unfolding iBranch_def sorry
+qed
+*)
 
 
 end
