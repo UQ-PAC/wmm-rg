@@ -1,5 +1,5 @@
 theory SimAsm_StateTree
-  imports SimAsm_State "../Push_State" HOL.Lifting HOL.Lifting_Set "HOL-Library.DAList"
+  imports SimAsm_State "../Push_State" 
 begin
 
 section \<open>State Trees\<close>
@@ -64,15 +64,6 @@ fun lookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> '
   "lookup (Branch m m') var =
                       (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
 
-(* we will have to add an invariant/wellformedness condition on programs which states 
-   that the variables are initialised and hence the base state is a total mapping  *)
-
-text \<open> lookupSome filters out the lookup calls that result in None \<close>
-
-fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
-  "lookupSome t var = the (lookup t var)"
-
-(* fix me *)
 
 definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v \<Rightarrow> ('v,'g,'r,'a) stateTree" where
   "top_upd t r val = Base (st_upd (top t) r val)"
@@ -155,6 +146,37 @@ next
   qed
 qed
 
+
+fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
+  where
+  "total_map f = (\<forall> v. \<exists> val. (f v) = Some val)"
+
+fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
+  where
+  "initialised t = total_map (st (base t))"
+
+lemma lookup_upd:
+  assumes "initialised t"
+  shows "lookup (tree_upd t (top_upd t r val)) r = Some val"
+proof (induction t)
+  case (Base x)
+  then show ?case using lookup.simps(1) tree_upd.simps(1) top_treeUpd topUpd_single
+    by (simp add: top_upd_def)
+next
+  case (Branch t1 t2)
+  then show ?case 
+  proof (induction t2)
+    case (Base x)
+    then show ?case using tree_upd.simps lookup.simps(2) top.simps tree.simps(5)
+      by (simp add: top_upd_def)
+  next
+    case (Branch t21 t22)
+    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6) 
+      by (simp add: top_upd_def)
+  qed 
+qed
+
+(*
 lemma lookup_upd:
   "val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) r = Some val"
 proof (induction t)
@@ -167,14 +189,54 @@ next
   proof (induction t2)
     case (Base x)
     then show ?case using tree_upd.simps lookup.simps(2) top.simps tree.simps(5)
-      by (metis (no_types, lifting) option.case_eq_if option.collapse top_upd_def)
+      by (simp add: top_upd_def)
   next
     case (Branch t21 t22)
-    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6)
-      by (metis (mono_tags, lifting) option.case_eq_if option.collapse top_upd_def)
-  qed
+    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6) 
+      by (simp add: top_upd_def)
+  qed 
+qed
+*)
+
+
+(* we will have to add an invariant/wellformedness condition on programs which states 
+   that the variables are initialised and hence the base state is a total mapping  *)
+
+text \<open> lookupSome filters out the lookup calls that result in None \<close>
+
+fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
+  "lookupSome t var = the (lookup t var)"
+
+(*
+lemma lookupNotNone:
+  assumes "lookup t v \<noteq> None"
+  shows "lookupSome t v \<noteq> None"  
+  shows counterexample lookup t v = Some None *)
+
+
+
+lemma initialised_Some:
+  assumes "initialised t"
+  shows "st (base t) v \<noteq> None" using assms by force
+
+lemma initialised_lookup:
+  assumes "initialised t"
+  shows "lookup t v \<noteq> None" using assms 
+proof (induct t)
+  case (Base x)
+  then show ?case using initialised_Some by simp
+next
+  case (Branch t1 t2)
+  then show ?case using lookup.simps(2) by (simp add: option.case_eq_if)
 qed
 
+lemma lookupSome_upd:
+  assumes "initialised t" 
+  shows  "lookupSome (tree_upd t (top_upd t r val)) r = val"
+  using lookup_upd lookupSome.elims option.sel assms by metis
+
+
+end
 
 (*
 (* This was an attempt to encode a subtype of tree for which we know that the
@@ -271,5 +333,3 @@ next
 qed
 *)
 
-
-end
