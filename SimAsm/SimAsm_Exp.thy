@@ -98,10 +98,11 @@ datatype ('v,'g,'r) op =
 
 (* todo: assignment to cache variable should not sit in top state but at the base *)
 text \<open>Operation Behaviour\<close>
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
+fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"   (*  tree t needs to be initialised !!*)
   where
-    "beh\<^sub>i (assign a e) = {(t,t'). (top t') = (top t) (a :=\<^sub>s ev\<^sub>E t e)}" |
-    "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
+    "beh\<^sub>i (assign a e) = {(t,t')| t t'. initialised t \<and> t' = tree_upd t ((top_upd t a (ev\<^sub>E t e)))}" | 
+(*    "beh\<^sub>i (assign a e) = {(t,t'). initialised t \<and> (top t') = (top t) (a :=\<^sub>s ev\<^sub>E t e)}" | *)
+    "beh\<^sub>i (cmp b) = {(t,t')| t t'. initialised t \<and> t = t' \<and> ev\<^sub>B t b}" |
     "beh\<^sub>i _ = Id"
 
 
@@ -378,7 +379,8 @@ next
 qed
 
 lemma subst\<^sub>E_flip [simp]:
-  "x \<noteq> y \<Longrightarrow> subst\<^sub>E (subst\<^sub>E e x (Val v')) y (Val v) = subst\<^sub>E (subst\<^sub>E e y (Val v)) x (Val v')"
+  "x \<noteq> y \<Longrightarrow> 
+       subst\<^sub>E (subst\<^sub>E e x (Val v')) y (Val v) = subst\<^sub>E (subst\<^sub>E e y (Val v)) x (Val v')"
   by (induct e) auto
 
 lemma subst\<^sub>E_rep [simp]:
@@ -842,29 +844,31 @@ lemma upd_cap [simp]:
   "state_rec.cap (upd V f m) = state_rec.cap m"
   by (auto simp: upd_def)
 
-(* new: same updates on trees *)
+(* new: same updates on trees *)  
+(* assume that f : 'a \<rightarrow> 'v option ; like st *)
 definition updTree
   where "updTree S f t \<equiv> 
-           tree_upd t (Base ((top t)\<lparr>st := \<lambda>x. if x \<in> S then Some(f x) else st (top t) x\<rparr>))"
+           tree_upd t (Base ((top t)\<lparr>st := \<lambda>x. if x \<in> S then (f x) else st (top t) x\<rparr>))" 
 
 lemma updTree_nil [simp]:
   "updTree {} f t = t"
   by (auto simp: updTree_def) 
 
 lemma updTree_insert [simp]:
-  "updTree (insert x V) f t = tree_upd t (Base ((upd V f (top t)) (x :=\<^sub>s f x)))"
+  "updTree (insert x V) f t = tree_upd t (Base ((top (updTree V f t)) (x :=\<^sub>s the(f x))))"
+ (* apply (auto simp: updTree_def st_upd_def intro!: state_rec.equality) *)
 proof -
-  let ?f1 = "(\<lambda>xa. if xa = x \<or> xa \<in> V then Some (f xa) else (st (top t) xa))"
-  let ?f2 = "(\<lambda>x. if x \<in> V then Some (f x) else st (top t) x)(x := Some (f x))"
-  have a0:"?f1 = ?f2" using st_upd_def by fastforce
+  let ?f1 = "(\<lambda>xa. if xa = x \<or> xa \<in> V then (f xa) else (st (top t) xa))"
+  let ?f2 = "(\<lambda>x. if            x \<in> V then (f x) else st (top t) x)(x \<mapsto> the(f x))"
+  have a0:"?f1 = ?f2" using st_upd_def sorry
   hence a1:"Base (top t\<lparr>st := ?f1\<rparr>) = Base (top t\<lparr>st := ?f2\<rparr>)" by simp
   hence a2:"tree_upd t (Base (top t\<lparr>st := ?f1\<rparr>)) = tree_upd t(Base (top t\<lparr>st := ?f2\<rparr>))" by simp
   have a3:"tree_upd t(Base (top t\<lparr>st := ?f2\<rparr>)) = 
-         tree_upd t (Base ((upd V f (top t))(x :=\<^sub>s f x)))" 
-  by (auto simp: updTree_def st_upd_def upd_def intro!: state_rec.equality)   
+         tree_upd t (Base ((top (updTree V f t))(x :=\<^sub>s the(f x))))" using a2 
+    by (auto simp: updTree_def st_upd_def intro!: state_rec.equality) 
   have a4:"tree_upd t (Base (top t\<lparr>st := ?f1\<rparr>)) = updTree (insert x V) f t"
     by (auto simp: updTree_def st_upd_def upd_def intro!: state_rec.equality)   
-  have a5:"updTree (insert x V) f t = tree_upd t (Base ((upd V f (top t))(x :=\<^sub>s f x)))"
+  have a5:"updTree (insert x V) f t = tree_upd t (Base ((top (updTree V f t))(x :=\<^sub>s the(f x))))"
     using a3 a4 a2 by simp
   thus ?thesis by simp
 qed
@@ -877,14 +881,27 @@ lemma st_upd_eq [intro]:
   by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
 
 lemma updTree_rep [simp]:
-  "updTree A (st (upd_opt A f m\<^sub>1)) t2 = updTree A f t\<^sub>2"
+  "updTree A (st (upd_opt A f m\<^sub>1)) t\<^sub>2 = updTree A f t\<^sub>2"
 (*  apply (auto simp: updTree_def intro!: state_rec.equality) *)
 proof -
-  let ?t1 = "\<lambda>x. if x \<in> A then Some (st (upd_opt A f m\<^sub>1) x) else st (top t2) x"
-  let ?t2 = "\<lambda>x. if x \<in> A then Some (f x) else st (top t\<^sub>2) x"
-  have a0:"?t1 = ?t2" using upd_def sorry
-  thus ?thesis 
-oops
+  let ?f1 = "\<lambda>x. if x \<in> A then (st (upd_opt A f m\<^sub>1) x) else st (top t\<^sub>2) x"
+  let ?f2 = "\<lambda>x. if x \<in> A then (f x) else st (top t\<^sub>2) x"
+  have a0:"x \<in> A \<Longrightarrow> (st (upd_opt A f m\<^sub>1) x = f x)" using upd_opt_def
+    by (smt (verit, best) select_convs(1) surjective update_convs(1))
+  then have "(\<lambda>x. if x \<in> A then (st (upd_opt A f m\<^sub>1) x) else st (top t\<^sub>2) x) =
+             (\<lambda>x. if x \<in> A then (f x)                   else st (top t\<^sub>2) x)" sorry
+  then have "?f1 = ?f2" by simp
+  then have 
+  "tree_upd t\<^sub>2
+     (Base
+       (SimAsm_StateTree.top t\<^sub>2
+        \<lparr>st := \<lambda>x. if x \<in> A then (st (upd_opt A f m\<^sub>1) x) else st (SimAsm_StateTree.top t\<^sub>2) x\<rparr>)) =
+  tree_upd t\<^sub>2
+   (Base
+    (SimAsm_StateTree.top t\<^sub>2\<lparr>st := \<lambda>x. if x \<in> A then (f x) else st (SimAsm_StateTree.top t\<^sub>2) x\<rparr>))" 
+    by simp
+  then show ?thesis by (auto simp: updTree_def intro!: state_rec.equality)
+qed
 
 lemma [simp]:
   "rg (upd_opt V f m) x = (if Reg x \<in> V then f (Reg x) else rg m x)"
@@ -928,25 +945,59 @@ lemma help_beh:
   sorry
 *)
 
+lemma df:
+ "tree_upd t (top_upd t x11 (ev\<^sub>E t1 x12)) = 
+     tree_upd t (Base ((top t)
+  \<lparr>st := \<lambda>x. if x \<in> {x11} then ((st (top (top_upd t x11 (ev\<^sub>E t1 x12)))) x) else st (top t) x\<rparr>))" oops
+
+ (*   updTree {x11} (st (top (top_upd t x11 (ev\<^sub>E t1 x12)))) t" *)
+
+
+(*  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m\<^sub>2) m\<^sub>1) |m\<^sub>1 m\<^sub>2. (m\<^sub>1(x :=\<^sub>s ev\<^sub>E m\<^sub>1 e),m\<^sub>2) \<in> beh\<^sub>i \<alpha>}" *)
+
 lemma beh_substi [simp]:
-  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(t\<^sub>1, updTree (wr \<alpha>) (lookupSome t\<^sub>2) t\<^sub>1) |t\<^sub>1 t\<^sub>2. 
-                              ((Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e))),t\<^sub>2) \<in> beh\<^sub>i \<alpha>}"
+  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(t\<^sub>1, updTree (wr \<alpha>) (lookup t\<^sub>2) t\<^sub>1) |t\<^sub>1 t\<^sub>2. intialised t\<^sub>1 \<and> 
+                              ((tree_upd t\<^sub>1 (Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e)))),t\<^sub>2) \<in> beh\<^sub>i \<alpha>}"
 proof (cases \<alpha>)
   case (assign x11 x12)
   have a0:"beh\<^sub>i (subst\<^sub>i \<alpha> x e) = beh\<^sub>i (assign x11 (subst\<^sub>E x12 x e))"
     using assign by simp
-  have a1:"... = {(t,t'). (top t') = (top t) (x11 :=\<^sub>s ev\<^sub>E t (subst\<^sub>E x12 x e))}"
+  have a1:"... = {(t,t')| t t'. initialised t \<and> 
+                            t' = tree_upd t (top_upd t x11 (ev\<^sub>E t (subst\<^sub>E x12 x e)))}"
     using beh\<^sub>i.simps(1) by simp
-  have a2:"... = {(t,t'). (top t') = (top t) (x11 :=\<^sub>s ev\<^sub>E (tree_upd t (top_upd t x (ev\<^sub>E t e))) x12)}"
-    using ev_subst\<^sub>E sorry
+  have a2:"... = {(t,t')| t t'. initialised t \<and> 
+                  t' = tree_upd t (top_upd t x11 (ev\<^sub>E (tree_upd t (top_upd t x (ev\<^sub>E t e))) x12))}"
+    using ev_subst\<^sub>E by auto
+  have a3:"... = {(t,t')| t t'. initialised t \<and> (\<exists> t1.
+             t1 = (tree_upd t (top_upd t x (ev\<^sub>E t e))) \<and> 
+             t' = tree_upd t (top_upd t x11 (ev\<^sub>E t1 x12)))}" by auto  
+  then have a4:"... = {(t,t')| t t'. initialised t \<and> (\<exists> t1.
+             t1 = (tree_upd t (Base ((top t)(x :=\<^sub>s ev\<^sub>E t e)))) \<and> 
+             t' = tree_upd t (top_upd t x11 (ev\<^sub>E t1 x12)))}" 
+                                           using top_upd_def by (metis (no_types, opaque_lifting))
+  then have a4:"... = {(t,t')| t t'. initialised t \<and> (\<exists> t1.
+             t1 = (tree_upd t (Base ((top t)(x :=\<^sub>s ev\<^sub>E t e)))) \<and> 
+             t' = updTree {x11} (st (top (top_upd t x11 (ev\<^sub>E t1 x12)))) t )}" 
+                                           using updTree_def sorry
 
-  have a3:"... = {(t,t'). (top t') = ((top t) (x :=\<^sub>s ev\<^sub>E t e)) (x11 :=\<^sub>s ev\<^sub>E t x12)}"
-    using st_upd_def subst\<^sub>E.simps apply simp  sorry
+                  
+  then have a7:"... = {(t,t')| t t'. initialised t \<and> (\<exists> t1 t2.
+             t1 = (tree_upd t (Base ((top t)(x :=\<^sub>s ev\<^sub>E t e)))) \<and>
+             (t1, t2) \<in> beh\<^sub>i (assign x11 x12) \<and> 
+             t' = updTree {x11} (lookup t2) t )}" sorry
+                  
+                
   then show ?thesis sorry
 next
   case (cmp x2)
   then show ?thesis sorry
-qed auto
+next
+  case full_fence
+  then show ?thesis using beh\<^sub>i.simps(3) sorry (* needs that Id is on initialised t *)
+next
+  case nop
+  then show ?thesis sorry
+qed 
 
 
 
