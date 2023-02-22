@@ -58,12 +58,19 @@ fun top :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state" where
   "top (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (top m'))"
 
 text \<open> lookup of var in a stateTree finds the closest (topmost) frame in which var is defined 
-         and returns its value in that frame \<close>
+         and returns its value in that frame;
+        when the variable is undefined (i.e., equals None) in the base of the tree, 
+         then lookup uses the initialisation of that that state, initState m
+       
+       lookupSome turns the option value into a value          \<close>
+
 fun lookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option" where
-  "lookup (Base s) var =  st s var" |
+  "lookup (Base s) var =  (case (st s var) of Some v \<Rightarrow> Some v | _ \<Rightarrow> Some (initState s var))" |
   "lookup (Branch m m') var =
                       (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
 
+fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
+  "lookupSome t var = the (lookup t var)"
 
 definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v \<Rightarrow> ('v,'g,'r,'a) stateTree" where
   "top_upd t r val = Base (st_upd (top t) r val)"
@@ -111,13 +118,15 @@ qed
 
 
 lemma stUpd_single :
-   "x \<noteq> r  \<Longrightarrow> st (st_upd m r v) x = st m x" by auto
+   "x \<noteq> r  \<Longrightarrow> st (st_upd m r v) x = st m x \<and> 
+               initState (st_upd m r v) x = initState m x" 
+  by (simp add: st_upd_def)
 
 lemma topUpd_single:
  "x \<noteq> r  \<Longrightarrow> lookup (top_upd (Base s) r (the val)) x = lookup (Base s) x"
   using top_upd_def stUpd_single by (metis(full_types) lookup.simps(1) top.simps(1))
-   
-lemma treeUpd_change: 
+
+lemma treeUpd_change:
   "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t (top_upd t r (the val))) x = lookup t x"
 proof (induct t)
   case (Base s)
@@ -155,12 +164,13 @@ fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
   where
   "initialised t = total_map (st (base t))"
 
+
 lemma lookup_upd:
-  assumes "initialised t"
-  shows "lookup (tree_upd t (top_upd t r val)) r = Some val"
+  "lookup (tree_upd t (top_upd t r val)) r = Some val" 
 proof (induction t)
   case (Base x)
-  then show ?case using lookup.simps(1) tree_upd.simps(1) top_treeUpd topUpd_single
+  then show ?case 
+    using lookup.simps(1) tree_upd.simps(1) top_upd_def top_treeUpd topUpd_single
     by (simp add: top_upd_def)
 next
   case (Branch t1 t2)
@@ -175,6 +185,17 @@ next
       by (simp add: top_upd_def)
   qed 
 qed
+
+lemma lookupSome_upd:
+  "lookupSome (tree_upd t (top_upd t r val)) r = val"
+  using lookup_upd lookupSome.elims option.sel by metis
+
+end
+
+(*------ not required if we have an initState slot in the state record:
+          the problem without an totalmap initState, the condition (initialised t)
+          is carried through all lemmas and even sits in the definition of beh\<^sub>i  
+
 
 (*
 lemma lookup_upd:
@@ -199,13 +220,12 @@ qed
 *)
 
 
+
+
 (* we will have to add an invariant/wellformedness condition on programs which states 
    that the variables are initialised and hence the base state is a total mapping  *)
 
 text \<open> lookupSome filters out the lookup calls that result in None \<close>
-
-fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
-  "lookupSome t var = the (lookup t var)"
 
 (*
 lemma lookupNotNone:
@@ -234,9 +254,8 @@ lemma lookupSome_upd:
   assumes "initialised t" 
   shows  "lookupSome (tree_upd t (top_upd t r val)) r = val"
   using lookup_upd lookupSome.elims option.sel assms by metis
+*)
 
-
-end
 
 (*
 (* This was an attempt to encode a subtype of tree for which we know that the

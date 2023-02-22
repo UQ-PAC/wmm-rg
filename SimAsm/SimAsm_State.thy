@@ -11,7 +11,11 @@ datatype ('g,'r) var = Reg 'r | Glb 'g
 
 text \<open> A state record is a partial mapping from vars to values, st
          capture set, cap, denotes the set of "new" variables that the frame quantifies over
-         (these are the variables updated in the framed code)
+             (these are the variables updated in the framed code)
+         initState gives us a slot for initialising a state (if required); 
+            it provides a total function 
+            (so that lookup can always return a value when st m evaluates to None)
+            initState is not in "sync" with st!
        state_rec describes the current "frame" on which an inst operates over, 
          including mappings to variables that are existentially bound within the current 
          "context" 
@@ -21,6 +25,7 @@ text \<open> A state record is a partial mapping from vars to values, st
        \<close>
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
                            cap :: "'a set"
+                           initState :: "'a \<Rightarrow> 'v"
 
 (*
 (* state record mapping some key (for example a variable name) to values *)
@@ -55,6 +60,7 @@ type_synonym ('v,'g,'r,'a) rtrans = "('v,'g,'r,'a) trel \<Rightarrow> ('v,'g,'r,
 
 (* the possible extension of the state is used to store this auxiliary information *)
 type_synonym ('v,'g,'r,'a) auxfn = "('v,('g,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
+
 
 (* obtains the global state *)
 definition glb :: "('v,'g,'r,'a) state \<Rightarrow> ('g \<Rightarrow> 'v option)"
