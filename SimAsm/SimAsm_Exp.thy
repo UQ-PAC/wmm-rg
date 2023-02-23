@@ -150,7 +150,7 @@ section \<open>Rules\<close>
 
 subsection \<open>Expression\<close>
 
-
+ 
 
 (*
 lemma ev_subst\<^sub>E [simp]:
@@ -901,9 +901,10 @@ lemma beh_substi [simp]:
 *)
 
 lemma eq_comm:
-  "(a \<longrightarrow> (b = c)) \<Longrightarrow> (a \<Longrightarrow> (c = b))" by blast
+  "(a \<Longrightarrow> (b = c)) \<Longrightarrow> (a \<Longrightarrow> (c = b))" by blast
 
- 
+
+thm state_rec.equality
 
 lemma beh_substi [simp]:
   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
@@ -923,77 +924,19 @@ lemma beh_substi [simp]:
    using fun_upd_other fun_upd_same select_convs(1) st_upd_def surjective update_convs(1) 
    apply (metis (no_types, lifting))
   apply (rule state_rec.equality)
-      apply auto
-   sorry
-
- \<And>x11 x12 a.
-       \<alpha> = assign x11 x12 \<Longrightarrow>
-       st a(x11 \<mapsto> ev\<^sub>E (Base (a(x :=\<^sub>s ev\<^sub>E (Base a) e))) x12) =
-       (\<lambda>xa. if xa = x11 then st (a\<lparr>st := st a(x \<mapsto> ev\<^sub>E (Base a) e, x11 \<mapsto> ev\<^sub>E (Base (a\<lparr>st := st a(x \<mapsto> ev\<^sub>E (Base a) e)\<rparr>)) x12)\<rparr>) xa else st a xa)
- \<And>x11 x12 m\<^sub>1.
-       \<alpha> = assign x11 x12 \<Longrightarrow>
-       (\<lambda>xa. if xa = x11 then st (m\<^sub>1\<lparr>st := st m\<^sub>1(x \<mapsto> ev\<^sub>E (Base m\<^sub>1) e, x11 \<mapsto> ev\<^sub>E (Base (m\<^sub>1\<lparr>st := st m\<^sub>1(x \<mapsto> ev\<^sub>E (Base m\<^sub>1) e)\<rparr>)) x12)\<rparr>) xa else st m\<^sub>1 xa) = st m\<^sub>1(x11 \<mapsto>
-       ev\<^sub>E (Base (m\<^sub>1(x :=\<^sub>s ev\<^sub>E (Base m\<^sub>1) e))) x12)
-
+      apply (auto simp: top_upd_def)
+   apply (rule eq_comm)
+   apply auto
+   using fun_upd_other fun_upd_same select_convs(1) st_upd_def surjective update_convs(1) 
+by (metis (no_types, lifting))
+ 
+   
 
 lemma behTree_substi [simp]:
-  "behTree\<^sub>i (subst\<^sub>i \<alpha> x e) = {(t,t')| t t' m m'. (m,m')\<in>beh\<^sub>i(subst\<^sub>i \<alpha> x e) \<and> 
+  "behTree\<^sub>i (subst\<^sub>i \<alpha> x e) = {(t,t')| t t' m m'. (m,m') \<in> beh\<^sub>i(subst\<^sub>i \<alpha> x e) \<and> 
                                             top t = m \<and> t'=tree_upd t (Base m')}"
   using beh_substi by simp
 
-
-(*
-lemma beh_substi' [simp]:
-  "behTree\<^sub>i (subst\<^sub>i \<alpha> x e) = {(t\<^sub>1, updTree_part (wr \<alpha>) (lookup t\<^sub>2) t\<^sub>1) |t\<^sub>1 t\<^sub>2.
-                              ((tree_upd t\<^sub>1 (Base ((top t\<^sub>1)(x :=\<^sub>s ev\<^sub>E t\<^sub>1 e)))),t\<^sub>2) \<in> behTree\<^sub>i \<alpha>}"
-proof (cases \<alpha>)
-  case (assign x11 x12)
-  have a0:"behTree\<^sub>i (subst\<^sub>i \<alpha> x e) = behTree\<^sub>i (assign x11 (subst\<^sub>E x12 x e))"
-    using assign by simp
-  have a1:"... = {(t,t')| t t' m m'. (m, m') \<in> beh\<^sub>i(assign x11 (subst\<^sub>E x12 x e)) \<and>
-                                  top t = m \<and> t' = tree_upd t (Base m') }" 
-    using beh\<^sub>i.simps(1) by auto
-  then have a2:"... = {(t,t')| t t' m m'. (m, m') \<in> beh\<^sub>i(subst\<^sub>i (assign x11 x12) x e) \<and>
-                                  top t = m \<and> t' = tree_upd t (Base m') }" 
-    using beh_substi by auto
-
-
-  have a1:"... = {(t,t')| t t'. t' = tree_upd t (top_upd t x11 (ev\<^sub>E t (subst\<^sub>E x12 x e)))}"
-    using beh\<^sub>i.simps(1) by auto
-    have a2:"... = {(t,t')| t t'. 
-            t' = tree_upd t (top_upd t x11 (ev\<^sub>E (tree_upd t (top_upd t x (ev\<^sub>E t e))) x12))}"
-    using ev_subst\<^sub>E by auto
-  have a3:"... = {(t,t')| t t'. (\<exists> t1.
-             t1 = (tree_upd t (top_upd t x (ev\<^sub>E t e))) \<and> 
-             t' = tree_upd t (top_upd t x11 (ev\<^sub>E t1 x12)))}" by auto  
-  have a4:"... = {(t,t')| t t'.(\<exists> t1.
-             t1 = (tree_upd t (Base ((top t)(x :=\<^sub>s ev\<^sub>E t e)))) \<and> 
-             t' = tree_upd t (top_upd t x11 (ev\<^sub>E t1 x12)))}" 
-                                           using top_upd_def by (metis (no_types, opaque_lifting))
-  then have a4:"... = {(t,t')| t t'.(\<exists> t1.
-             t1 = (tree_upd t (Base ((top t)(x :=\<^sub>s ev\<^sub>E t e)))) \<and> 
-             t' = updTree_part {x11} (st (top (top_upd t x11 (ev\<^sub>E t1 x12)))) t )}" 
-                                           using updTree_part_def sorry
-
-                  
-  then have a7:"... = {(t,t')| t t'. initialised t \<and> (\<exists> t1 t2.
-             t1 = (tree_upd t (Base ((top t)(x :=\<^sub>s ev\<^sub>E t e)))) \<and>
-             (t1, t2) \<in> beh\<^sub>i (assign x11 x12) \<and> 
-             t' = updTree_part {x11} (lookup t2) t )}" sorry
-                  
-                
-  then show ?thesis sorry
-next
-  case (cmp x2)
-  then show ?thesis sorry
-next
-  case full_fence
-  then show ?thesis using beh\<^sub>i.simps(3) subst\<^sub>i.simps(3) updTree_part_def sorry
-next
-  case nop
-  then show ?thesis sorry
-qed 
-*)
 
 
 (*todo *)
@@ -1003,6 +946,10 @@ lemma [simp]:
   "st (m(x :=\<^sub>s e)) = (st m)(x := Some e)"
   by (auto simp: st_upd_def)
 
+lemma [simp]:
+  "Base (st (m(x :=\<^sub>s e))) = Base ((st m)(x := Some e))"
+  by (auto simp: st_upd_def)
+
 (* 
 lemma beh_smap1 [simp]:
   "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1.(upd ({x} \<inter> dom M) (the o M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
@@ -1010,9 +957,33 @@ by (cases \<alpha> ; auto simp: smap1_def)
 *)
 
 
+
+lemma state_simp:
+  assumes "m2 = m1\<lparr>st := \<lambda>xa. if xa = x \<and> xa \<in> dom M then M xa else st m1 xa\<rparr>"
+          "t = (Base (m2))"
+  shows "st (m1 (x :=\<^sub>s ev\<^sub>E t y)) =
+         st (m1 \<lparr>st := \<lambda>xa. if xa = x then st ( m2 (x :=\<^sub>s ev\<^sub>E t y)) xa else st m1 xa\<rparr>)"
+  sorry
+
+
 lemma beh_smap1 [simp]:
-  "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1.(upd ({x} \<inter> dom M) (the o M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
+  "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1.(upd_part ({x} \<inter> dom M) (M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
   apply (cases \<alpha> ; auto simp: smap1_def upd_part_def) 
+         apply (rule state_rec.equality)
+  
+
+
+(*          apply (auto simp: top_upd_def)
+        apply (clarsimp simp: upd_def upd_part_def st_upd_def)
+        defer 1
+  apply (simp add: st_upd_def)+
+         defer 3
+         apply (smt (verit, best) deps_ev\<^sub>B domIff ext_inject 
+              fun_upd_other fun_upd_same lookup.simps(1) not_None_eq st_upd_def surjective update_convs(1))
+*)  
+  
+   
+       
   sorry
 
 
