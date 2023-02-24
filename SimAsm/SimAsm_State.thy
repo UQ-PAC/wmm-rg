@@ -145,7 +145,7 @@ lemma [simp]:
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
   by (auto simp: aux_def glb_def)
-
+(**)
 lemma [simp]:
   "st m (Reg x) = rg m x"
   by (auto simp: rg_def)

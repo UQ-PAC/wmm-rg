@@ -39,23 +39,40 @@ qed
 end
 
 type_synonym ('v,'g,'r,'a) stateTree = "(('v,('g,'r) var,'a) state_rec_scheme) tree"
+type_synonym ('v,'r,'a) gstateTree = "(('v,'v,'a) state_rec_scheme) tree"
 
 type_synonym ('v,'g,'r,'a) predTree = "('v,'g,'r,'a) stateTree set"
-
-type_synonym ('v,'r,'a) gstateTree = "(('v,'v,'a) state_rec_scheme) tree"
 type_synonym ('v,'a) gpredTree = "('v,'v,'a) gstateTree set"
 
+type_synonym ('v,'g,'r,'a) trelTree = "('v,'g,'r,'a) stateTree rel"
+type_synonym ('v,'g,'a) grelTree = "('v,'g,'a) gstateTree rel"
+
+type_synonym ('v,'g,'r,'a) transTree = "('v,'g,'r,'a) predTree \<Rightarrow> ('v,'g,'r,'a) predTree"
+type_synonym ('v,'g,'r,'a) rtransTree = "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
 
 
-subsection \<open>Tree base, top and lookup and tree update\<close>
 
+subsection \<open>Tree access: base, top and lookup\<close>
+
+(*
 fun base :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state" where
   "base (Base s) = s" |
   "base (Branch m m') = (base m)"
+*)
+fun base :: "('v,'a,'b) state_rec_scheme tree \<Rightarrow> ('v,'a,'b) state_rec_scheme" where
+  "base (Base s) = s" |
+  "base (Branch m m') = (base m)"
 
+
+(*
 fun top :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state" where
   "top (Base s) = s" |
   "top (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (top m'))"
+*)
+fun top :: "('v,'a,'b) state_rec_scheme tree \<Rightarrow> ('v,'a,'b) state_rec_scheme" where
+  "top (Base s) = s" |
+  "top (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (top m'))"
+
 
 text \<open> lookup of var in a stateTree finds the closest (topmost) frame in which var is defined 
          and returns its value in that frame;
@@ -64,30 +81,17 @@ text \<open> lookup of var in a stateTree finds the closest (topmost) frame in w
        
        lookupSome turns the option value into a value          \<close>
 
-fun lookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option" where
-  "lookup (Base s) var =  (case (st s var) of Some v \<Rightarrow> Some v | _ \<Rightarrow> Some (initState s var))" |
+(*  (lookup t) and (lookupSome t)  match (st m) -- give a mapping var \<rightarrow> val option 
+                                                               or var \<rightarrow> val *)
+(* fun lookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option" where*)
+fun lookup :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 'a \<Rightarrow> 'v option" where
+  "lookup (Base s) var =  (st s var)" |
   "lookup (Branch m m') var =
                       (case (lookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> lookup m var)"
 
 fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
-  "lookupSome t var = the (lookup t var)"
-
-definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v \<Rightarrow> ('v,'g,'r,'a) stateTree" where
-  "top_upd t r val = Base (st_upd (top t) r val)"
-
-definition top_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) stateTree" where
-  "top_aux_upd t f = Base (aux_upd (top t) f)"
-
-fun tree_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) stateTree" where
-  "tree_upd (Base s) newTop = newTop" |
-  "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
-
-(*
-(* new tree def: local state on top of tree *)
-definition rgTree :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
-  where "rgTree t \<equiv> \<lambda>v. st (top t) (Reg v)"
-
-*)
+  "lookupSome t var = (case (lookup t var) of Some v \<Rightarrow> v | 
+                                                   _ \<Rightarrow> (initState (base t) var))"
 
 (* obtains the global state of current tree *)
 definition glb\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarrow> 'v option)"
@@ -102,11 +106,51 @@ definition aux\<^sub>t
   where "aux\<^sub>t t \<equiv> more (top t)"
 
 
+subsection \<open>Write Operations on trees: update top and tree\<close>
+
+(* top_upd :: tree \<Rightarrow> var \<Rightarrow> val \<Rightarrow> state *)
+(*definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v \<Rightarrow> ('v,'g,'r,'a) stateTree" where *)
+definition top_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
+                                               'a \<Rightarrow> 'v \<Rightarrow> ('v,'a,'c) state_rec_scheme" where
+  "top_upd t r val = (st_upd (top t) r val)"
+
+(*definition top_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) stateTree" where*)
+definition top_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
+                     (('v,'a,'c) state_rec_scheme \<Rightarrow> 'c) \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" where
+  "top_aux_upd t f = Base (aux_upd (top t) f)"
+
+(* tree_upd :: tree \<Rightarrow> state \<Rightarrow> tree *)
+(*fun tree_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r,'a) stateTree" where*)
+fun tree_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
+                             ('v,'a,'c) state_rec_scheme \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" where
+  "tree_upd (Base s) newTop = (Base newTop)" |
+  "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
+
+
+(* tr_upd :: tree \<Rightarrow> var \<Rightarrow> val \<Rightarrow> tree *)
+definition tr_upd :: "('v,'a,'b) state_rec_scheme tree \<Rightarrow> 'a \<Rightarrow> 'v  \<Rightarrow> ('v,'a,'b) state_rec_scheme tree" 
+(*  where "tr_upd t a b = tree_upd t ((top t) \<lparr> st := ((st (top t)) (a := Some b)) \<rparr>)" *)
+  where "tr_upd t a b = tree_upd t ((top t) \<lparr> st := ((st (top t)) (a := Some b)) \<rparr>)"
+
+definition tr_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
+                            (('v,'a,'c) state_rec_scheme \<Rightarrow> 'c)  \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" 
+  where "tr_aux_upd t f = tree_upd t ((top t) \<lparr>state_rec.more := f (top t)\<rparr>)"
+
+
+syntax
+  "_updbindm" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"            ("(2_ :=\<^sub>t/ _)")
+  "_updbinda" :: "'a \<Rightarrow> updbind"                  ("(2aux\<^sub>t:/ _)")
+
+translations
+  "t(x :=\<^sub>t y)" \<rightleftharpoons> "CONST tr_upd t x y"
+  "t(aux\<^sub>t: f)" \<rightleftharpoons> "CONST tr_aux_upd t f"
+
+
 
 subsection \<open> tree lemmas \<close>
 
 lemma treeUpd_top [simp]: 
-  "tree_upd t (Base (top t)) = t" 
+  "tree_upd t (top t) = t" 
 proof (induction t)
   case (Base x)
   then show ?case by auto
@@ -123,7 +167,7 @@ lemma stUpd_single :
   by (simp add: st_upd_def)
 
 lemma topUpd_single:
- "x \<noteq> r  \<Longrightarrow> lookup (top_upd (Base s) r (the val)) x = lookup (Base s) x"
+ "x \<noteq> r  \<Longrightarrow> lookup (Base (top_upd (Base s) r (the val))) x = lookup (Base s) x"
   using top_upd_def stUpd_single by (metis(full_types) lookup.simps(1) top.simps(1))
 
 lemma treeUpd_change:
@@ -139,7 +183,7 @@ next
 qed
 
 lemma top_treeUpd [simp]:
-    "top (tree_upd t (Base newTop)) = newTop" 
+    "top (tree_upd t newTop) = newTop" 
 proof (induction t)
   case (Base x)
   then show ?case by simp
@@ -154,15 +198,6 @@ next
     then show ?case by auto
   qed
 qed
-
-
-fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
-  where
-  "total_map f = (\<forall> v. \<exists> val. (f v) = Some val)"
-
-fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
-  where
-  "initialised t = total_map (st (base t))"
 
 
 lemma lookup_upd:
@@ -188,14 +223,88 @@ qed
 
 lemma lookupSome_upd:
   "lookupSome (tree_upd t (top_upd t r val)) r = val"
-  using lookup_upd lookupSome.elims option.sel by metis
+  using lookup_upd lookupSome.elims by (metis option.simps(5))
+
+section \<open>Simp Lemmas\<close>
+
+lemma [simp]:
+  assumes "r = q"
+  shows "lookup (tree_upd t (top t\<lparr>st := st (top t)(q \<mapsto> e)\<rparr>)) q = Some e"
+  by (metis lookup_upd st_upd_def top_upd_def)
+
+lemma [simp]:
+  assumes "r \<noteq> q"
+  shows "lookup (tree_upd t (top t\<lparr>st := st (top t)(r \<mapsto> e)\<rparr>)) q = lookup t q"
+  by (metis assms option.sel st_upd_def top_upd_def treeUpd_change)
+
+lemma [simp]:
+  "lookup (t(r :=\<^sub>t e)) q = (if r = q then Some e else lookup t q)"
+  by (auto simp: tr_upd_def st_upd_def) 
+
+
+lemma [simp]:
+  "lookup (t(v :=\<^sub>t e)) = (lookup t)(v := Some e)"
+  by (auto simp: st_upd_def)
+
+lemma [simp]:
+  "more (top (t(aux\<^sub>t: e))) = e (top t)"
+  using tr_aux_upd_def
+  by (metis cases_scheme select_convs(4) top_treeUpd update_convs(4))
+
+lemma [simp]:
+  "rg\<^sub>t (t(Glb x :=\<^sub>t e)) = rg\<^sub>t t"
+  by (auto simp: rg\<^sub>t_def tr_upd_def)
+
+lemma [simp]:
+  "rg\<^sub>t (t(Reg x :=\<^sub>t e)) = (rg\<^sub>t t)(x := Some e)"
+  by (auto simp: tr_upd_def rg\<^sub>t_def)
+
+lemma tr_aux_nop [simp]:
+  "t(aux\<^sub>t:more) = t"
+  by (auto simp: tr_aux_upd_def)
+
+lemma tr_aux_st [simp]:
+  "lookup (t(aux\<^sub>t: e)) = lookup t"
+  apply (auto simp: tr_aux_upd_def)
+  sorry
+
+(* todo: define equality on trees to mimic state_rec_scheme equality *)
+lemma tree_upd_twist: "a \<noteq> c \<Longrightarrow> (t(a :=\<^sub>t b))(c :=\<^sub>t d) = (t(c :=\<^sub>t d))(a :=\<^sub>t b)"
+  unfolding tr_upd_def apply (auto intro!: equality fun_upd_twist)
+  sorry
+
+lemma [simp]:
+  "glb\<^sub>t (t(Reg r :=\<^sub>t e)) = glb\<^sub>t t"
+  by (auto simp: glb\<^sub>t_def tr_upd_def)
+
+(* type checking: LHS is considered typed correct, which is strange?
+lemma
+  "glb\<^sub>t (t(aux\<^sub>t: f(t(Reg r:=\<^sub>t e)))) = glb\<^sub>t t"
+*)
+
+(*
+lemma [simp]:
+  "glb\<^sub>t (t(Reg r :=\<^sub>t e, aux\<^sub>t: f)) = glb\<^sub>t (t(aux\<^sub>t: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
+  by (auto simp: tr_aux_def glb\<^sub>t_def)
+*)
+
 
 end
+
 
 (*------ not required if we have an initState slot in the state record:
           the problem without an totalmap initState, the condition (initialised t)
           is carried through all lemmas and even sits in the definition of beh\<^sub>i  
 
+
+
+fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
+  where
+  "total_map f = (\<forall> v. \<exists> val. (f v) = Some val)"
+
+fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
+  where
+  "initialised t = total_map (st (base t))"
 
 (*
 lemma lookup_upd:

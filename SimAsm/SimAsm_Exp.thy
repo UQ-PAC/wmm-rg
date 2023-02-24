@@ -87,9 +87,9 @@ datatype ('v,'g,'r) op =
   | nop
 
 text \<open>Operation Behaviour\<close>
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) state rel"
+fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
-    "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s (ev\<^sub>E (Base m) e))}" |
+    "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s (ev\<^sub>E (m) e))}" |
     "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> ev\<^sub>B (Base m) b}" |
     "beh\<^sub>i _ = Id"
 
@@ -964,7 +964,6 @@ lemma state_simp:
   shows "st (m1 (x :=\<^sub>s ev\<^sub>E t y)) =
          st (m1 \<lparr>st := \<lambda>xa. if xa = x then st ( m2 (x :=\<^sub>s ev\<^sub>E t y)) xa else st m1 xa\<rparr>)"
   sorry
-
 
 lemma beh_smap1 [simp]:
   "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1.(upd_part ({x} \<inter> dom M) (M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
