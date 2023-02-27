@@ -106,6 +106,7 @@ definition aux\<^sub>t
   where "aux\<^sub>t t \<equiv> more (top t)"
 
 
+
 subsection \<open>Write Operations on trees: update top and tree\<close>
 
 (* top_upd :: tree \<Rightarrow> var \<Rightarrow> val \<Rightarrow> state *)
@@ -146,7 +147,6 @@ translations
   "t(aux\<^sub>t: f)" \<rightleftharpoons> "CONST tr_aux_upd t f"
 
 
-
 subsection \<open> tree lemmas \<close>
 
 lemma treeUpd_top [simp]: 
@@ -181,6 +181,7 @@ next
              tree.inject(2) tree.simps(5) tree.simps(6) tree_upd.simps(2)
     by (smt (verit, ccfv_threshold) )
 qed
+
 
 lemma top_treeUpd [simp]:
     "top (tree_upd t newTop) = newTop" 
@@ -225,6 +226,17 @@ lemma lookupSome_upd:
   "lookupSome (tree_upd t (top_upd t r val)) r = val"
   using lookup_upd lookupSome.elims by (metis option.simps(5))
 
+
+lemma treeUpd_change1:
+  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
+                                       = lookup t x"
+  using treeUpd_change by (metis option.sel st_upd_def top_upd_def)
+
+lemma treeUpd_change2:
+  "x = r  \<Longrightarrow> lookup (tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
+                                       = Some (ev\<^sub>E t f)"
+     by (metis lookup_upd st_upd_def top_upd_def)
+
 section \<open>Simp Lemmas\<close>
 
 lemma [simp]:
@@ -263,31 +275,70 @@ lemma tr_aux_nop [simp]:
   "t(aux\<^sub>t:more) = t"
   by (auto simp: tr_aux_upd_def)
 
-lemma tr_aux_st [simp]:
-  "lookup (t(aux\<^sub>t: e)) = lookup t"
-  apply (auto simp: tr_aux_upd_def)
-  sorry
 
-(* todo: define equality on trees to mimic state_rec_scheme equality *)
+lemma tr_aux_st [simp]:
+  "lookup (t(aux\<^sub>t: e)) = lookup t" 
+  apply (auto simp: tr_aux_upd_def)
+proof (induct t)
+  case (Base x)
+  then show ?case by simp
+next
+  case (Branch t1 t2)
+  then show ?case 
+    by (metis lookup.simps(2) top_treeUpd treeUpd_top tree_upd.simps(2))
+qed
+
+(*
+lemma br_eq1:
+   "t\<^sub>1 = t\<^sub>2 \<Longrightarrow> \<forall> t. Branch t t\<^sub>1 = Branch t t\<^sub>2" by simp
+
+lemma br_eq2:
+   "t\<^sub>1 = t\<^sub>2 \<Longrightarrow> \<forall> t. Branch t\<^sub>1 t = Branch t\<^sub>2 t" by simp
+
+lemma tr_eq:
+   "t\<^sub>1 = t\<^sub>2 \<Longrightarrow> 
+        (top t\<^sub>1) = (top t\<^sub>2) \<and> (\<exists>t\<^sub>B. Branch t\<^sub>B (Base (top t\<^sub>1)) = Branch t\<^sub>B (Base (top t\<^sub>2)))" 
+  by simp
+*)
+
 lemma tree_upd_twist: "a \<noteq> c \<Longrightarrow> (t(a :=\<^sub>t b))(c :=\<^sub>t d) = (t(c :=\<^sub>t d))(a :=\<^sub>t b)"
-  unfolding tr_upd_def apply (auto intro!: equality fun_upd_twist)
-  sorry
+proof (induct t)
+  case (Base x)
+  then show ?case unfolding tr_upd_def by (auto intro!: equality fun_upd_twist)
+next
+  case (Branch t1 t2)
+  then show ?case 
+    by (metis top_treeUpd tr_upd_def treeUpd_top tree_upd.simps(2))
+qed
 
 lemma [simp]:
   "glb\<^sub>t (t(Reg r :=\<^sub>t e)) = glb\<^sub>t t"
   by (auto simp: glb\<^sub>t_def tr_upd_def)
 
-(* type checking: LHS is considered typed correct, which is strange?
-lemma
-  "glb\<^sub>t (t(aux\<^sub>t: f(t(Reg r:=\<^sub>t e)))) = glb\<^sub>t t"
-*)
-
-(*
 lemma [simp]:
-  "glb\<^sub>t (t(Reg r :=\<^sub>t e, aux\<^sub>t: f)) = glb\<^sub>t (t(aux\<^sub>t: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
-  by (auto simp: tr_aux_def glb\<^sub>t_def)
-*)
+  "glb\<^sub>t (t(Reg r :=\<^sub>t e, aux\<^sub>t: f)) = glb\<^sub>t (t(aux\<^sub>t: \<lambda>m. f(top (t(Reg r :=\<^sub>t e)))))"
+  by (auto simp: glb\<^sub>t_def)
 
+lemma [simp]:
+  "lookup t (Reg x) = rg\<^sub>t t x"
+  by (auto simp: rg\<^sub>t_def)
+
+lemma [simp]:
+  "aux\<^sub>t (t(Reg x :=\<^sub>t e)) = aux\<^sub>t t"
+  by (auto simp: aux\<^sub>t_def tr_aux_upd_def tr_upd_def) 
+
+lemma [simp]:
+  "state_rec.more (top (t(x :=\<^sub>t e))) = state_rec.more (top t)"
+  by (auto simp: tr_upd_def)
+
+lemma [simp]:
+  "state_rec.more (top (t(aux\<^sub>t: f))) = f (top t)"
+  by (auto simp: aux_upd_def)
+
+lemma tr_aux_exec [intro!]:
+  assumes "(t\<^sub>1,t\<^sub>2) \<in> P"
+  shows "(t\<^sub>1,t\<^sub>2(aux\<^sub>t: f)) \<in> P O {(t, t'). t' = t(aux\<^sub>t: f)}"
+  using assms by blast
 
 end
 

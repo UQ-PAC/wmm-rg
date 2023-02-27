@@ -69,7 +69,7 @@ definition glb :: "('v,'g,'r,'a) state \<Rightarrow> ('g \<Rightarrow> 'v option
 definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
 
-definition aux
+definition aux :: "('v,'g,'r,'a) state \<Rightarrow> 'a"
   where "aux m \<equiv> more m"
 
 text \<open>Domain of register variables\<close>
@@ -145,7 +145,7 @@ lemma [simp]:
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
   by (auto simp: aux_def glb_def)
-(**)
+
 lemma [simp]:
   "st m (Reg x) = rg m x"
   by (auto simp: rg_def)
