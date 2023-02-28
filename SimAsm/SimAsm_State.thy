@@ -27,6 +27,7 @@ record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
                            cap :: "'a set"
                            initState :: "'a \<Rightarrow> 'v"
 
+print_theorems
 (*
 (* state record mapping some key (for example a variable name) to values *)
 record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
@@ -83,8 +84,12 @@ abbreviation globals
   where "globals \<equiv> Glb ` UNIV"
 
 section \<open>Write Operations\<close>
-                                           
+
+(*
 definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow> 'v  \<Rightarrow> ('v,'a,'b) state_rec_scheme"
+  where "st_upd m a b = m \<lparr> st := ((st m) (a := Some b)) \<rparr>"
+*)
+definition st_upd :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) state"
   where "st_upd m a b = m \<lparr> st := ((st m) (a := Some b)) \<rparr>"
 
 definition aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> ('v,'r,'a) state_rec_scheme"
@@ -101,7 +106,7 @@ syntax
 
 translations
   "_Update f (_updbinds b bs)" \<rightleftharpoons> "_Update (_Update f b) bs"
-  "f(x:=\<^sub>sy)" \<rightleftharpoons> "CONST st_upd f x y"
+  "f(x :=\<^sub>s y)" \<rightleftharpoons> "CONST st_upd f x y"
   "f(aux: y)" \<rightleftharpoons> "CONST aux_upd f y"
 
 section \<open>Simp Lemmas\<close>
