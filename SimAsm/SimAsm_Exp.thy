@@ -885,14 +885,10 @@ proof -
   let ?f2 = "\<lambda>x. if x \<in> A then (f x) else st (top t\<^sub>2) x"
   have a0:"x \<in> A \<Longrightarrow> (st (upd_part A f m\<^sub>1) x = f x)" using upd_part_def
     by (smt (verit, best) select_convs(1) surjective update_convs(1))
-  then have "(\<lambda>x. if x \<in> A then (st (upd_part A f m\<^sub>1) x) else st (top t\<^sub>2) x) =
-             (\<lambda>x. if x \<in> A then (f x)                   else st (top t\<^sub>2) x)" sorry 
-  then have "?f1 = ?f2" by simp
+  then have "?f1 = ?f2" sorry
   then have 
-  "tree_upd t\<^sub>2
-     (Base (top t\<^sub>2 \<lparr>st := \<lambda>x. if x \<in> A then (st (upd_part A f m\<^sub>1) x) else st (top t\<^sub>2) x\<rparr>)) =
-  tree_upd t\<^sub>2
-     (Base (top t\<^sub>2\<lparr>st := \<lambda>x. if x \<in> A then (f x) else st (top t\<^sub>2) x\<rparr>))" 
+  "tree_upd t\<^sub>2 (top t\<^sub>2 \<lparr>st := \<lambda>x. if x \<in> A then (st (upd_part A f m\<^sub>1) x) else st (top t\<^sub>2) x\<rparr>) =
+  tree_upd t\<^sub>2 (top t\<^sub>2\<lparr>st := \<lambda>x. if x \<in> A then (f x) else st (top t\<^sub>2) x\<rparr>)" 
     by simp
   then show ?thesis by (auto simp: updTree_part_def intro!: state_rec.equality)
 qed
@@ -940,12 +936,6 @@ lemma treeBase_equality:
 lemma treeBranch_equality:
   "t\<^sub>1 = t\<^sub>1' \<Longrightarrow> t\<^sub>2 = t\<^sub>2' \<Longrightarrow> Branch t\<^sub>1 t\<^sub>2 = Branch t\<^sub>1' t\<^sub>2'" by auto 
 
-lemma beh_help2:
-  assumes "t'' = t(x :=\<^sub>t (ev\<^sub>E t e))"
-  shows "t(y :=\<^sub>t (ev\<^sub>E (t (x :=\<^sub>t (ev\<^sub>E t e))) ) z) = (t(x :=\<^sub>t (ev\<^sub>E t e)))(y :=\<^sub>t (ev\<^sub>E t'' z))"
-  using assms sorry
-
-
 lemma beh_help:
   assumes "\<alpha> = assign y z"
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
@@ -961,13 +951,13 @@ proof -
                            updTree (wr \<alpha>) (lookupSome(t(y :=\<^sub>t (ev\<^sub>E (t (x :=\<^sub>t (ev\<^sub>E t e))) z)))) t}"
     using ev_subst\<^sub>E by auto
   then have a4:"... = {(t,t')| t t' t''. t'' = t(x :=\<^sub>t (ev\<^sub>E t e)) \<and>
-                    t'= updTree (wr \<alpha>) (lookupSome((t(x :=\<^sub>t (ev\<^sub>E t e)))(y :=\<^sub>t (ev\<^sub>E t'' z)))) t}"
-    using beh_help2 by (smt (verit) Collect_cong case_prodE case_prod_conv)
+                    t'= updTree (wr \<alpha>) (lookupSome(t(y :=\<^sub>t (ev\<^sub>E t'' z)))) t}"
+    by (smt (verit) Collect_cong case_prodE case_prod_conv)
   then show ?thesis using assms a1 a2 a3 by fastforce
 qed
 
  
-lemma behTree_substi [simp]:
+lemma beh_substi [simp]:
   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
          {(t,updTree (wr \<alpha>) (lookupSome t') t)| t t'. (t(x :=\<^sub>t (ev\<^sub>E t e)),t') \<in> beh\<^sub>i \<alpha>}"
   apply (cases \<alpha>)
@@ -1033,21 +1023,42 @@ lemma beh_smap1 [simp]:
 by (cases \<alpha> ; auto simp: smap1_def) 
 *)
 
-
-
-lemma state_simp:
-  assumes "m2 = m1\<lparr>st := \<lambda>xa. if xa = x \<and> xa \<in> dom M then M xa else st m1 xa\<rparr>"
-          "t = (Base (m2))"
-  shows "st (m1 (x :=\<^sub>s ev\<^sub>E t y)) =
-         st (m1 \<lparr>st := \<lambda>xa. if xa = x then st ( m2 (x :=\<^sub>s ev\<^sub>E t y)) xa else st m1 xa\<rparr>)"
-  sorry
+lemma "{(t,t')| t t'. t=t'} = {(t,t)| t. 1=1}" by simp 
 
 lemma beh_smap1 [simp]:
-  "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1.(upd_part ({x} \<inter> dom M) (M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
-  apply (cases \<alpha> ; auto simp: smap1_def upd_part_def) 
-         apply (rule state_rec.equality)
-  
+  "beh\<^sub>i (smap1 M x \<alpha>) = {(t,updTree (wr \<alpha>) (lookupSome t') t) |t t'.
+                           (updTree_part ({x} \<inter> dom M) (M) t,t') \<in> beh\<^sub>i \<alpha>}"
+(*  apply (cases \<alpha> ; auto simp: smap1_def updTree_def updTree_part_def) *)
+proof (cases \<alpha>)
+  case (assign x11 x12)
+  then show ?thesis sorry
+next
+  case (cmp b)
+  then show ?thesis 
+  proof -
+    have a0:"smap1 M x (cmp b) = (if x \<in> dom M then subst\<^sub>i (cmp b) x (Val (the (M x))) else (cmp b))"
+       using smap1_def cmp by blast
+     then have a1:"beh\<^sub>i (smap1 M x (cmp b)) = 
+         {(t,t'). t=t' \<and> ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}" 
+      using smap1_def beh\<^sub>i.simps(2) subst\<^sub>i.simps(2) cmp by force
+    then have a2:"... = {(t,t). ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}"
+      using a1 sorry 
+    have b0:"wr(cmp b) = {}" by simp
+    have b1:"\<forall> t t'. updTree (wr (cmp b)) (lookupSome t') t = t" using updTree_def b0 by simp
+    then have b2:"{(t,updTree(wr(cmp b))(lookupSome t') t)|t t'.
+                                  (updTree_part ({x} \<inter> dom M) M t, t') \<in> beh\<^sub>i (cmp b)} = 
+                    {(t,t)| t t'. (updTree_part ({x} \<inter> dom M) M t, t') \<in> beh\<^sub>i (cmp b)}" 
+      using b1 by simp
+    then have b3:"... = {(t,t)| t t'. updTree_part ({x} \<inter> dom M) M t = t' \<and> 
+                         ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" using b2 beh\<^sub>i.simps(2) by simp
+    then have b4:"... = {(t,t')| t t'. t=t' \<and> updTree_part ({x} \<inter> dom M) M t = t' \<and> 
+                         ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" sorry 
+    
 
+qed auto
+
+if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha> 
+ {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (updTree_part ({x} \<inter> dom M) M t, t') \<in> beh\<^sub>i \<alpha>}
 
 (*          apply (auto simp: top_upd_def)
         apply (clarsimp simp: upd_def upd_part_def st_upd_def)
