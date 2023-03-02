@@ -815,6 +815,10 @@ lemma upd_cap [simp]:
   "state_rec.cap (upd V f m) = state_rec.cap m"
   by (auto simp: upd_def)
 
+lemma upd_init [simp]:
+  "state_rec.initState (upd V f m) = state_rec.initState m"
+  by (auto simp: upd_def)
+
 (* new: same updates on trees *)  
 
 definition updTree         (* assume total fun f : 'a \<longrightarrow> 'v *)
@@ -828,6 +832,10 @@ definition updTree_part      (* assume partial fun f : 'a \<rightarrow> 'v optio
 lemma updTree_nil [simp]:
   "updTree {} f t = t"
   by (auto simp: updTree_def) 
+
+lemma updTreePart_nil [simp]:
+  "updTree_part {} f t = t"
+  by (auto simp: updTree_part_def) 
 
 lemma updTree_insert [simp]:
   "updTree (insert x V) f t = tree_upd t ((top (updTree V f t)) (x :=\<^sub>s (f x)))"
@@ -1023,7 +1031,29 @@ lemma beh_smap1 [simp]:
 by (cases \<alpha> ; auto simp: smap1_def) 
 *)
 
-lemma "{(t,t')| t t'. t=t'} = {(t,t)| t. 1=1}" by simp 
+lemma "{(t,t')| t t'. t=t'} = {(t,t)|t. 1=1}" by simp 
+
+lemma ev_updTreePart:
+  "ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b =
+                     ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)"
+proof -
+  have a0:"({x} \<inter> dom M) = (if (x \<in> (dom M)) then {x} else {})" by simp
+  have a1:"({x} \<inter> dom M) \<noteq> {} \<equiv> x \<in> dom M" by simp
+  have a2:"updTree_part ({x} \<inter> dom M) M t = 
+        tree_upd t ((top t)\<lparr>st := \<lambda>y. if y \<in> ({x} \<inter> (dom M)) then (M y) else st (top t) y\<rparr>)" 
+    using updTree_part_def by blast
+  
+
+  have c1:"updTree_part {} M t = t" using  updTreePart_nil by simp
+  have c2:"x \<in> dom M \<Longrightarrow> 
+          updTree_part ({x} \<inter> dom M) M t =  updTree_part {x} M t" using a0 by presburger 
+  then have c3:"... = tree_upd t ((top t)\<lparr>st := \<lambda>y. if y \<in> {x} then (M y) else st (top t) y\<rparr>)"
+    using updTree_part_def by blast
+
+  hence d1:"updTree_part ({x} \<inter> dom M) M t = 
+            (if x \<in> dom M then tree_upd t ((top t)\<lparr>st := \<lambda>y. if y \<in> {x} then (M y) else st (top t) y\<rparr>)
+                         else t)" using a0 a1 c3 a2 by simp
+
 
 lemma beh_smap1 [simp]:
   "beh\<^sub>i (smap1 M x \<alpha>) = {(t,updTree (wr \<alpha>) (lookupSome t') t) |t t'.
@@ -1041,37 +1071,22 @@ next
      then have a1:"beh\<^sub>i (smap1 M x (cmp b)) = 
          {(t,t'). t=t' \<and> ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}" 
       using smap1_def beh\<^sub>i.simps(2) subst\<^sub>i.simps(2) cmp by force
-    then have a2:"... = {(t,t). ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}"
-      using a1 sorry 
+    then have a2:"... = {(t,t)| t . ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}"
+      using a1 by blast
     have b0:"wr(cmp b) = {}" by simp
     have b1:"\<forall> t t'. updTree (wr (cmp b)) (lookupSome t') t = t" using updTree_def b0 by simp
     then have b2:"{(t,updTree(wr(cmp b))(lookupSome t') t)|t t'.
                                   (updTree_part ({x} \<inter> dom M) M t, t') \<in> beh\<^sub>i (cmp b)} = 
                     {(t,t)| t t'. (updTree_part ({x} \<inter> dom M) M t, t') \<in> beh\<^sub>i (cmp b)}" 
       using b1 by simp
-    then have b3:"... = {(t,t)| t t'. updTree_part ({x} \<inter> dom M) M t = t' \<and> 
-                         ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" using b2 beh\<^sub>i.simps(2) by simp
-    then have b4:"... = {(t,t')| t t'. t=t' \<and> updTree_part ({x} \<inter> dom M) M t = t' \<and> 
-                         ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" sorry 
-    
-
+    then have b3:"... = {(t,t)| t. ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" using b2 beh\<^sub>i.simps(2) 
+         by simp
+    then have b4:"... = {(t,t)| t . ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}"
+      using ev_updTreePart by fast
+    then show ?thesis using a0 a1 a2 b1 b2 b3 cmp by (smt (verit, del_insts) Collect_cong)
+  qed
 qed auto
 
-if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha> 
- {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (updTree_part ({x} \<inter> dom M) M t, t') \<in> beh\<^sub>i \<alpha>}
-
-(*          apply (auto simp: top_upd_def)
-        apply (clarsimp simp: upd_def upd_part_def st_upd_def)
-        defer 1
-  apply (simp add: st_upd_def)+
-         defer 3
-         apply (smt (verit, best) deps_ev\<^sub>B domIff ext_inject 
-              fun_upd_other fun_upd_same lookup.simps(1) not_None_eq st_upd_def surjective update_convs(1))
-*)  
-  
-   
-       
-  sorry
 
 
 lemma behTree_smap1 [simp]:
