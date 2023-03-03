@@ -40,7 +40,7 @@ end
 
 
 type_synonym ('v,'g,'r,'a) stateTree = "(('v,('g,'r) var,'a) state_rec_scheme) tree"
-type_synonym ('v,'r,'a) gstateTree = "(('v,'v,'a) state_rec_scheme) tree"
+type_synonym ('v,'g,'a) gstateTree = "(('v,'v,'a) state_rec_scheme) tree"
 
 type_synonym ('v,'g,'r,'a) predTree = "('v,'g,'r,'a) stateTree set"
 type_synonym ('v,'a) gpredTree = "('v,'v,'a) gstateTree set"
@@ -103,6 +103,9 @@ definition glb\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarro
 (* local state of current tree *)
 definition rg\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg\<^sub>t t \<equiv> \<lambda>v. (lookup t) (Reg v)"
+
+definition rg\<^sub>tSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v)"
+  where "rg\<^sub>tSome t \<equiv> \<lambda>v. (lookupSome t) (Reg v)"
 
 (* auxiliary component of tree is the aux of its top state *)
 definition aux\<^sub>t 
@@ -255,10 +258,24 @@ lemma [simp]:
   shows "lookup (tree_upd t (top t\<lparr>st := st (top t)(r \<mapsto> e)\<rparr>)) q = lookup t q"
   by (metis assms option.sel st_upd_def top_upd_def treeUpd_change)
 
-lemma [simp]:
+lemma lookup_upd_var [simp]:
   "lookup (t(r :=\<^sub>t e)) q = (if r = q then Some e else lookup t q)"
   by (auto simp: tr_upd_def st_upd_def) 
 
+lemma lookupSome_upd_var [simp]:
+  "lookupSome (t (r :=\<^sub>t f))  x = (if x = r then f else (lookupSome t x))"
+proof -
+    have a1: "t (r :=\<^sub>t f) = tree_upd t((top t)\<lparr>st := ((st (top t))(r := Some f))\<rparr>)"
+      using tr_upd_def by metis
+    obtain t' where a2:"t'= tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some f)) \<rparr>)" 
+      by simp
+    then have a3:"lookup t' r = Some f" using lookupSome_upd a1 by simp
+    then have a4:"lookup t' x = (if x = r then Some f else (lookup t x))" 
+      using lookup_upd a1 treeUpd_change1 treeUpd_change2 a2 by simp
+    then show ?thesis using a2 
+      by (smt (verit, ccfv_SIG) a1 base.simps(1) base.simps(2) fold_congs(1) lookupSome.elims 
+          lookupSome_upd stUpd_single st_upd_def top.simps(1) top_upd_def tree_upd.elims)
+qed
 
 lemma [simp]:
   "lookup (t(v :=\<^sub>t e)) = (lookup t)(v := Some e)"
@@ -271,7 +288,14 @@ lemma [simp]:
 
 lemma [simp]:
   "rg\<^sub>t (t(Glb x :=\<^sub>t e)) = rg\<^sub>t t"
-  by (auto simp: rg\<^sub>t_def tr_upd_def)
+  by (auto simp: rg\<^sub>t_def tr_upd_def) 
+  
+(*
+  by (metis lookupSome.elims lookupSome_upd_var lookup_upd_var tr_upd_def var.distinct(1))
+  by (metis base.simps(1) base.simps(2) lookup.elims option.case_eq_if stUpd_single st_upd_def treeUpd_top tree_upd.simps(1) tree_upd.simps(2) var.distinct(1))
+  by (metis lookupSome.elims lookupSome_upd_var lookup_upd_var tr_upd_def var.distinct(1))
+  by (metis base.simps(1) base.simps(2) lookup.elims lookupSome.elims select_convs(3) surjective top.simps(1) tree_upd.simps(1) tree_upd.simps(2) update_convs(1))
+*)
 
 lemma [simp]:
   "rg\<^sub>t (t(Reg x :=\<^sub>t e)) = (rg\<^sub>t t)(x := Some e)"
@@ -346,43 +370,12 @@ lemma tr_aux_exec [intro!]:
   shows "(t\<^sub>1,t\<^sub>2(aux\<^sub>t: f)) \<in> P O {(t, t'). t' = t(aux\<^sub>t: f)}"
   using assms by blast
 
-lemma lookup_upd_var:
-  "lookup (t (r :=\<^sub>t f)) x = (if x = r then Some f else (lookup t x))"
-proof -
-    have a1: "t (r :=\<^sub>t f) = tree_upd t((top t)\<lparr>st := ((st (top t))(r := Some f))\<rparr>)"
-      using tr_upd_def by metis
-    obtain t' where a2:"t'= tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some f)) \<rparr>)" 
-      by simp
-    then have a3:"lookup t' r = Some f" using lookupSome_upd a1 by simp
-    then have a4:"lookup t' x = (if x = r then Some f else (lookup t x))" 
-      using lookup_upd a1 treeUpd_change1 treeUpd_change2 a2 by simp
-    then show ?thesis by simp
-  qed
-
-
-lemma lookupSome_upd_var:
-  "lookupSome (t (r :=\<^sub>t f))  x = (if x = r then f else (lookupSome t x))"
-proof -
-    have a1: "t (r :=\<^sub>t f) = tree_upd t((top t)\<lparr>st := ((st (top t))(r := Some f))\<rparr>)"
-      using tr_upd_def by metis
-    obtain t' where a2:"t'= tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some f)) \<rparr>)" 
-      by simp
-    then have a3:"lookup t' r = Some f" using lookupSome_upd a1 by simp
-    then have a4:"lookup t' x = (if x = r then Some f else (lookup t x))" 
-      using lookup_upd a1 treeUpd_change1 treeUpd_change2 a2 by simp
-    then show ?thesis using a2 
-      by (smt (verit, ccfv_SIG) a1 base.simps(1) base.simps(2) fold_congs(1) lookupSome.elims 
-          lookupSome_upd stUpd_single st_upd_def top.simps(1) top_upd_def tree_upd.elims)
-  qed
-
 end
 
 
 (*------ not required if we have an initState slot in the state record:
           the problem without an totalmap initState, the condition (initialised t)
           is carried through all lemmas and even sits in the definition of beh\<^sub>i  
-
-
 
 fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
   where
@@ -391,159 +384,4 @@ fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
 fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
   where
   "initialised t = total_map (st (base t))"
-
-(*
-lemma lookup_upd:
-  "val \<noteq> None \<Longrightarrow> lookup (tree_upd t (top_upd t r val)) r = Some val"
-proof (induction t)
-  case (Base x)
-  then show ?case using lookup.simps(1) tree_upd.simps(1) top_treeUpd topUpd_single
-    by (simp add: top_upd_def)
-next
-  case (Branch t1 t2)
-  then show ?case 
-  proof (induction t2)
-    case (Base x)
-    then show ?case using tree_upd.simps lookup.simps(2) top.simps tree.simps(5)
-      by (simp add: top_upd_def)
-  next
-    case (Branch t21 t22)
-    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6) 
-      by (simp add: top_upd_def)
-  qed 
-qed
 *)
-
-
-
-
-(* we will have to add an invariant/wellformedness condition on programs which states 
-   that the variables are initialised and hence the base state is a total mapping  *)
-
-text \<open> lookupSome filters out the lookup calls that result in None \<close>
-
-(*
-lemma lookupNotNone:
-  assumes "lookup t v \<noteq> None"
-  shows "lookupSome t v \<noteq> None"  
-  shows counterexample lookup t v = Some None *)
-
-
-
-lemma initialised_Some:
-  assumes "initialised t"
-  shows "st (base t) v \<noteq> None" using assms by force
-
-lemma initialised_lookup:
-  assumes "initialised t"
-  shows "lookup t v \<noteq> None" using assms 
-proof (induct t)
-  case (Base x)
-  then show ?case using initialised_Some by simp
-next
-  case (Branch t1 t2)
-  then show ?case using lookup.simps(2) by (simp add: option.case_eq_if)
-qed
-
-lemma lookupSome_upd:
-  assumes "initialised t" 
-  shows  "lookupSome (tree_upd t (top_upd t r val)) r = val"
-  using lookup_upd lookupSome.elims option.sel assms by metis
-*)
-
-
-(*
-(* This was an attempt to encode a subtype of tree for which we know that the
-Base is a total map; this falls over with the new Branch constructor which wants
-to construct a new element from two of the same type but in an initialised tree
-on the LHS of the tree is an initialised tree, the RHS should be allowed any tree *) 
-
-text \<open>InitTree is a tree in which the Base/root is fully initialised, 
-         i.e., st on base node it total \<close>
-
-fun total_map :: "('a \<Rightarrow> 'v option) \<Rightarrow> bool"
-  where
-  "total_map f = (\<forall> v. (f v) \<noteq> None)"
-
-fun initialised :: "('v,'g,'r,'a) stateTree \<Rightarrow> bool"
-  where
-  "initialised t = total_map (st (base t))"
-
-typedef ('v,'g,'r,'a) initTree = "{t ::('v,'g,'r,'a) stateTree  . initialised t}" 
-proof -
-  let ?s = "\<lambda>x. Some undefined"
-  let ?m = "\<lparr> st = ?s , cap = {}, \<dots> = (p :: 'a) \<rparr>"
-  let ?t  = "(Base ?m)"
-  have "initialised (?t:: ('v,'g,'r,'a) stateTree)" by simp
-  then have "?t \<in> {t. initialised t}" by simp
-  then show ?thesis by blast
-qed
-
-(* constructors for initialised trees *)
-definition iBase:: "(('v,('g,'r) var,'a) state_rec_scheme) \<Rightarrow> ('v,'g,'r,'a) initTree"
-  where "iBase s = Abs_initTree (Base s)"
-
-definition iBranch:: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree"
-  where "iBranch t1 t2 = Abs_initTree (Branch (Rep_initTree t1) (Rep_initTree t2))"
-
-subsection \<open>Tree base, top and lookup and tree update\<close>
-
-definition ibase :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) state" where
-  "ibase t = base (Rep_initTree t)"
-
-definition itop :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) state" where
-  "itop t = top (Rep_initTree t)"
-
-text \<open> lookup of var in a stateTree finds the closest (topmost) frame in which var is defined 
-         and returns its value in that frame \<close>
-definition ilookup :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option" where
-  "ilookup t var =  lookup (Rep_initTree t) var"
-
-definition itop_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v option \<Rightarrow> ('v,'g,'r,'a) initTree" where
-    "itop_upd t r val = Abs_initTree (top_upd (Rep_initTree t) r val)"
-
-definition itop_aux_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) initTree" 
-  where "itop_aux_upd t f = Abs_initTree (top_aux_upd (Rep_initTree t) f)"
-
-fun itree_upd :: "('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree \<Rightarrow> ('v,'g,'r,'a) initTree"
-  where "itree_upd t\<^sub>1 t\<^sub>2 = Abs_initTree (tree_upd (Rep_initTree t\<^sub>1) (Rep_initTree t\<^sub>2))"
-
-
-(* obtains the global state of current initialised tree *)
-definition iglb\<^sub>t :: "('v,'g,'r,'a) initTree \<Rightarrow> ('g \<Rightarrow> 'v option)"
-  where "iglb\<^sub>t t \<equiv> \<lambda>v. (ilookup t) (Glb v)"
-
-(* local state of current initialised tree *)
-definition irg\<^sub>t :: "('v,'g,'r,'a) initTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
-  where "irg\<^sub>t t \<equiv> \<lambda>v. (ilookup t) (Reg v)"
-
-(* auxiliary component of an initialised tree is the aux of its top state *)
-definition iaux\<^sub>t
-  where "iaux\<^sub>t t \<equiv> more (top t)"
-
-thm tree.induct 
-
-
-(* this lemma can be used as an induction rule 
-         i.e., instead of proof (induct t) \<longrightarrow> proof (induct rule: induct_iTree) ? *)
-lemma induct_iTree:
-  assumes "\<forall>s.  P (iBase s)"
-  assumes "\<forall>t t1 t2. P (iBranch t1 t2)" 
-  shows "P t"
-  using assms
-proof (induct "Rep_initTree t")
-  case (Base x)
-  hence "Abs_initTree (Base x) =  t" using Rep_initTree_inverse by auto
-  then show ?case using Base(2) unfolding iBase_def by auto
-next
-  case (Branch x1 x2)
-  hence a: "Abs_initTree (Branch x1 x2) = t" using Rep_initTree_inverse by auto
-  then obtain t1 t2 where m1:"Abs_initTree x1 = t1" "Abs_initTree x2 = t2" by auto
-  have i:"x1 \<in> {t. initialised t}" using a 
-    by (metis Branch.hyps(3) Rep_initTree base.simps(2) initialised.simps mem_Collect_eq) 
-  then have "(Branch (Rep_initTree t1) x2) = Branch x1 x2" 
-     using a m1 i Abs_initTree_inverse by auto
-  then show ?case using Branch(5) a m1 unfolding iBranch_def sorry
-qed
-*)
-

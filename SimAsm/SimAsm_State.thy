@@ -106,8 +106,8 @@ syntax
 
 translations
   "_Update f (_updbinds b bs)" \<rightleftharpoons> "_Update (_Update f b) bs"
-  "f(x :=\<^sub>s y)" \<rightleftharpoons> "CONST st_upd f x y"
-  "f(aux: y)" \<rightleftharpoons> "CONST aux_upd f y"
+  "m(x :=\<^sub>s y)" \<rightleftharpoons> "CONST st_upd m x y"
+  "m(aux: y)" \<rightleftharpoons> "CONST aux_upd m y"
 
 section \<open>Simp Lemmas\<close>
 

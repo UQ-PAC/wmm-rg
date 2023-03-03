@@ -18,8 +18,8 @@ definition assert
   where "assert b \<equiv> {m. b}"
 
 text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step\<^sub>t :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
-  where "step\<^sub>t R \<equiv> {(m,m'). (glb m, glb m') \<in> R \<and> rg m = rg m'}"
+definition step\<^sub>t :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
+  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> R \<and> rg\<^sub>t t = rg\<^sub>t t'}"
 
 text \<open>Lift a relational predicate\<close>
 definition step :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"

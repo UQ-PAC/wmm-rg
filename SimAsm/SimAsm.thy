@@ -33,8 +33,8 @@ This auxiliary state cannot influence real execution behaviour by definition.
 \<close>
 type_synonym ('v,'g,'r,'a) auxop = "('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
 
-fun beh\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) state rel"
-  where "beh\<^sub>a (\<alpha>,f) = beh\<^sub>i \<alpha> O {(m,m'). m' = m(aux: f)}"
+fun beh\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
+  where "beh\<^sub>a (\<alpha>,f) = beh\<^sub>i \<alpha> O {(t,t'). t' = t(aux\<^sub>t: f)}"
 
 fun re\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) auxop \<Rightarrow> bool" 
   where "re\<^sub>a (\<alpha>,_) (\<beta>,_) = re\<^sub>i \<alpha> \<beta>"
@@ -45,7 +45,7 @@ section \<open>Instruction Specification Language\<close>
 text \<open>
 To instantiate the abstract theory, we must couple each sub-operation with its precondition
 and behaviour in a tuple\<close>
-type_synonym ('v,'g,'r,'a) opbasic = "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) basic"
+type_synonym ('v,'g,'r,'a) opbasic = "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) basic"
 
 fun re\<^sub>s :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
@@ -57,7 +57,7 @@ fun fwd\<^sub>s :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxop \<Ri
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation with specification\<close>
-definition liftg :: "('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) opbasic" 
+definition liftg :: "('v,'g,'r,'a) predTree \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) opbasic" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 

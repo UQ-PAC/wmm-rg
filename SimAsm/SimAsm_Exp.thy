@@ -55,8 +55,8 @@ text \<open>Evaluate an expression given a state tree, such that variable values
         innermost scope in which a value exists \<close>
 fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
   where 
-    "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
-    "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
+    "ev\<^sub>B t (Neg e) = (\<not> (ev\<^sub>B t e))" |
+    "ev\<^sub>B t (Exp\<^sub>B f rs) = f (map (ev\<^sub>E t) rs)"
 
 (*
 text \<open>Evaluate an expression given a state\<close>
@@ -229,23 +229,25 @@ qed
 
 (*
 lemma local_ev\<^sub>E [intro]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E (Base m) e = ev\<^sub>E (Base m') e"
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
   apply (intro deps_ev\<^sub>E ballI, case_tac x) 
   by (auto simp: rg_def) metis *)
 
 lemma local_ev\<^sub>E [intro]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg\<^sub>t t = rg\<^sub>t t' \<Longrightarrow> ev\<^sub>E t e = ev\<^sub>E t' e"
-  apply (intro deps_ev\<^sub>E lookup.simps ballI, case_tac x) apply auto sorry
-
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg\<^sub>tSome t = rg\<^sub>tSome t' \<Longrightarrow> ev\<^sub>E t e = ev\<^sub>E t' e"   
+  apply (intro deps_ev\<^sub>E lookup.simps ballI, case_tac x)        
+  using rg\<^sub>tSome_def apply metis by blast
 
 (*
-proof (induct t)
-  case (Base x)
-  then show ?case unfolding lookup.simps(1) rg\<^sub>t_def 
-next
-  case (Branch t1 t2)
-  then show ?case using rg\<^sub>t_def by metis 
-qed
+lemma local_ev\<^sub>E [intro]:
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg\<^sub>t t = rg\<^sub>t t' \<Longrightarrow> ev\<^sub>E t e = ev\<^sub>E t' e"   (* rg\<^sub>t uses lookup; ev\<^sub>E uses lookupSome*)
+  apply (intro deps_ev\<^sub>E lookup.simps ballI, case_tac x)         (* i.e., equality only at top level *)
+proof (induct e)
+  case (Var x)
+  then show ?case 
+  proof - 
+    have a0:"lookup t (Reg x1) = lookup t' (Reg x1)" using rg\<^sub>t_def Var by auto
+    then have a1:"lookupSome t (Reg x1) = lookupSome t' (Reg x1)" using lookupSome.simps (*doesn't hold!*)
 *)
 
 (*
@@ -771,8 +773,7 @@ lemma forallI [intro]:
   "smap \<alpha> M \<in> forall (dom M) \<alpha>"
   by (auto simp: forall_def)
 
-subsection \<open>TODO\<close>
-
+subsection \<open>Update lemmas\<close>
 
 definition upd                   (* use if f is a total fun: 'a \<Rightarrow> 'v *)
   where "upd S f m \<equiv> m\<lparr>st := \<lambda>x. if x \<in> S then Some (f x) else st m x\<rparr>"
@@ -884,6 +885,17 @@ lemma st_upd_eq [intro]:
                     \<forall>x. x \<noteq> y \<longrightarrow> st m x = st m' x \<Longrightarrow> m(y :=\<^sub>s e) = m'(y :=\<^sub>s e)"
   by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
 
+lemma help_rep:
+  assumes "x \<in> A \<Longrightarrow> (st (upd_part A f m) x) = (f x)"
+  shows "(\<lambda>x. if x \<in> A then (st (upd_part A f m) x) else (st (top t) x)) =
+          (\<lambda>x. if x \<in> A then (f x) else (st (top t) x))"                       (is "?L = ?R")
+proof -
+  have a0:"?L = (\<lambda>x. if x \<in> A then (st (m\<lparr>st := \<lambda>x. if x \<in> A then (f x) else st m x\<rparr>) x)
+                              else (st (top t) x))" by (metis upd_part_def)
+  then have a1:"... = (\<lambda>x. if x \<in> A then (f x) else (st (top t) x))" using assms by auto
+  then have a2:"... = ?R" by simp
+  then show ?thesis using a0 a1 a2 by simp
+qed
 
 lemma updTree_rep [simp]:
   "updTree_part A (st (upd_part A f m\<^sub>1)) t\<^sub>2 = updTree_part A f t\<^sub>2"
@@ -893,13 +905,47 @@ proof -
   let ?f2 = "\<lambda>x. if x \<in> A then (f x) else st (top t\<^sub>2) x"
   have a0:"x \<in> A \<Longrightarrow> (st (upd_part A f m\<^sub>1) x = f x)" using upd_part_def
     by (smt (verit, best) select_convs(1) surjective update_convs(1))
-  then have "?f1 = ?f2" sorry
+  then have "?f1 = ?f2" using help_rep by blast
   then have 
   "tree_upd t\<^sub>2 (top t\<^sub>2 \<lparr>st := \<lambda>x. if x \<in> A then (st (upd_part A f m\<^sub>1) x) else st (top t\<^sub>2) x\<rparr>) =
   tree_upd t\<^sub>2 (top t\<^sub>2\<lparr>st := \<lambda>x. if x \<in> A then (f x) else st (top t\<^sub>2) x\<rparr>)" 
     by simp
   then show ?thesis by (auto simp: updTree_part_def intro!: state_rec.equality)
 qed
+
+(* use of lookup instead of st does not hold since 
+   lookup goes down to base to find a value whereas st only looks at (top t) *)
+lemma updTree_st [simp]:
+  "st (top (updTree S f t)) x = (if x \<in> S then Some (f x) else st (top t) x)"
+  by (auto simp: updTree_def) 
+
+lemma updTree_more [simp]:
+  "state_rec.more (top (updTree V f t)) = state_rec.more (top t)"
+  by (auto simp: updTree_def)
+
+lemma updTree_cap [simp]:
+  "state_rec.cap (top (updTree V f t)) = state_rec.cap (top t)"
+  by (auto simp: updTree_def)
+
+lemma updTree_init [simp]:
+  "state_rec.initState (top (updTree V f t)) = state_rec.initState (top t)"
+  by (auto simp: updTree_def)
+
+lemma updTreePart_st [simp]:
+  "st (top (updTree_part S f t)) x = (if x \<in> S then (f x) else st (top t) x)"
+   by (auto simp: updTree_part_def) 
+
+lemma updTreePart_more [simp]:
+  "state_rec.more (top (updTree_part V f t)) = state_rec.more (top t)"
+  by (auto simp: updTree_part_def)
+
+lemma updTreePart_cap [simp]:
+  "state_rec.cap (top (updTree_part V f t)) = state_rec.cap (top t)"
+  by (auto simp: updTree_part_def)
+
+lemma updTreePart_init [simp]:
+  "state_rec.initState (top (updTree_part V f t)) = state_rec.initState (top t)"
+  by (auto simp: updTree_part_def)
 
 
 lemma [simp]:
@@ -980,43 +1026,6 @@ lemma beh_substi [simp]:
   using beh_help by blast
   
 
-
-(*
-lemma beh_substi [simp]:
-  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
-          {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) | m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s (ev\<^sub>E (Base m\<^sub>1) e)),m) \<in> beh\<^sub>i \<alpha>}"
-  apply (cases \<alpha>)
-  defer 1
-  apply (clarsimp simp: upd_part_def top_upd_def) 
-  apply blast
-  apply (clarsimp simp: upd_part_def)
-  apply blast
-  apply (clarsimp simp: upd_part_def)
-  apply blast
-  apply (clarsimp simp: upd_part_def st_upd_def)
-  apply auto     
-  apply (rule state_rec.equality)
-      apply (auto simp: top_upd_def) 
-   using fun_upd_other fun_upd_same select_convs(1) st_upd_def surjective update_convs(1) 
-   apply (metis (no_types, lifting))
-  apply (rule state_rec.equality)
-      apply (auto simp: top_upd_def)
-   apply (rule eq_comm)
-   apply auto
-   using fun_upd_other fun_upd_same select_convs(1) st_upd_def surjective update_convs(1) 
-by (metis (no_types, lifting))
- 
-lemma behTree_substi [simp]:
-  "behTree\<^sub>i (subst\<^sub>i \<alpha> x e) = {(t,t')| t t' m m'. (m,m') \<in> beh\<^sub>i(subst\<^sub>i \<alpha> x e) \<and> 
-                                            top t = m \<and> t'=tree_upd t (Base m')}"
-  using beh_substi by simp
-*)
-
-
-
-(*todo *)
-
-
 lemma [simp]:
   "st (m(x :=\<^sub>s e)) = (st m)(x := Some e)"
   by (auto simp: st_upd_def)
@@ -1025,16 +1034,37 @@ lemma [simp]:
   "Base (st (m(x :=\<^sub>s e))) = Base ((st m)(x := Some e))"
   by (auto simp: st_upd_def)
 
+
+
+(*todo: smap1 lemmas only needed for static analysis part (to compute reorderable pairs?)
+        leave for now  *)
+
 (* 
 lemma beh_smap1 [simp]:
   "beh\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1.(upd ({x} \<inter> dom M) (the o M) m\<^sub>1,m) \<in> beh\<^sub>i \<alpha>}"
 by (cases \<alpha> ; auto simp: smap1_def) 
 *)
 
+(*
 lemma "{(t,t')| t t'. t=t'} = {(t,t)|t. 1=1}" by simp 
 
+lemma stUpd_trUpd:
+  assumes "(M x) \<noteq> None"
+  shows "(top t)\<lparr>st := \<lambda>y. if y \<in> {x} then (M y) else st (top t) y\<rparr> = top (t (x :=\<^sub>t the (M x)))"
+  using  assms tr_upd_def 
+proof -
+  have a0:"top t\<lparr>st := \<lambda>y. if y \<in> {x} then M y else st (top t) y\<rparr> = 
+              top t\<lparr>st := ((st (top t)) (x := (M x)))\<rparr>"
+    apply (rule equality) apply simp by auto 
+  then have a1:"top t\<lparr>st := ((st (top t)) (x := (M x)))\<rparr> =
+                  top (t(x :=\<^sub>t the (M x)))" using assms tr_upd_def sorry
+  then show ?thesis  using a0 a1 by simp
+qed
+
+
 lemma ev_updTreePart:
-  "ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b =
+  assumes "(M x) \<noteq> None"
+  shows   "ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b =
                      ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)"
 proof -
   have a0:"({x} \<inter> dom M) = (if (x \<in> (dom M)) then {x} else {})" by simp
@@ -1042,18 +1072,19 @@ proof -
   have a2:"updTree_part ({x} \<inter> dom M) M t = 
         tree_upd t ((top t)\<lparr>st := \<lambda>y. if y \<in> ({x} \<inter> (dom M)) then (M y) else st (top t) y\<rparr>)" 
     using updTree_part_def by blast
-  
-
   have c1:"updTree_part {} M t = t" using  updTreePart_nil by simp
   have c2:"x \<in> dom M \<Longrightarrow> 
           updTree_part ({x} \<inter> dom M) M t =  updTree_part {x} M t" using a0 by presburger 
   then have c3:"... = tree_upd t ((top t)\<lparr>st := \<lambda>y. if y \<in> {x} then (M y) else st (top t) y\<rparr>)"
     using updTree_part_def by blast
-
   hence d1:"updTree_part ({x} \<inter> dom M) M t = 
             (if x \<in> dom M then tree_upd t ((top t)\<lparr>st := \<lambda>y. if y \<in> {x} then (M y) else st (top t) y\<rparr>)
                          else t)" using a0 a1 c3 a2 by simp
-
+  then have d2:"... = (if x \<in> dom M then tree_upd t (top (t (x :=\<^sub>t the (M x))))
+                         else t)" using stUpd_trUpd assms sorry
+  then show ?thesis using d1 d2 
+    by (smt (verit, ccfv_threshold) ev\<^sub>E.simps(2) ev_subst\<^sub>B' top_treeUpd tr_upd_def)
+qed
 
 lemma beh_smap1 [simp]:
   "beh\<^sub>i (smap1 M x \<alpha>) = {(t,updTree (wr \<alpha>) (lookupSome t') t) |t t'.
@@ -1082,24 +1113,13 @@ next
     then have b3:"... = {(t,t)| t. ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" using b2 beh\<^sub>i.simps(2) 
          by simp
     then have b4:"... = {(t,t)| t . ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}"
-      using ev_updTreePart by fast
+      using ev_updTreePart sorry
     then show ?thesis using a0 a1 a2 b1 b2 b3 cmp by (smt (verit, del_insts) Collect_cong)
   qed
 qed auto
+*)
 
-
-
-lemma behTree_smap1 [simp]:
-  "behTree\<^sub>i (smap1 M x \<alpha>) = {(m\<^sub>1,updTree (wr \<alpha>) (lookupSome m) m\<^sub>1) |m m\<^sub>1. 
-                               (updTree ({x} \<inter> dom M) (the o M) m\<^sub>1,m) \<in> behTree\<^sub>i \<alpha>}"
-proof (cases \<alpha>)
-  case (assign x11 x12)
-  then show ?thesis sorry
-next
-  case (cmp x2)
-  then show ?thesis using smap1_def sorry
-qed auto
-
+(*
 
 lemma beh_fold_smap1:
   assumes "finite F" 
@@ -1142,22 +1162,8 @@ proof -
 
   also have "... = {(m\<^sub>1, upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (upd (dom M) (the \<circ> M) m\<^sub>1, m) \<in> beh\<^sub>i \<alpha>}"
     apply (cases \<alpha>; auto)
-(*
-             apply (rule equality; auto)
-    apply fastforce
-    apply (rule equality; auto)
-    apply fastforce
-    apply (subgoal_tac "ev\<^sub>B (upd (deps\<^sub>B x2 \<inter> dom M) (the \<circ> M) m\<^sub>1) x2 = ev\<^sub>B (upd (dom M) (the \<circ> M) m\<^sub>1) x2")
-    apply blast
-    apply (rule deps_ev\<^sub>B)
-    apply auto
-    apply (subgoal_tac "ev\<^sub>B (upd (deps\<^sub>B x2 \<inter> dom M) (the \<circ> M) m\<^sub>1) x2 = ev\<^sub>B (upd (dom M) (the \<circ> M) m\<^sub>1) x2")
-    apply blast
-    apply (rule deps_ev\<^sub>B)
-    apply auto
-    done
-*) sorry
+ sorry
   finally show ?thesis unfolding smap_def .
 qed
-
+*)
 end
