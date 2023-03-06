@@ -4,9 +4,36 @@ begin
 
 section \<open>Wellformedness\<close>
 
+fun glookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> 'g \<Rightarrow> 'v option" where
+  "glookup (Base s) var =  (st s (Glb var))" |
+  "glookup (Branch m m') var =
+                      (case (glookup m' var) of Some v \<Rightarrow> Some v |_ \<Rightarrow> glookup m var)"
+
+definition relGTree :: "('v,'g,'r,'a) trelTree \<Rightarrow>  (('g \<Rightarrow> 'v option) \<times> ('g \<Rightarrow> 'v option)) set"
+  where "relGTree R \<equiv> {(s, s')| s s' t t'. s=glookup t \<and> s'=glookup t' 
+                 \<and> (t,t') \<in> R   }"
+
+text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
+definition step\<^sub>t :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
+  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> (relGTree R) \<and> rg\<^sub>t t = rg\<^sub>t t'}"
+
+definition stabilize'
+  where "stabilize' R P \<equiv> {m. \<forall>m'. (glb\<^sub>t m,glb\<^sub>t m') \<in> (relGTree R) \<longrightarrow> rg\<^sub>t m = rg\<^sub>t m' \<longrightarrow> m' \<in> P}"
+
+definition reflexive'
+  where "reflexive' R \<equiv> \<forall>m. (m,m) \<in> R"
+
+definition transitive'
+  where "transitive' R \<equiv> \<forall>m m' m''. (m,m') \<in> R \<longrightarrow> (m',m'') \<in> R \<longrightarrow> (m,m'') \<in> R"
+
+text \<open>Couple all wellformedness conditions into a single definition\<close>
+abbreviation wellformed' :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'a) grelTree \<Rightarrow> bool"
+  where "wellformed' R G \<equiv> reflexive' R \<and> transitive' R \<and> reflexive' G" 
+
+(*---------*)
 
 definition stabilize
-  where "stabilize R P \<equiv> {m. \<forall>m'. (glb m,glb m') \<in> R \<longrightarrow> rg m = rg m' \<longrightarrow> m' \<in> P}"
+  where "stabilize R P \<equiv> {m. \<forall>m'. (glb\<^sub>t m,glb\<^sub>t m') \<in> R \<longrightarrow> rg\<^sub>t m = rg\<^sub>t m' \<longrightarrow> m' \<in> P}"
 
 definition reflexive
   where "reflexive R \<equiv> \<forall>m. (m,m) \<in> R"
@@ -17,20 +44,29 @@ definition transitive
 definition assert
   where "assert b \<equiv> {m. b}"
 
-text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step\<^sub>t :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
-  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> R \<and> rg\<^sub>t t = rg\<^sub>t t'}"
+definition glbSt :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
+  where "glbSt s \<equiv> s \<lparr>st := glb s \<rparr>"
+
 
 text \<open>Lift a relational predicate\<close>
 definition step :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
   where "step R \<equiv> {(m,m'). (glb m, glb m') \<in> R}"
+
+definition glb\<^sub>tTree :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'a) gstateTree"
+  where "glb\<^sub>tTree t \<equiv> t \<lparr>st := glb\<^sub>t t \<rparr>"
+
+text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
+definition step\<^sub>t :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'a) grelTree"
+  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> (relGTree R) \<and> rg\<^sub>t t = rg\<^sub>t t'}"
+
+
 
 text \<open>Define stability in terms of a relational predicate that preserves the thread state\<close>
 abbreviation stable\<^sub>t
   where "stable\<^sub>t R P \<equiv> stable (step\<^sub>t R) P"
 
 text \<open>Couple all wellformedness conditions into a single definition\<close>
-abbreviation wellformed :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'a) grel \<Rightarrow> bool"
+abbreviation wellformed :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'a) grelTree \<Rightarrow> bool"
   where "wellformed R G \<equiv> reflexive R \<and> transitive R \<and> reflexive G" 
 
 text \<open>Show that a stabilized predicate is stable\<close>
@@ -40,9 +76,9 @@ lemma stabilize_stable [intro]:
   unfolding stable_def step\<^sub>t_def
 proof (clarsimp)
   fix m m'
-  assume a: "m \<in> stabilize R Q" "(glb m, glb m') \<in> R" "rg m = rg m'"
-  have "\<forall>g''. (glb m',g'') \<in> R \<longrightarrow> (glb m,g'') \<in> R"
-    using assms a(2) unfolding transitive_def by blast
+  assume a: "m \<in> stabilize R Q" "(glb\<^sub>t m, glb\<^sub>t m') \<in> (relGTree R)" "rg\<^sub>t m = rg\<^sub>t m'"
+  have "\<forall>g''. (glb\<^sub>t m',g'') \<in> (relGTree R) \<longrightarrow> (glb\<^sub>t m,g'') \<in> (relGTree R)"
+    using assms a(2) unfolding transitive_def relGTree_def sorry
   thus "m' \<in> stabilize R Q" using a(1,3) by (auto simp: stabilize_def)
 qed
 

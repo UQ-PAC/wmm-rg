@@ -40,10 +40,10 @@ end
 
 
 type_synonym ('v,'g,'r,'a) stateTree = "(('v,('g,'r) var,'a) state_rec_scheme) tree"
-type_synonym ('v,'g,'a) gstateTree = "(('v,'v,'a) state_rec_scheme) tree"
+type_synonym ('v,'g,'a) gstateTree = "(('v,'g,'a) state_rec_scheme) tree"
 
 type_synonym ('v,'g,'r,'a) predTree = "('v,'g,'r,'a) stateTree set"
-type_synonym ('v,'a) gpredTree = "('v,'v,'a) gstateTree set"
+type_synonym ('v,'g,'a) gpredTree = "('v,'g,'a) gstateTree set"
 
 type_synonym ('v,'g,'r,'a) trelTree = "('v,'g,'r,'a) stateTree rel"
 type_synonym ('v,'g,'a) grelTree = "('v,'g,'a) gstateTree rel"
@@ -99,6 +99,9 @@ fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarro
 (* obtains the global state of current tree *)
 definition glb\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarrow> 'v option)"
   where "glb\<^sub>t t \<equiv> \<lambda>v. (lookup t) (Glb v)"
+
+definition glb\<^sub>tSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarrow> 'v)"
+  where "glb\<^sub>tSome t \<equiv> \<lambda>v. (lookupSome t) (Glb v)"
 
 (* local state of current tree *)
 definition rg\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
