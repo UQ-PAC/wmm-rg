@@ -12,11 +12,11 @@ It is intended that this is used to support notions of capturing and
 scoped state.
 \<close>
 
-class state =
+class pstate =
   fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"   
   assumes push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
 
-context state
+context pstate
 begin
 
 section \<open>Operations on predicates and relations\<close>

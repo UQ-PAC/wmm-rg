@@ -4,6 +4,7 @@ begin
 
 section \<open>Wellformedness\<close>
 
+(*  this doesn't work as the transitivity argument of R is lost in the step\<^sub>t definition ---
 fun glookup :: "('v,'g,'r,'a) stateTree \<Rightarrow> 'g \<Rightarrow> 'v option" where
   "glookup (Base s) var =  (st s (Glb var))" |
   "glookup (Branch m m') var =
@@ -14,8 +15,8 @@ definition relGTree :: "('v,'g,'r,'a) trelTree \<Rightarrow>  (('g \<Rightarrow>
                  \<and> (t,t') \<in> R   }"
 
 text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step\<^sub>t :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
-  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> (relGTree R) \<and> rg\<^sub>t t = rg\<^sub>t t'}"
+definition step\<^sub>t' :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
+  where "step\<^sub>t' R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> (relGTree R) \<and> rg\<^sub>t t = rg\<^sub>t t'}"
 
 definition stabilize'
   where "stabilize' R P \<equiv> {m. \<forall>m'. (glb\<^sub>t m,glb\<^sub>t m') \<in> (relGTree R) \<longrightarrow> rg\<^sub>t m = rg\<^sub>t m' \<longrightarrow> m' \<in> P}"
@@ -29,11 +30,11 @@ definition transitive'
 text \<open>Couple all wellformedness conditions into a single definition\<close>
 abbreviation wellformed' :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'a) grelTree \<Rightarrow> bool"
   where "wellformed' R G \<equiv> reflexive' R \<and> transitive' R \<and> reflexive' G" 
-
 (*---------*)
+*)
 
 definition stabilize
-  where "stabilize R P \<equiv> {m. \<forall>m'. (glb\<^sub>t m,glb\<^sub>t m') \<in> R \<longrightarrow> rg\<^sub>t m = rg\<^sub>t m' \<longrightarrow> m' \<in> P}"
+  where "stabilize R P \<equiv> {m. \<forall>m'. (glb\<^sub>tTree m,glb\<^sub>tTree m') \<in> R \<longrightarrow> rg\<^sub>t m = rg\<^sub>t m' \<longrightarrow> m' \<in> P}"
 
 definition reflexive
   where "reflexive R \<equiv> \<forall>m. (m,m) \<in> R"
@@ -44,21 +45,15 @@ definition transitive
 definition assert
   where "assert b \<equiv> {m. b}"
 
-definition glbSt :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
-  where "glbSt s \<equiv> s \<lparr>st := glb s \<rparr>"
-
 
 text \<open>Lift a relational predicate\<close>
-definition step :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
-  where "step R \<equiv> {(m,m'). (glb m, glb m') \<in> R}"
+definition step :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
+  where "step R \<equiv> {(t,t'). (glb\<^sub>tTree t, glb\<^sub>tTree t') \<in> R}"
 
-definition glb\<^sub>tTree :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'a) gstateTree"
-  where "glb\<^sub>tTree t \<equiv> t \<lparr>st := glb\<^sub>t t \<rparr>"
 
 text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step\<^sub>t :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'a) grelTree"
-  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>t t, glb\<^sub>t t') \<in> (relGTree R) \<and> rg\<^sub>t t = rg\<^sub>t t'}"
-
+definition step\<^sub>t :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
+  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>tTree t, glb\<^sub>tTree t') \<in> R \<and> rg\<^sub>t t = rg\<^sub>t t'}"
 
 
 text \<open>Define stability in terms of a relational predicate that preserves the thread state\<close>
@@ -66,7 +61,7 @@ abbreviation stable\<^sub>t
   where "stable\<^sub>t R P \<equiv> stable (step\<^sub>t R) P"
 
 text \<open>Couple all wellformedness conditions into a single definition\<close>
-abbreviation wellformed :: "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'a) grelTree \<Rightarrow> bool"
+abbreviation wellformed :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'a) grelTree \<Rightarrow> bool"
   where "wellformed R G \<equiv> reflexive R \<and> transitive R \<and> reflexive G" 
 
 text \<open>Show that a stabilized predicate is stable\<close>
@@ -76,9 +71,9 @@ lemma stabilize_stable [intro]:
   unfolding stable_def step\<^sub>t_def
 proof (clarsimp)
   fix m m'
-  assume a: "m \<in> stabilize R Q" "(glb\<^sub>t m, glb\<^sub>t m') \<in> (relGTree R)" "rg\<^sub>t m = rg\<^sub>t m'"
-  have "\<forall>g''. (glb\<^sub>t m',g'') \<in> (relGTree R) \<longrightarrow> (glb\<^sub>t m,g'') \<in> (relGTree R)"
-    using assms a(2) unfolding transitive_def relGTree_def sorry
+  assume a: "m \<in> stabilize R Q" "(glb\<^sub>tTree m, glb\<^sub>tTree m') \<in> R" "rg\<^sub>t m = rg\<^sub>t m'"
+  have "\<forall>g''. (glb\<^sub>tTree m',g'') \<in> R \<longrightarrow> (glb\<^sub>tTree m,g'') \<in> R"
+    using assms a(2) unfolding transitive_def by blast
   thus "m' \<in> stabilize R Q" using a(1,3) by (auto simp: stabilize_def)
 qed
 
@@ -90,38 +85,39 @@ lemma stable\<^sub>t_conj [intro]:
 
 text \<open>Elimination rule to ignore the stabilization process\<close>
 lemma stabilizeE:
-  assumes "m \<in> stabilize R P"
+  assumes "t \<in> stabilize R P"
   assumes "reflexive R"
-  obtains "m \<in> P"
+  obtains "t \<in> P"
 proof -
-  have "\<forall>g. (glb m, glb g) \<in> R \<longrightarrow> rg m = rg g \<longrightarrow> g \<in> P" "(glb m, glb m) \<in>  R"
+  have "\<forall>g. (glb\<^sub>tTree t, glb\<^sub>tTree g) \<in> R \<longrightarrow> rg\<^sub>t t = rg\<^sub>t g \<longrightarrow> g \<in> P" 
+       "(glb\<^sub>tTree t, glb\<^sub>tTree t) \<in>  R"
     using assms by (auto simp: reflexive_def stabilize_def)
   thus ?thesis using that by auto
 qed
 
 text \<open>Stabilization preserves entailment\<close>
 lemma stabilize_entail :
-  assumes "m \<in> stabilize R P" 
+  assumes "t \<in> stabilize R P" 
   assumes "reflexive R"
   assumes "P \<subseteq> Q"
-  shows "m \<in> stabilize R Q"
+  shows "t \<in> stabilize R Q"
   using assms by (auto simp: stabilize_def)
 
 section \<open>Predicate Transformations\<close>
 
 text \<open>Transform a predicate based on an sub-operation\<close>
-fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) trans" 
+fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree" 
   where 
-    "wp\<^sub>i (assign r e) Q = {m. (m (r :=\<^sub>s ev\<^sub>E m e)) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {m. ev\<^sub>B m b \<longrightarrow> m \<in> Q}" | 
+    "wp\<^sub>i (assign r e) Q = {t. (t (r :=\<^sub>t ev\<^sub>E t e)) \<in> Q}" |
+    "wp\<^sub>i (cmp b) Q =  {t. ev\<^sub>B t b \<longrightarrow> t \<in> Q}" | 
     "wp\<^sub>i _ Q = Q"
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) trans"
-  where "wp\<^sub>a a Q = {m. m(aux: a) \<in> Q}"
+fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) transTree"
+  where "wp\<^sub>a a Q = {t. t(aux\<^sub>t: a) \<in> Q}"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) trans"
+fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) transTree"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
@@ -133,14 +129,14 @@ fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g
       (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
-definition wp\<^sub>r :: "('v,'g,'r,'a) trans \<Rightarrow> ('v,'g,'r,'a) rtrans"
-  where "wp\<^sub>r f G \<equiv> {(m,m'). m' \<in> f {m'. (m,m') \<in> G}}"
+definition wp\<^sub>r :: "('v,'g,'r,'a) transTree \<Rightarrow> ('v,'g,'r,'a) rtransTree"
+  where "wp\<^sub>r f G \<equiv> {(t,t'). t' \<in> f {t'. (t,t') \<in> G}}"
 
 subsection \<open>Guarantee Checks\<close>
 
 text \<open>Convert a predicate transformer into a guarantee check\<close>
 abbreviation guar
-  where "guar f G \<equiv> {m. (m,m) \<in> (wp\<^sub>r f G)}"
+  where "guar f G \<equiv> {t. (t,t) \<in> (wp\<^sub>r f G)}"
 
 text \<open>Ensure all global operations in a thread conform to its guarantee\<close>
 fun guar\<^sub>c
@@ -159,7 +155,7 @@ definition w
 
 
 text \<open>Convert the language into the abstract language expected by the underlying logic\<close> 
-fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com" 
+fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
@@ -171,20 +167,47 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
     "lift\<^sub>c (DoWhile I c b) = ((((lift\<^sub>c c) ;\<^sub>w (Basic (\<lfloor>cmp b\<rfloor>)))*\<^sub>w) ;\<^sub>w (lift\<^sub>c c)) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" 
 
 
-(* these two dummy parameters used in the interpretation of rules
-    and help to instantiate the types of auxop and state for ARMv8 *)
+(* these two dummy parameters used in the interpretation of locale rules, locale semantics resp.,
+    and help to instantiate the types of auxop and state*)
 
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
-abbreviation "someState :: ('v,'g,'r,'a) state \<equiv> undefined" (* add a push instance *)
-abbreviation "someAuxOp_someState :: (('v,'g,'r,'a) auxop \<times> ('v,'g,'r,'a) state)  \<equiv> undefined"
+abbreviation "someState ::('v,'g,'r,'a) stateTree \<equiv> undefined" (* add a push instance *)
+abbreviation "someAuxOp_someState :: (('v,'g,'r,'a) auxop \<times> ('v,'g,'r,'a) stateTree)  \<equiv> undefined"
+
+abbreviation "someOp ::('v,'g,'r) op  \<equiv> undefined"
+abbreviation "someAux ::('v,'g,'r,'a) auxfn \<equiv> undefined"
+
+
 
 print_locale rules
+print_locale semantics
 
 (*Type unification failed: No type arity state_rec_ext :: state , when adding parameter someState *)
 
-interpretation rules "someAuxOp" "someState"
+interpretation rules "someOp" "someState" "someAux"  (*"someOp" "someState" "someAux"*)             (* "someAuxOp" "someState" *)
   by (unfold_locales)
 
+term obs 
+
+(* rules instantiated with SomeAuxOp_someState:
+::"((('a, 'b, 'c) op \<times> (('a, ('b, 'c)var, 'd) state \<Rightarrow> 'd)) \<times> ('a, ('b, 'c)var, 'd) stateTree, 'e) com
+      \<Rightarrow> (((('a, 'b, 'c) op \<times> (('a, ('b, 'c)var, 'd) state \<Rightarrow> 'd)) \<times> ('a, ('b, 'c)var, 'd) stateTree) \<times> 'e set \<times> ('e \<times> 'e) set) set"
+*)
+
+(* rules instantiated with SomeAuxOp
+ :: "(('a, 'b, 'c) op \<times> (('a, ('b, 'c) var, 'd) state \<Rightarrow> 'd), 'e) com
+      \<Rightarrow> ((('a, 'b, 'c) op \<times> (('a, ('b, 'c) var, 'd) state \<Rightarrow> 'd)) \<times> 'e set \<times> ('e \<times> 'e) set) set"
+*)
+
+(* rules instantiated with SomeState
+:: "(('a, ('b, 'c)var, 'd) stateTree, 'e) com \<Rightarrow>
+          (('a, ('b, 'c)var, 'd) stateTree \<times> 'e set \<times> ('e \<times> 'e) set) set"  *)
+term lift\<^sub>c 
+
+(*
+:: "('a, 'b, 'c, 'd) lang \<Rightarrow>
+ (('a, 'b, 'c) op \<times> (('a, ('b, 'c)var, 'd) state \<Rightarrow> 'd), ('a, ('b, 'c)var, 'd) stateTree) com"
+*)
 
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:

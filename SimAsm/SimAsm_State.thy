@@ -27,6 +27,16 @@ record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
                            cap :: "'a set"
                            initState :: "'a \<Rightarrow> 'v"
 
+(* 
+record ('v,'a) state_rec = st :: "('g,'r) var  \<Rightarrow> 'v option"
+                           cap :: "('g,'r) var set"
+                           initState :: "('g,'r) var \<Rightarrow> 'v"
+
+record ('v,'a) state_rec = st :: "'g   \<Rightarrow> 'v option"
+                           cap :: "'g  set"
+                           initState :: "'g \<Rightarrow> 'v"
+ *)
+
 print_theorems
 (*
 (* state record mapping some key (for example a variable name) to values *)
@@ -72,6 +82,15 @@ definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)
 
 definition aux :: "('v,'g,'r,'a) state \<Rightarrow> 'a"
   where "aux m \<equiv> more m"
+
+text \<open>define a state on globals only from a full state record\<close>
+definition glbSt :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
+  where "glbSt s \<equiv> 
+    \<lparr> st = glb s, 
+      cap = {g. Glb g \<in> cap s}, 
+      initState = (\<lambda>g. initState s (Glb g)), 
+      \<dots> = more s \<rparr>"
+
 
 text \<open>Domain of register variables\<close>
 

@@ -25,7 +25,7 @@ text \<open> stateTree as data structure in which each leaf is a state record;
 
 datatype  'n tree = Base 'n | Branch "'n tree" "'n tree"
 
-instantiation "tree" :: (state) state         (* state is a type class 
+instantiation "tree" :: (pstate) pstate         (* state is a type class 
         and tree has to define a push operation whose arg is also a (state) *)
 begin
 definition  
@@ -48,9 +48,12 @@ type_synonym ('v,'g,'a) gpredTree = "('v,'g,'a) gstateTree set"
 type_synonym ('v,'g,'r,'a) trelTree = "('v,'g,'r,'a) stateTree rel"
 type_synonym ('v,'g,'a) grelTree = "('v,'g,'a) gstateTree rel"
 
+(* trans as in predicate transformer, e.g., wp *)
 type_synonym ('v,'g,'r,'a) transTree = "('v,'g,'r,'a) predTree \<Rightarrow> ('v,'g,'r,'a) predTree"
 type_synonym ('v,'g,'r,'a) rtransTree = "('v,'g,'r,'a) trelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
 
+(* the possible extension of the state is used to store this auxiliary information *)
+type_synonym ('v,'g,'r,'a) auxfnTree = "('v,'g,'r,'a) stateTree \<Rightarrow> 'a"
 
 
 subsection \<open>Tree access: base, top and lookup\<close>
@@ -103,6 +106,11 @@ definition glb\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarro
 definition glb\<^sub>tSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarrow> 'v)"
   where "glb\<^sub>tSome t \<equiv> \<lambda>v. (lookupSome t) (Glb v)"
 
+text \<open>Produce a tree on globals only from a full tree\<close>
+fun glb\<^sub>tTree :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'a) gstateTree"  where 
+  "glb\<^sub>tTree (Base s) = Base (glbSt s)" |
+  "glb\<^sub>tTree (Branch t t') = Branch (glb\<^sub>tTree t)(glb\<^sub>tTree t')"
+
 (* local state of current tree *)
 definition rg\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg\<^sub>t t \<equiv> \<lambda>v. (lookup t) (Reg v)"
@@ -149,6 +157,9 @@ definition tr_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow>
                                    (('v,'g,'r,'a) state \<Rightarrow> 'a)  \<Rightarrow> ('v,'g,'r,'a) stateTree" 
   where "tr_aux_upd t f = tree_upd t ((top t) \<lparr>state_rec.more := f (top t)\<rparr>)"
 
+
+lemma "tr_aux_upd t f = tree_upd t (top_aux_upd t f)" 
+  using tr_aux_upd_def top_aux_upd_def aux_upd_def by metis
 
 syntax
   "_updbindt" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"            ("(2_ :=\<^sub>t/ _)")
