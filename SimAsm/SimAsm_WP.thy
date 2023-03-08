@@ -172,53 +172,58 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
 
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
 abbreviation "someState ::('v,'g,'r,'a) stateTree \<equiv> undefined" (* add a push instance *)
-abbreviation "someAuxOp_someState :: (('v,'g,'r,'a) auxop \<times> ('v,'g,'r,'a) stateTree)  \<equiv> undefined"
-
-abbreviation "someOp ::('v,'g,'r) op  \<equiv> undefined"
-abbreviation "someAux ::('v,'g,'r,'a) auxfn \<equiv> undefined"
-
-
 
 print_locale rules
 print_locale semantics
 
-(*Type unification failed: No type arity state_rec_ext :: state , when adding parameter someState *)
 
-interpretation rules "someOp" "someState" "someAux"  (*"someOp" "someState" "someAux"*)             (* "someAuxOp" "someState" *)
-  by (unfold_locales)
+interpretation rules "someAuxOp" "someState"   
+  done
 
 term obs 
-
-(* rules instantiated with SomeAuxOp_someState:
-::"((('a, 'b, 'c) op \<times> (('a, ('b, 'c)var, 'd) state \<Rightarrow> 'd)) \<times> ('a, ('b, 'c)var, 'd) stateTree, 'e) com
-      \<Rightarrow> (((('a, 'b, 'c) op \<times> (('a, ('b, 'c)var, 'd) state \<Rightarrow> 'd)) \<times> ('a, ('b, 'c)var, 'd) stateTree) \<times> 'e set \<times> ('e \<times> 'e) set) set"
-*)
-
-(* rules instantiated with SomeAuxOp
- :: "(('a, 'b, 'c) op \<times> (('a, ('b, 'c) var, 'd) state \<Rightarrow> 'd), 'e) com
-      \<Rightarrow> ((('a, 'b, 'c) op \<times> (('a, ('b, 'c) var, 'd) state \<Rightarrow> 'd)) \<times> 'e set \<times> ('e \<times> 'e) set) set"
-*)
-
-(* rules instantiated with SomeState
-:: "(('a, ('b, 'c)var, 'd) stateTree, 'e) com \<Rightarrow>
-          (('a, ('b, 'c)var, 'd) stateTree \<times> 'e set \<times> ('e \<times> 'e) set) set"  *)
 term lift\<^sub>c 
 
-(*
-:: "('a, 'b, 'c, 'd) lang \<Rightarrow>
- (('a, 'b, 'c) op \<times> (('a, ('b, 'c)var, 'd) state \<Rightarrow> 'd), ('a, ('b, 'c)var, 'd) stateTree) com"
-*)
 
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:
   "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow>  \<forall>\<beta> \<in> obs (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
 proof (induct c)
+  case Skip
+  then show ?case by auto
+next
+  case (Op pred op aux)
+  then show ?case 
+    apply (cases op) using Op  
+    by (auto simp: liftg_def guar_def wp\<^sub>r_def) 
+next
+  case (Seq c1 c2)
+  then show ?case 
+    apply (auto simp: guar_def reflexive_def liftl_def step_def)
+    sorry
+next
+  case (If x1 c1 c2)
+  then show ?case 
+    apply (auto simp: guar_def reflexive_def liftl_def step_def)
+    sorry    
+next
+  case (While x1 x2 c)
+  then show ?case 
+    apply (auto simp: guar_def reflexive_def liftl_def step_def)
+    sorry
+next
+  case (DoWhile x1 c x3)
+  then show ?case 
+    apply (auto simp: guar_def reflexive_def liftl_def step_def)
+    sorry
+qed
+
+(*
   case (Op pred op aux)
   then show ?case  
     apply (cases op) using Op  
        by (auto simp: liftg_def guar_def wp\<^sub>r_def) 
 qed (auto simp: guar_def reflexive_def liftl_def step_def) 
-
+*)
 
 text \<open>Extract the instruction from an abstract operation\<close>
 abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"

@@ -34,8 +34,6 @@ locale semantics =
 locale semantics =
   fixes exists_act :: "'a"
   fixes exists_state :: "'b::pstate"
-  fixes exists_aux :: "'c"
-
 
 context semantics
 begin
