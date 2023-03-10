@@ -184,6 +184,8 @@ term obs
 term lift\<^sub>c 
 
 
+
+
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:
   "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow>  \<forall>\<beta> \<in> obs (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
@@ -198,17 +200,24 @@ next
 next
   case (Seq c1 c2)
   then show ?case 
-    apply (auto simp: guar_def reflexive_def liftl_def step_def)
-    sorry
+  proof -
+    have a0:"guar\<^sub>c c1 G" "guar\<^sub>c c2 G" using Seq(4) by auto+
+    then have a1:"\<forall>\<beta>\<in>obs (lift\<^sub>c c1). guar\<^sub>\<alpha> \<beta> (step G)" 
+      using Seq by blast
+    then have a2:"\<forall>\<beta>\<in>obs (lift\<^sub>c c2). guar\<^sub>\<alpha> \<beta> (step G)" 
+      using Seq a0(2) by blast
+    then show ?thesis using Seq a1 
+      sorry
+  qed
 next
   case (If x1 c1 c2)
   then show ?case 
-    apply (auto simp: guar_def reflexive_def liftl_def step_def)
+    apply (auto simp: guar_def reflexive_def liftl_def step_def If) 
     sorry    
 next
   case (While x1 x2 c)
   then show ?case 
-    apply (auto simp: guar_def reflexive_def liftl_def step_def)
+    apply (auto simp: guar_def reflexive_def liftl_def step_def While)
     sorry
 next
   case (DoWhile x1 c x3)
@@ -240,7 +249,30 @@ definition wfcom
 
 lemma wfcomI [intro]:
   "wfcom (lift\<^sub>c c)"
-  by (induct c) (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
+proof (induct c)
+  case Skip
+  then show ?case using obs_nil wfcom_def by force
+next
+  case (Op x1 x2 x3) 
+  then show ?case by (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
+next
+  case (Seq c1 c2)
+  then show ?case apply (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
+    sorry
+next
+  case (If x1 c1 c2)
+  then show ?case sorry
+next
+  case (While x1 x2 c)
+  then show ?case sorry
+next
+  case (DoWhile x1 c x3)
+  then show ?case sorry
+qed
+  
+(*  by (induct c) (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
+*)
+
 
 lemma opbasicE:
   obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |

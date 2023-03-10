@@ -183,7 +183,7 @@ section \<open>Observable atomics\<close>
    for global operations (thread, par) obs_traces are collected per thread (w/o interspersing)
    which still allows to determine the overall observed events as union over all obs_traces *)
 
-inductive obs_trace
+inductive obs_trace :: "('a,'b) basic list \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   where
     "obs_trace [] c" |
     "c \<leadsto> c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace t c" |
@@ -225,6 +225,13 @@ lemma obs_seq2:
   assumes "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1 ;\<^sub>w c\<^sub>2'"
   shows "\<alpha>' \<in> obs (c\<^sub>1 ;\<^sub>w c\<^sub>2)"
   using assms obs_act by auto 
+
+lemma obs_seq3:
+  assumes "c \<mapsto>[\<alpha>',r] c'"
+  shows "\<alpha>' \<in> obs (c ;\<^sub>w c\<^sub>2)"
+  using assms lexecute.intros(2) obs_def obs_act obs_seq 
+  by meson
+
 
 lemma obs_trace_NilE [elim!]:
   assumes "obs_trace t com.Nil"
@@ -273,6 +280,7 @@ next
   case (3 \<alpha> r c' t)
   then show ?case by auto
 qed
+
 
 lemma obs_trace_ParE:
   assumes "obs_trace t (c\<^sub>1 || c\<^sub>2)"
