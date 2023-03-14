@@ -45,6 +45,7 @@ section \<open>Instruction Specification Language\<close>
 text \<open>
 To instantiate the abstract theory, we must couple each sub-operation with its precondition
 and behaviour in a tuple\<close>
+(* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
 type_synonym ('v,'g,'r,'a) opbasic = "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) basic"
 
 fun re\<^sub>s :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"

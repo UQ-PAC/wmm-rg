@@ -2,6 +2,10 @@ theory Push_State
   imports Main
 begin
 
+
+(* to exclude anything to the SystemOnTPTP service, which is often unavailable *)
+sledgehammer_params [provers = e spass vampire zipperposition cvc4 verit z3]
+
 chapter \<open>Push State\<close>
 
 text \<open>

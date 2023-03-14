@@ -153,8 +153,8 @@ section \<open>Locale Interpretation\<close>
 definition w 
   where "w \<alpha>' \<beta> \<alpha> \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
 
-
-text \<open>Convert the language into the abstract language expected by the underlying logic\<close> 
+text \<open>Convert the language into the abstract language expected by the underlying logic
+      this relates the syntax to its semantics \<close> 
 fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
@@ -166,6 +166,17 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
     "lift\<^sub>c (While b I c) = (((Basic (\<lfloor>cmp b\<rfloor>)) ;\<^sub>w (lift\<^sub>c c))*\<^sub>w) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" | 
     "lift\<^sub>c (DoWhile I c b) = ((((lift\<^sub>c c) ;\<^sub>w (Basic (\<lfloor>cmp b\<rfloor>)))*\<^sub>w) ;\<^sub>w (lift\<^sub>c c)) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" 
 
+
+(* TODO:
+  in lift\<^sub>c we have to model how lang maps to its semantics;
+  to model speculative execution, we have to match
+     (If b c\<^sub>1 c\<^sub>2) ---> (spec c\<^sub>2; c\<^sub>3); [b]; c\<^sub>1 ; c\<^sub>3 \choice (spec c\<^sub>1; c\<^sub>3); [\<not>b]; c\<^sub>2 ; c\<^sub>3
+  where c\<^sub>3 is the rest of the program after the If command; (and similarly for loops!)
+  hence we need another parameter ('v,'g,'r,'a) lang which models the remaining program c\<^sub>3
+
+fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
+
+*)
 
 (* these two dummy parameters used in the interpretation of locale rules, locale semantics resp.,
     and help to instantiate the types of auxop and state*)

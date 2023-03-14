@@ -185,13 +185,14 @@ section \<open>Observable atomics\<close>
 
 inductive obs_trace :: "('a,'b) basic list \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
   where
-    "obs_trace [] c" |
-    "c \<leadsto> c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace t c" |
-    "c \<mapsto>[\<alpha>,r] c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace (\<alpha>#t) c" |
-    "obs_trace t c \<Longrightarrow> obs_trace t (Thread c)" |
-    "obs_trace t c \<Longrightarrow> obs_trace t (c || c2)" |
-    "obs_trace t c \<Longrightarrow> obs_trace t (c2 || c)"
- 
+     1:  "obs_trace [] c" |
+     2:  "c \<leadsto> c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace t c" |
+     3:  "c \<mapsto>[\<alpha>,r] c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace (\<alpha>#t) c" |
+     4:  "obs_trace t c \<Longrightarrow> obs_trace t (Thread c)" |
+     5:  "obs_trace t c \<Longrightarrow> obs_trace t (c || c2)" |
+     6:  "obs_trace t c \<Longrightarrow> obs_trace t (c2 || c)"
+
+
 definition obs :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
   where "obs c \<equiv> {\<alpha>. \<exists>t. \<alpha> \<in> set t \<and> obs_trace t c}"
 
@@ -215,6 +216,7 @@ lemma obs_act:
 lemma obs_nil [simp]:
   "obs Nil = {}"
   by (auto simp: obs_def elim: obs_trace.cases)
+
 
 lemma obs_seq: 
   assumes "c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2"
@@ -251,17 +253,48 @@ lemma obs_basic [simp]:
   apply (intro exI conjI)
   prefer 2
   apply (rule obs_trace.intros(3))
-    apply (rule act)
+    apply (rule lexecute.act)
   apply (rule obs_trace.intros(1))
   apply auto
   done
 
+(*
+lemma obsTrace_actE:
+  assumes "obs_trace t c" "t \<noteq> []"
+  obtains \<alpha> r c' where "\<alpha> \<in> set t" "c \<mapsto>[\<alpha>,r] c'"
+  using assms 
+proof (induct t)
+  case Nil
+  then show ?case using obs_trace.intros by blast
+next
+  case (Cons a t)
+  then show ?case using assms Cons sorry
 
+qed
+*)
+(*
+   (\<And>\<alpha> r c'. \<alpha> \<in> set t \<Longrightarrow> c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> thesis) \<Longrightarrow> obs_trace t c \<Longrightarrow> t \<noteq> [] \<Longrightarrow> thesis
+    ?\<alpha> \<in> set (a # t) \<Longrightarrow> c \<mapsto>[\<alpha>',?r] ?c' \<Longrightarrow> thesis
+    obs_trace (a # t) c
+    a # t \<noteq> []
+
+goal (1 subgoal):
+ 1. \<And>a t. ((\<And>\<alpha> r c'. \<alpha> \<in> set t \<Longrightarrow> c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> thesis) \<Longrightarrow> obs_trace t c \<Longrightarrow> t \<noteq> [] \<Longrightarrow> thesis)
+ \<Longrightarrow> (\<And>\<alpha> r c'. \<alpha> \<in> set (a # t) \<Longrightarrow> c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> thesis) \<Longrightarrow> obs_trace (a # t) c \<Longrightarrow> a # t \<noteq> [] 
+ \<Longrightarrow> thesis
+*)
+(*
+lemma obs_actE:
+  assumes "\<alpha>' \<in> obs c" "obs c \<noteq> {}"
+  obtains \<alpha> r c' where "c \<mapsto>[\<alpha>',r] c'"
+  using assms obsTrace_actE obs_def obs_trace.intros(1)
+  by (smt (verit, best) empty_Collect_eq empty_set equals0D)
+*)
 lemma obs_trace_ThreadE:
   assumes "obs_trace t (Thread c)" 
   shows "obs_trace t c"
   using assms
-proof (induct t "Thread c" arbitrary: c)
+proof (induct t "Thread c" arbitrary: c) 
   case 1
   then show ?case by (auto intro: obs_trace.intros)
 next
@@ -322,6 +355,77 @@ lemma obs_gex:
   shows "obs c \<supseteq> obs c'"
   unfolding obs_def using assms obs_sil obs_exec
     obs_thread obs_par obs_def by (induct) auto 
+
+
+inductive_set local_trace :: "(('a,'b) com \<times> ('a,'b) basic list \<times> ('a,'b) com) set"
+  and local_trace_abv :: "('a,'b) com \<Rightarrow> ('a,'b) basic list \<Rightarrow> ('a,'b) com \<Rightarrow> bool" ("_ \<mapsto>\<^sub>l\<^sup>*_ _" [50,40,40] 70)
+  where
+  "local_trace_abv c t c' \<equiv> (c, t, c') \<in> local_trace"
+  | noStep[intro]: "c \<mapsto>\<^sub>l\<^sup>*[] c" 
+  | silStep[intro]: "c\<^sub>1 \<leadsto> c\<^sub>2 \<Longrightarrow> c\<^sub>2 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3 \<Longrightarrow> c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3"
+  | lexStep[intro]: "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>2 \<Longrightarrow> c\<^sub>2 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3 \<Longrightarrow> c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*\<alpha>#t c\<^sub>3"
+  | trStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2 \<Longrightarrow> (Thread c\<^sub>1) \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3" 
+  | parLStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2  \<Longrightarrow> (c\<^sub>1 || c) \<mapsto>\<^sub>l\<^sup>*t (c\<^sub>2 || c)"
+  | parRStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2  \<Longrightarrow> (c || c\<^sub>1) \<mapsto>\<^sub>l\<^sup>*t (c || c\<^sub>2)"
+
+
+
+lemma localTr_obsTrace:
+  assumes "c \<mapsto>\<^sub>l\<^sup>*t c'"
+  shows "obs_trace t c"
+  using assms 
+proof (induct arbitrary: "c'")
+  case (noStep c)
+  then show ?case using obs_trace.intros(1)[of "c"] by simp
+next
+  case (silStep c\<^sub>1 c\<^sub>2 t c\<^sub>3)
+  then show ?case using obs_trace.intros(2)[of "c\<^sub>1""c\<^sub>2""t"] by simp 
+next
+  case (lexStep c\<^sub>1 \<alpha> r c\<^sub>2 t c\<^sub>3)
+  then show ?case using obs_trace.intros(3)[of "c\<^sub>1""\<alpha>""r""c\<^sub>2""t"] by simp
+next
+  case (trStep c\<^sub>1 t c\<^sub>2 c\<^sub>3)
+  then show ?case using obs_trace.intros(4)[of "t""c\<^sub>1"] by simp
+next
+  case (parLStep c\<^sub>1 t c\<^sub>2 c)
+  then show ?case using obs_trace.intros(5)[of "t""c\<^sub>1""c"] by simp
+next
+  case (parRStep c\<^sub>1 t c\<^sub>2 c)
+  then show ?case using obs_trace.intros(6)[of "t""c\<^sub>1""c"] by simp
+qed
+
+
+
+
+lemma obsTrace_localTr:
+  assumes "obs_trace t c"
+  obtains c' where "c \<mapsto>\<^sub>l\<^sup>*t c'"
+  using assms 
+proof (induct)
+  case (1 c)                 (* Nil *)
+  then show ?case by blast
+next
+  case (2 c c' t)            (*  \<leadsto> *)
+  then show ?case by blast
+next
+  case (3 c \<alpha> r c' t)        (* c \<mapsto>[\<alpha>,r] c' *)
+  then show ?case 
+  proof -
+    have a0:"obs_trace (\<alpha> # t) c" using 3 obs_trace.intros(3)[of "c""\<alpha>""r""c'""t"] by simp
+    then show ?thesis
+      using local_trace.lexStep[of "c" "\<alpha>""r""c'""t""c''"] 3 3(4)[of "c''"] by blast
+  qed
+next
+  case (4 t c)                (* Thread c *) 
+  then show ?case using obs_trace.intros(4)[of "t" "c"] 4(3)[of "c'"] 
+                  local_trace.trStep[of "c""t""c'""c''"] 4(3)[of "c''"] by auto
+next
+  case (5 t c c2)             (* c || c2 \<mapsto>\<^sub>l\<^sup>*t c' *)
+  then show ?case using obs_trace.intros(5)[of "t""c""c''"] 5(3)[of "c''"] by auto
+next
+  case (6 t c c2)             (* c2 || c \<mapsto>\<^sub>l\<^sup>*t c' *)
+  then show ?case using obs_trace.intros(6)[of "t""c""c''"] 6(3)[of "c''"] by auto
+qed
 
 end
 

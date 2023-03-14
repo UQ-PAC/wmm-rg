@@ -87,7 +87,8 @@ datatype ('v,'g,'r) op =
   | nop
 
 text \<open>Operation Behaviour\<close>
-(* todo: assignment to cache variable should not sit in top state but at the base *)
+(* todo: assignment to variable and read of variable has to be notified in cache
+         and this cache variable should not sit in top state but at the base *)
 fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |

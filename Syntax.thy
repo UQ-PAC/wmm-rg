@@ -52,7 +52,7 @@ datatype ('a,'b) com =
   | Parallel "('a,'b) com" "('a,'b) com"          (infixr "||" 150)
   | Thread "('a,'b) com"
   | Capture 'b "('a,'b) com"
-  |  Interrupt "('a,'b) com"                      ("\<triangle> _" 80)          (* as unary *)
+  | Interrupt "('a,'b) com"                      ("\<triangle> _" 80)          (* as unary *)
 
 abbreviation univ_stack ("\<forall>\<^sub>c _" 100)
   where "univ_stack c \<equiv> \<Sqinter>s. Capture s c"
