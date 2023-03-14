@@ -195,7 +195,7 @@ term obs
 term lift\<^sub>c 
 
 
-
+(* TODO: try using local_trace instead of obs_trace *)
 
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:
@@ -327,26 +327,32 @@ lemma fwdE:
 proof (cases "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}")
   case True
   then show ?thesis using no_fwd assms    
-    by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+    sorry
 next
   case False
   then show ?thesis using fwd assms 
-    by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+    sorry
 qed
 
 lemma fwd_wfbasic:
-  assumes "reorder_com \<alpha>' r \<alpha>" "wfbasic \<alpha>" 
+  assumes "reorder_com \<alpha>' c w \<alpha>" "wfbasic \<alpha>" 
   shows "wfbasic \<alpha>'"
-  using assms
-proof (induct \<alpha>' r \<alpha> rule: reorder_com.induct)
+  using assms sorry
+(*
+proof (induct \<alpha>' \<alpha> rule: reorder_com.induct)
   case (2 \<alpha>' \<beta> \<alpha>)
   then show ?case by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def wfbasic_def)
 qed auto
+*)
+
 
 lemma [simp]:
-  "wfcom (c\<^sub>1 ;; c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
-  by (auto simp: wfcom_def)
+  "wfcom (c\<^sub>1 ;\<^sub>w c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
+  apply (auto simp: wfcom_def) sorry
 
+(* we don't have basics_... anymore
 lemma wfcom_silent:
   "silent c c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
   using basics_silent by (auto simp: wfcom_def)
@@ -358,23 +364,28 @@ lemma wfcom_exec:
 lemma wfcom_exec_prefix:
   "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom r \<and> wfbasic \<alpha>"
   using basics_exec_prefix unfolding wfcom_def by blast
+*)
 
+
+(* fix up the commands: no ., Choice, Loop, no SeqChoice
 fun sim :: "('a,'b) com \<Rightarrow> bool"
   where 
     "sim (c\<^sub>1 || c\<^sub>2) = False" |
     "sim (Thread _) = False" |
     "sim (SeqChoice _) = False" |
-    "sim (c\<^sub>1 ;; c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
-    "sim (c\<^sub>1 \<cdot> c\<^sub>2) = False" |
-    "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |  
-    "sim (c*) = (sim c)" |    
+    "sim (c\<^sub>1 ;\<^sub>w c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
+    "sim (c\<^sub>1 \<cdot> c\<^sub>2) = False"  |
+    "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
+    "sim (c loopStar) = (sim c)" |
     "sim _ = True"
+*)
+
 
 
 text \<open>The language is always thread-local\<close>
 lemma sim_lift [intro]:
   "sim (lift\<^sub>c c)"
-  by (induct c) auto
+  apply (induct c) apply auto sorry
 
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:
