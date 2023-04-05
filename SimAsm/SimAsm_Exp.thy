@@ -85,6 +85,7 @@ datatype ('v,'g,'r) op =
   | cmp "('v,'g,'r) bexp"
   | full_fence
   | nop
+  | leak "('v,'g,'r) exp"
 
 text \<open>Operation Behaviour\<close>
 (* todo: assignment to variable and read of variable has to be notified in cache

@@ -105,6 +105,9 @@ lemma stabilize_entail :
 
 section \<open>Predicate Transformations\<close>
 
+(* define (spec c) = \<triangle>(Capture s c) *)
+
+(* define wp\<^sub>i(spec c)Q *)
 text \<open>Transform a predicate based on an sub-operation\<close>
 fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree" 
   where 
@@ -116,6 +119,7 @@ text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) transTree"
   where "wp\<^sub>a a Q = {t. t(aux\<^sub>t: a) \<in> Q}"
 
+(* extend wp R (If...)Q by adding wp\<^sub>i (spec c\<^sub>1; c\<^sub>3) Q *)
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) transTree"
   where
@@ -123,6 +127,9 @@ fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+(*    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R 
+                             (wp\<^sub>i (spec c\<^sub>2;c\<^sub>3) (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q)) \<inter> 
+                              wp\<^sub>i (spec c\<^sub>1;c\<^sub>3) (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q)))" | *)
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
     "wp R (DoWhile I c b) Q = 
@@ -171,6 +178,8 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
   in lift\<^sub>c we have to model how lang maps to its semantics;
   to model speculative execution, we have to match
      (If b c\<^sub>1 c\<^sub>2) ---> (spec c\<^sub>2; c\<^sub>3); [b]; c\<^sub>1 ; c\<^sub>3 \choice (spec c\<^sub>1; c\<^sub>3); [\<not>b]; c\<^sub>2 ; c\<^sub>3
+  or            ---> \<triangle>(Capture s c\<^sub>2;c\<^sub>3) ;\<^sub>s\<^sub>c [b] ; c\<^sub>1 \choice \<triangle>(Capture s c\<^sub>1;c\<^sub>3) ;\<^sub>s\<^sub>c [\<not>b] ; c\<^sub>2
+c\<^sub>3 probably not needed!
   where c\<^sub>3 is the rest of the program after the If command; (and similarly for loops!)
   hence we need another parameter ('v,'g,'r,'a) lang which models the remaining program c\<^sub>3
 
@@ -195,7 +204,7 @@ term obs
 term lift\<^sub>c 
 
 
-(* TODO: try using local_trace instead of obs_trace *)
+(* TODO: try using local_trace (from semantics.thy) instead of obs_trace *)
 
 text \<open>Correctness of the guarantee check\<close>
 lemma com_guar:

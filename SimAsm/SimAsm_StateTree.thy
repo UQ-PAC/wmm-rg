@@ -26,7 +26,7 @@ text \<open> stateTree as data structure in which each leaf is a state record;
 datatype  'n tree = Base 'n | Branch "'n tree" "'n tree"
 
 instantiation "tree" :: (type) pstate         (* state is a type class 
-        and tree has to define a push operation whose arg is also a (state) *)
+        and tree has to define a push operation whose arg is of type *)
 begin
 definition  
       push_rec_def: "push m s = Branch m s"   (* pushes s on top of current tree t *) 

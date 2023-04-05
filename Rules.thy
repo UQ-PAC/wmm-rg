@@ -215,6 +215,8 @@ lemma stable_preE:
 
 text \<open> Combining choice with capture to provide the choice over some var that is "hidden" \<close>
 
+(* here s is a variable set, e.g., the set of variables that are updated in c *)
+
 abbreviation univ_capture  ("\<forall>\<^sub>c _")
   where "univ_capture c \<equiv> \<Sqinter>s. Capture s c"  
 
@@ -226,6 +228,7 @@ lemma univ_captureI:
   assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
   shows "R,G \<turnstile> P {univ_capture c} Q"
   using assms by (intro choice allI capture) simp
+
 
 text \<open> to derive guar predicate from judgement \<close>
 
