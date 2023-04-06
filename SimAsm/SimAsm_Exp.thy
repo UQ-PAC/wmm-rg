@@ -880,6 +880,7 @@ proof -
   then show ?thesis using updTree_def 
 *)
 
+(* if \<Gamma> is in aux then this will include equality of \<Gamma> mapping *)
 lemma st_upd_eq [intro]:
   "state_rec.more m = state_rec.more m' \<Longrightarrow> 
               state_rec.cap m = state_rec.cap m' \<Longrightarrow>

@@ -128,7 +128,7 @@ fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
 (*    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R 
-                             (wp\<^sub>i (spec c\<^sub>2;c\<^sub>3) (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q)) \<inter> 
+                             (wp\<^sub>s (spec c\<^sub>2;c\<^sub>3) (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q)) \<inter> 
                               wp\<^sub>i (spec c\<^sub>1;c\<^sub>3) (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q)))" | *)
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
@@ -179,11 +179,16 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
   to model speculative execution, we have to match
      (If b c\<^sub>1 c\<^sub>2) ---> (spec c\<^sub>2; c\<^sub>3); [b]; c\<^sub>1 ; c\<^sub>3 \choice (spec c\<^sub>1; c\<^sub>3); [\<not>b]; c\<^sub>2 ; c\<^sub>3
   or            ---> \<triangle>(Capture s c\<^sub>2;c\<^sub>3) ;\<^sub>s\<^sub>c [b] ; c\<^sub>1 \choice \<triangle>(Capture s c\<^sub>1;c\<^sub>3) ;\<^sub>s\<^sub>c [\<not>b] ; c\<^sub>2
-c\<^sub>3 probably not needed!
+ 
+c\<^sub>3 probably not needed since it sits in the postcondition!
+
+      (If b c\<^sub>1 c\<^sub>2) ---> (spec c\<^sub>2; c\<^sub>3); [b]; c\<^sub>1 ; c\<^sub>3 \choice (spec c\<^sub>1; c\<^sub>3); [\<not>b]; c\<^sub>2 ; c\<^sub>3
+                   --->   
+
   where c\<^sub>3 is the rest of the program after the If command; (and similarly for loops!)
   hence we need another parameter ('v,'g,'r,'a) lang which models the remaining program c\<^sub>3
 
-fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
+  fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
 
 *)
 
@@ -299,7 +304,8 @@ lemma opbasicE:
           (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
           (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
           (nop) f v b where "(basic ) = ((nop,f), v, b)" 
-  by (cases basic, case_tac a, case_tac aa; clarsimp)
+  sorry
+(*  by (cases basic, case_tac a, case_tac aa; clarsimp) *)
 
 lemma [simp]:
   "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"

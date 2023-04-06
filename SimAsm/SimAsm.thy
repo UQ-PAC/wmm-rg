@@ -71,12 +71,14 @@ section \<open>Language Definition\<close>
 
 
 (* predicates are no longer sets of states but sets of trees, ie., of type predTree *)
+(* IF has another sub-command c\<^sub>3 to model the program after the If -- for speculation *)
 
 datatype ('v,'g,'r,'a) lang =
   Skip
   | Op "('v,'g,'r,'a) predTree" "('v,'g,'r) op" "('v,'g,'r,'a) auxfn"
   | Seq "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"
-  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"
+(*  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" *)
+  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" 
   | While "('v,'g,'r) bexp" "('v,'g,'r,'a) predTree" "('v,'g,'r,'a) lang"
   | DoWhile "('v,'g,'r,'a) predTree" "('v,'g,'r,'a) lang" "('v,'g,'r) bexp"
 

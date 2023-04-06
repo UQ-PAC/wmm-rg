@@ -27,15 +27,6 @@ record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
                            cap :: "'a set"
                            initState :: "'a \<Rightarrow> 'v"
 
-(* 
-record ('v,'a) state_rec = st :: "('g,'r) var  \<Rightarrow> 'v option"
-                           cap :: "('g,'r) var set"
-                           initState :: "('g,'r) var \<Rightarrow> 'v"
-
-record ('v,'a) state_rec = st :: "'g   \<Rightarrow> 'v option"
-                           cap :: "'g  set"
-                           initState :: "'g \<Rightarrow> 'v"
- *)
 
 print_theorems
 (*
@@ -72,10 +63,9 @@ type_synonym ('v,'g,'r,'a) rtrans = "('v,'g,'r,'a) trel \<Rightarrow> ('v,'g,'r,
 (* the possible extension of the state is used to store this auxiliary information *)
 type_synonym ('v,'g,'r,'a) auxfn = "('v,('g,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
 
-
-(* obtains the global state *)
+(* obtains the state of global variables that are not \<Gamma> *)
 definition glb :: "('v,'g,'r,'a) state \<Rightarrow> ('g \<Rightarrow> 'v option)"
-  where "glb m \<equiv> \<lambda>v. st m (Glb v)"
+  where "glb m \<equiv> (\<lambda>v. st m (Glb v))"
 
 definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
@@ -83,6 +73,7 @@ definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)
 definition aux :: "('v,'g,'r,'a) state \<Rightarrow> 'a"
   where "aux m \<equiv> more m"
 
+(* this contains \<Gamma> variables if they are in aux *)
 text \<open>define a state on globals only from a full state record\<close>
 definition glbSt :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
   where "glbSt s \<equiv> 
