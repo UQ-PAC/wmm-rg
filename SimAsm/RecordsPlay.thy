@@ -44,6 +44,7 @@ lemma "sec_state_rec.fields g1 = \<lparr>\<Gamma> = g1\<rparr>"
 (* a record can be extended by more than one field; 
     if we extend more than once then every use of helper functions needs to be specialised
     i.e., types are not inferred  *)
+
 record ('v, 'a) sec2_state_rec = "('v, 'a) sec_state_rec" +
   \<delta> :: "'a \<Rightarrow> bool"
   \<eta> :: "'a \<Rightarrow> bool"
