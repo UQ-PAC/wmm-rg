@@ -2,70 +2,27 @@ theory SimAsm_Security
   imports SimAsm_State
 begin
 
-datatype color = blue | green
-
-record point =
-   x :: int 
-   y :: int
-
-record cpoint = point +
-   col :: color
-  
-definition cpt1 :: cpoint 
-  where "cpt1 \<equiv> \<lparr> x=1, y=1, col=green \<rparr>"
-
-lemma "point.more cpt1 = \<lparr>col=green\<rparr>" 
-  by (simp add: cpt1_def)
-
-(*----------------------------------------*)
+text \<open> Extension to the state record with the auxiliary variable \<Gamma> 
+        which holds the security level \<close>
 
 datatype sec = bool
 
 record ('v, 'a) sec_state_rec = "('v, 'a) state_rec" +
   \<Gamma> :: "'a \<Rightarrow> bool"
 
-(* sec_state_rec.defs has make, fields, extend truncate *)
 
-lemma "state_rec.more (make s c i g) = \<lparr>\<Gamma> = g\<rparr>"
-  by (simp add: sec_state_rec.defs)
+text \<open>Describe low equivalence between two memories for one \<Gamma>,
+      this is more precise than describing low-equivalence over the security classificaiton \<L> \<close>
 
-lemma "state_rec.more (truncate (make s c i g)) = \<lparr>\<Gamma> = g\<rparr>"
-  by (simp add: sec_state_rec.defs)
-
-
-lemma "make s c i g = \<lparr>st=s, cap=c, initState=i, \<Gamma>=g\<rparr>"
-  by (simp add: sec_state_rec.defs)
-
-lemma "fields g = \<lparr>\<Gamma> = g\<rparr>"
-  by (simp add: sec_state_rec.defs)
-
-lemma "truncate (make s c i g) =  \<lparr>st=s, cap=c, initState=i\<rparr>"
-  by (simp add: sec_state_rec.defs)
-
-definition s1 :: "('v,'a) sec_state_rec"
-  where "s1 \<equiv>
-    \<lparr> st = undefined, 
-      cap = {}, 
-      initState = undefined,
-      \<Gamma> = (\<lambda>v. True)\<rparr>"
-
-lemma "state_rec.more s1 = \<lparr>\<Gamma>=(\<lambda>v. True)\<rparr>"
-  by (simp add: s1_def)
-
-lemma "state_rec.more s1 = \<lparr>\<Gamma>=\<Gamma> s1, \<dots>= more s1\<rparr>" 
-  by (simp add: s1_def)
-
-
-
-
-
-text \<open>Describe low equivalence between two memories for one \<Gamma>\<close>
 definition low_equiv1
   ("_ =\<^bsub>_\<^esub> _" [70,0,70] 100)
   where "m\<^sub>1 =\<^bsub>Gamma\<^esub> m\<^sub>2 \<equiv> \<forall>x. Gamma x \<longrightarrow> st m\<^sub>1 x = st m\<^sub>2 x"
 
 definition policy 
   where "policy \<L> \<equiv> {m. \<forall>x. st m \<in> \<L> x \<longrightarrow> \<Gamma> m x}"
+
+
+text \<open> low equivalence has to hold for the security level \<Gamma> over both states, m1 and m2 \<close>
 
 definition low_equiv 
   ("_ =\<^bsub>_,_\<^esub> _" [70,0,70] 100)
@@ -75,9 +32,17 @@ definition low_equiv
 definition S
   where "S \<L> \<equiv> {(m,m'). m =\<^bsub>\<L>,UNIV\<^esub> m'}"
 
+
+lemma "m(aux: f) = \<lparr> st=(st m), cap=(cap m), initState=(initState m), \<dots>=(f m)\<rparr>"
+  by (simp add: aux_upd_def)
+
+lemma "\<Gamma> (extend (m(aux: f)) more) = \<Gamma> (f m)"
+  by (simp add: aux_upd_def)
+
+(* (f m) = \<lparr>\<Gamma> = (f m), \<dots>=more\<rparr> *)
 lemma [simp]:
-  "\<Gamma> (m(aux: f)) = \<Gamma> f m"
-  apply (simp add: aux_upd_def)
+  "\<Gamma> (m(aux: f)) = \<Gamma> (extend m (f m))"
+  apply (simp add: aux_upd_def sec_state_rec.defs) 
   sorry
 
 lemma [simp]:
