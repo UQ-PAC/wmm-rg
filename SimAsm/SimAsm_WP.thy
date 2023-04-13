@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm
+  imports SimAsm SimAsm_Security
 begin
 
 section \<open>Wellformedness\<close>
@@ -198,7 +198,7 @@ c\<^sub>3 probably not needed since it sits in the postcondition!
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
 abbreviation "someState ::('v,'g,'r,'a) stateTree \<equiv> undefined" (* add a push instance *)
 
-print_locale rules
+print_locale rules 
 print_locale semantics
 
 
@@ -207,6 +207,7 @@ interpretation rules "someAuxOp" "someState"
 
 term obs 
 term lift\<^sub>c 
+
 
 
 (* TODO: try using local_trace (from semantics.thy) instead of obs_trace *)

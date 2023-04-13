@@ -1027,7 +1027,9 @@ lemma beh_substi [simp]:
     apply blast
   apply (clarsimp simp: updTree_def tr_upd_def) 
    apply blast
-  using beh_help by blast
+  using beh_help apply force
+  using beh_help[of \<alpha> x11 x12 x e]
+  by (smt (verit, del_insts) Collect_cong beh_help)   
   
 
 lemma [simp]:

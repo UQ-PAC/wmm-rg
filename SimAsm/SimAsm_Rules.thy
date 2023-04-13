@@ -5,6 +5,7 @@ begin
 abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
   where "rules_abv \<equiv> rules"
 
+
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
   where "lifted_abv R G P c Q \<equiv> step\<^sub>t R,step G \<turnstile> P {lift\<^sub>c c} Q"
 

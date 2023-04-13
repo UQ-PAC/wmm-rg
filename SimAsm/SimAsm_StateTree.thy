@@ -100,6 +100,9 @@ fun lookupSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarro
                                                    _ \<Rightarrow> (initState (base t) var))"
 
 (* obtains the global state of current tree *)
+
+(* todo: needs to lookup in the base *)
+
 definition glb\<^sub>t :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g \<Rightarrow> 'v option)"
   where "glb\<^sub>t t \<equiv> \<lambda>v. (lookup t) (Glb v)"
 
