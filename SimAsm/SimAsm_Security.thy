@@ -6,13 +6,19 @@ begin
       'v option = ('val option, 'sec option) 
    which provides a value and a security level for each variable;
    and access to the security level \<Gamma> of each variable 
+
+   \<L> general lattice 
+   \<L>(x) = 'condSec expression, evaluation with 
+   ev\<^sub>S m (\<L>(x)) :: 'sec option
+   Axiom sec_aux: aux upd does not affect ev\<^sub>S result
+ 
 *)
 
 
 locale vst =                                          (* (val,sec) tuple*)
   fixes val :: "'v option \<Rightarrow> 'val option"
     and level :: "'v option \<Rightarrow> 'sec::bounded_lattice option"
-    and ev\<^sub>S :: "('v,'g, 'r,'a) state \<Rightarrow> 'condSec_exp \<Rightarrow> 'sec::bounded_lattice option"
+    and ev\<^sub>S :: "('v,'g, 'r,'a) state \<Rightarrow> 'condSec_exp \<Rightarrow> 'sec::bounded_lattice option" (* eval of cond. Security expr *)
     and attkLev :: "'sec::bounded_lattice"
   assumes sec_aux: "ev\<^sub>S (m(aux:f)) e = ev\<^sub>S m e"
 begin

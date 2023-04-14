@@ -94,7 +94,7 @@ fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |
     "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
-(*    "beh\<^sub>i (leak e) =... "  *)
+(*    "beh\<^sub>i (leak e) = {(t,t'). t' = tree_upd_base t (Cache :=\<^sub>s (ev\<^sub>E (t) e))}" | *)
     "beh\<^sub>i _ = Id"
  
 (*

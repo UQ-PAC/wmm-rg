@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm SimAsm_Security
+  imports SimAsm_Security
 begin
 
 section \<open>Wellformedness\<close>
@@ -102,6 +102,8 @@ lemma stabilize_entail :
   assumes "P \<subseteq> Q"
   shows "t \<in> stabilize R Q"
   using assms by (auto simp: stabilize_def)
+
+
 
 section \<open>Predicate Transformations\<close>
 
