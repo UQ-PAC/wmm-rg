@@ -80,12 +80,13 @@ fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('
 
 section \<open>Operations\<close>
 
+(* the leak operation also specifies where the leak goes, e.g., Cache*)
 datatype ('v,'g,'r) op =
     assign "('g,'r) var" "('v,'g,'r) exp"
   | cmp "('v,'g,'r) bexp"
   | full_fence
   | nop
-  | leak "('v,'g,'r) exp"
+  | leak "('g,'r) var" "('v,'g,'r) exp"
 
 text \<open>Operation Behaviour\<close>
 (* todo: assignment to variable and read of variable has to be notified in cache
@@ -94,7 +95,7 @@ fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |
     "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
-(*    "beh\<^sub>i (leak e) = {(t,t'). t' = tree_upd_base t (Cache :=\<^sub>s (ev\<^sub>E (t) e))}" | *)
+    "beh\<^sub>i (leak Cache e) = {(t,t'). t' = tr_base_upd t ((base t)(Cache :=\<^sub>s (ev\<^sub>E (t) e)))}" | 
     "beh\<^sub>i _ = Id"
  
 (*
