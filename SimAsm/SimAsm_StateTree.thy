@@ -70,9 +70,9 @@ fun base :: "('v,'a,'b) state_rec_scheme tree \<Rightarrow> ('v,'a,'b) state_rec
 *)
 
 
-fun top :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state" where
-  "top (Base s) = s" |
-  "top (Branch m m') = (case m' of (Base s) \<Rightarrow> s | _ \<Rightarrow> (top m'))"
+fun treeTop :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state" where
+  "treeTop (Base s) = s" |
+  "treeTop (Branch m m') = treeTop m'"
 (*
 fun top :: "('v,'a,'b) state_rec_scheme tree \<Rightarrow> ('v,'a,'b) state_rec_scheme" where
   "top (Base s) = s" |
@@ -120,7 +120,7 @@ definition rg\<^sub>tSome :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('r \<Righta
 
 (* auxiliary component of tree is the aux of its top state *)
 definition aux\<^sub>t 
-  where "aux\<^sub>t t \<equiv> more (top t)"
+  where "aux\<^sub>t t \<equiv> aux (treeTop t)"
 
 
 
@@ -130,13 +130,13 @@ subsection \<open>Write Operations on trees: update top and tree\<close>
 (*definition top_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
                                                'a \<Rightarrow> 'v \<Rightarrow> ('v,'a,'c) state_rec_scheme" where *)
 definition top_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'v \<Rightarrow> ('v,'g,'r,'a) state" where 
-  "top_upd t r val = (st_upd (top t) r val)"
+  "top_upd t r val = (st_upd (treeTop t) r val)"
 
 (* definition top_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
                      (('v,'a,'c) state_rec_scheme \<Rightarrow> 'c) \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" where *)
 definition top_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> 
                                   (('v,'g,'r,'a) state \<Rightarrow> 'a) \<Rightarrow> ('v,'g,'r,'a) state" where
-  "top_aux_upd t f = (aux_upd (top t) f)"
+  "top_aux_upd t f = (aux_upd (treeTop t) f)"
 
 (* tree_upd :: tree \<Rightarrow> state \<Rightarrow> tree *)
 (*fun tree_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
@@ -145,17 +145,20 @@ fun tree_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rig
   "tree_upd (Base s) newTop = (Base newTop)" |
   "tree_upd (Branch m m') newTop = (Branch m (tree_upd m' newTop))"
 
+fun base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r,'a) stateTree" where
+  "base_upd (Base s) newBase = (Base newBase)" |
+  "base_upd (Branch m m') newBase = (Branch (base_upd m newBase) m')"
 
 (* tr_upd :: tree \<Rightarrow> var \<Rightarrow> val \<Rightarrow> tree *)
 (*definition tr_upd :: "('v,'a,'b) state_rec_scheme tree \<Rightarrow> 'a \<Rightarrow> 'v  \<Rightarrow> ('v,'a,'b) state_rec_scheme tree" *)
 definition tr_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r)var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) stateTree" 
-  where "tr_upd t a b = tree_upd t ((top t) \<lparr> st := ((st (top t)) (a := Some b)) \<rparr>)"
+  where "tr_upd t a b = tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (a := Some b)) \<rparr>)"
 
 (*definition tr_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
                             (('v,'a,'c) state_rec_scheme \<Rightarrow> 'c)  \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" *)
 definition tr_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> 
                                    (('v,'g,'r,'a) state \<Rightarrow> 'a)  \<Rightarrow> ('v,'g,'r,'a) stateTree" 
-  where "tr_aux_upd t f = tree_upd t ((top t) \<lparr>state_rec.more := f (top t)\<rparr>)"
+  where "tr_aux_upd t f = tree_upd t ((treeTop t) \<lparr>state_rec.more := f (treeTop t)\<rparr>)"
 
 
 lemma "tr_aux_upd t f = tree_upd t (top_aux_upd t f)" 
@@ -172,16 +175,108 @@ translations
 
 subsection \<open> tree lemmas \<close>
 
+
+
+(* lemma [simp]: *)
+  (* "glb\<^sub>t (t(Reg r :=\<^sub>t e, aux\<^sub>t: f)) = glb\<^sub>t (t(aux\<^sub>t: \<lambda>m. f(treeTop (t(Reg r :=\<^sub>t e)))))" *)
+  (* by (auto simp: glb\<^sub>t_def) *)
+
+lemma [simp]:
+  "lookup t (Reg x) = rg\<^sub>t t x"
+  by (auto simp: rg\<^sub>t_def)
+
+
+(* lemma [simp]: *)
+  (* shows "base (base_upd t x) = x" *)
+  (* by (induct t) auto *)
+
+interpretation treebase: state
+  "\<lambda>s v. state_rec.st (base s) v"
+  "\<lambda>s v x. base_upd s (st_upd (base s) v x)"
+  "aux" 
+  "\<lambda>s f. base_upd s (aux_upd (base s) f)"
+  "base"
+  apply unfold_locales 
+  unfolding aux_def
+     apply (induct_tac s; auto)
+    apply (induct_tac s; auto)
+   apply (induct_tac s; auto)
+  apply (induct_tac m; auto)
+  done
+
+abbreviation region where 
+  "region x \<equiv> (case x of Reg _ \<Rightarrow> True | Glb _ \<Rightarrow> False)"
+
+interpretation treetop: state
+  "\<lambda>s v. lookup s v" 
+  tr_upd
+  aux
+  "\<lambda>t f. tr_aux_upd t f" 
+  "treeTop"
+  apply unfold_locales
+  unfolding aux_def tr_upd_def tr_aux_upd_def
+  apply (induct_tac s; auto)
+    apply (induct_tac s; auto)
+   apply (induct_tac s; auto)
+  apply (induct_tac m; auto)
+  done
+
+lemma [simp]:
+  "glb\<^sub>t (t(Reg r :=\<^sub>t e)) = glb\<^sub>t t"
+  unfolding glb\<^sub>t_def
+  by auto
+
+lemma tr_aux_exec [intro!]:
+  assumes "(t\<^sub>1,t\<^sub>2) \<in> P"
+  shows "(t\<^sub>1,t\<^sub>2(aux\<^sub>t: f)) \<in> P O {(t, t'). t' = t(aux\<^sub>t: f)}"
+  using assms by blast
+
+lemma [simp]:
+  "aux\<^sub>t (t(Reg x :=\<^sub>t e)) = aux\<^sub>t t"
+  unfolding aux\<^sub>t_def
+  using treetop.st_upd_aux
+  by simp
+
+lemma
+  "state_rec.more (treeTop (t(x :=\<^sub>t e))) = state_rec.more (treeTop t)"
+  using treetop.st_upd_aux
+  by (auto simp add: aux_def)
+
+lemma 
+  "state_rec.more (treeTop (t(aux\<^sub>t: f))) = f (treeTop t)"
+  using treetop.aux_upd
+  by (auto simp add: aux_def)
+
+lemma
+  "rg\<^sub>t (t(Reg x :=\<^sub>t e)) = (rg\<^sub>t t)(x := Some e)"
+  using treetop.st_upd_map
+  unfolding rg\<^sub>t_def
+  by auto
+ 
+lemma tr_aux_nop:
+  "t(aux\<^sub>t:more) = t"
+  using treetop.aux_upd
+  unfolding aux_def
+  oops
+
+
+lemma tr_aux_st:
+  "lookup (t(aux\<^sub>t: e)) = lookup t" 
+  using treetop.aux_upd_st
+  by auto
+
+
 lemma treeUpd_top [simp]: 
-  "tree_upd t (top t) = t" 
-proof (induction t)
-  case (Base x)
-  then show ?case by auto
-next
-  case (Branch t1 t2)
-  then show ?case apply auto
-    by (metis top.elims tree.simps(5) tree.simps(6))
-qed
+  "tree_upd t (treeTop t) = t" 
+  using treetop.st_upd
+  unfolding tr_upd_def
+  oops
+
+lemma [simp]: 
+  "st (treeTop (tr_upd t v x)) v = Some x"
+  unfolding tr_upd_def
+  by (induct t rule: tree.induct) auto
+
 
 
 lemma stUpd_single :
@@ -191,23 +286,16 @@ lemma stUpd_single :
 
 lemma topUpd_single:
  "x \<noteq> r  \<Longrightarrow> lookup (Base (top_upd (Base s) r (the val))) x = lookup (Base s) x"
-  using top_upd_def stUpd_single by (metis(full_types) lookup.simps(1) top.simps(1))
+  using top_upd_def stUpd_single by (metis(full_types) lookup.simps(1) treeTop.simps(1))
 
 lemma treeUpd_change:
-  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t (top_upd t r (the val))) x = lookup t x"
-proof (induct t)
-  case (Base s)
-  then show ?case using topUpd_single lookup.simps(1) by fastforce
-next
-  case (Branch t1 t2)
-  then show ?case using topUpd_single lookup.simps(2) top.elims top_upd_def tree.distinct(1) 
-             tree.inject(2) tree.simps(5) tree.simps(6) tree_upd.simps(2)
-    by (smt (verit, ccfv_threshold) )
-qed
-
+  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t (top_upd t r (the val))) x = lookup t x"  
+  apply (drule treetop.st_upd_diff)
+  unfolding tr_upd_def st_upd_def top_upd_def
+  by auto
 
 lemma top_treeUpd [simp]:
-    "top (tree_upd t newTop) = newTop" 
+    "treeTop (tree_upd t newTop) = newTop" 
 proof (induction t)
   case (Base x)
   then show ?case by simp
@@ -236,11 +324,11 @@ next
   then show ?case 
   proof (induction t2)
     case (Base x)
-    then show ?case using tree_upd.simps lookup.simps(2) top.simps tree.simps(5)
+    then show ?case using tree_upd.simps lookup.simps(2) treeTop.simps tree.simps(5)
       by (simp add: top_upd_def)
   next
     case (Branch t21 t22)
-    then show ?case using tree_upd.simps(2) lookup.simps(2) top.simps tree.simps(2,6) 
+    then show ?case using tree_upd.simps(2) lookup.simps(2) treeTop.simps tree.simps(2,6) 
       by (simp add: top_upd_def)
   qed 
 qed
@@ -251,56 +339,56 @@ lemma lookupSome_upd:
 
 
 lemma treeUpd_change1:
-  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
+  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
                                        = lookup t x"
   using treeUpd_change by (metis option.sel st_upd_def top_upd_def)
 
 lemma treeUpd_change2:
-  "x = r  \<Longrightarrow> lookup (tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
+  "x = r  \<Longrightarrow> lookup (tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
                                        = Some (ev\<^sub>E t f)"
      by (metis lookup_upd st_upd_def top_upd_def)
 
 section \<open>Simp Lemmas\<close>
 
-lemma [simp]:
+lemma
   assumes "r = q"
-  shows "lookup (tree_upd t (top t\<lparr>st := st (top t)(q \<mapsto> e)\<rparr>)) q = Some e"
+  shows "lookup (tree_upd t (treeTop t\<lparr>st := st (treeTop t)(q \<mapsto> e)\<rparr>)) q = Some e"
   by (metis lookup_upd st_upd_def top_upd_def)
 
-lemma [simp]:
+lemma
   assumes "r \<noteq> q"
-  shows "lookup (tree_upd t (top t\<lparr>st := st (top t)(r \<mapsto> e)\<rparr>)) q = lookup t q"
+  shows "lookup (tree_upd t (treeTop t\<lparr>st := st (treeTop t)(r \<mapsto> e)\<rparr>)) q = lookup t q"
   by (metis assms option.sel st_upd_def top_upd_def treeUpd_change)
 
-lemma lookup_upd_var [simp]:
+lemma lookup_upd_var:
   "lookup (t(r :=\<^sub>t e)) q = (if r = q then Some e else lookup t q)"
   by (auto simp: tr_upd_def st_upd_def) 
 
-lemma lookupSome_upd_var [simp]:
+lemma lookupSome_upd_var
   "lookupSome (t (r :=\<^sub>t f))  x = (if x = r then f else (lookupSome t x))"
 proof -
-    have a1: "t (r :=\<^sub>t f) = tree_upd t((top t)\<lparr>st := ((st (top t))(r := Some f))\<rparr>)"
+    have a1: "t (r :=\<^sub>t f) = tree_upd t((treeTop t)\<lparr>st := ((st (treeTop t))(r := Some f))\<rparr>)"
       using tr_upd_def by metis
-    obtain t' where a2:"t'= tree_upd t ((top t) \<lparr> st := ((st (top t)) (r := Some f)) \<rparr>)" 
+    obtain t' where a2:"t'= tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some f)) \<rparr>)" 
       by simp
     then have a3:"lookup t' r = Some f" using lookupSome_upd a1 by simp
     then have a4:"lookup t' x = (if x = r then Some f else (lookup t x))" 
       using lookup_upd a1 treeUpd_change1 treeUpd_change2 a2 by simp
     then show ?thesis using a2 
       by (smt (verit, ccfv_SIG) a1 base.simps(1) base.simps(2) fold_congs(1) lookupSome.elims 
-          lookupSome_upd stUpd_single st_upd_def top.simps(1) top_upd_def tree_upd.elims)
+          lookupSome_upd stUpd_single st_upd_def treeTop.simps(1) top_upd_def tree_upd.elims)
 qed
 
-lemma [simp]:
+lemma
   "lookup (t(v :=\<^sub>t e)) = (lookup t)(v := Some e)"
   by (auto simp: st_upd_def)
 
-lemma [simp]:
-  "more (top (t(aux\<^sub>t: e))) = e (top t)"
+lemma 
+  "more (treeTop (t(aux\<^sub>t: e))) = e (treeTop t)"
   using tr_aux_upd_def
   by (metis cases_scheme select_convs(4) top_treeUpd update_convs(4))
 
-lemma [simp]:
+lemma
   "rg\<^sub>t (t(Glb x :=\<^sub>t e)) = rg\<^sub>t t"
   by (auto simp: rg\<^sub>t_def tr_upd_def) 
   
@@ -311,26 +399,6 @@ lemma [simp]:
   by (metis base.simps(1) base.simps(2) lookup.elims lookupSome.elims select_convs(3) surjective top.simps(1) tree_upd.simps(1) tree_upd.simps(2) update_convs(1))
 *)
 
-lemma [simp]:
-  "rg\<^sub>t (t(Reg x :=\<^sub>t e)) = (rg\<^sub>t t)(x := Some e)"
-  by (auto simp: tr_upd_def rg\<^sub>t_def)
-
-lemma tr_aux_nop [simp]:
-  "t(aux\<^sub>t:more) = t"
-  by (auto simp: tr_aux_upd_def)
-
-
-lemma tr_aux_st [simp]:
-  "lookup (t(aux\<^sub>t: e)) = lookup t" 
-  apply (auto simp: tr_aux_upd_def)
-proof (induct t)
-  case (Base x)
-  then show ?case by simp
-next
-  case (Branch t1 t2)
-  then show ?case 
-    by (metis lookup.simps(2) top_treeUpd treeUpd_top tree_upd.simps(2))
-qed
 
 (*
 lemma br_eq1:
@@ -355,35 +423,15 @@ next
     by (metis top_treeUpd tr_upd_def treeUpd_top tree_upd.simps(2))
 qed
 
-lemma [simp]:
-  "glb\<^sub>t (t(Reg r :=\<^sub>t e)) = glb\<^sub>t t"
-  by (auto simp: glb\<^sub>t_def tr_upd_def)
 
-lemma [simp]:
-  "glb\<^sub>t (t(Reg r :=\<^sub>t e, aux\<^sub>t: f)) = glb\<^sub>t (t(aux\<^sub>t: \<lambda>m. f(top (t(Reg r :=\<^sub>t e)))))"
-  by (auto simp: glb\<^sub>t_def)
-
-lemma [simp]:
-  "lookup t (Reg x) = rg\<^sub>t t x"
-  by (auto simp: rg\<^sub>t_def)
-
-lemma [simp]:
-  "aux\<^sub>t (t(Reg x :=\<^sub>t e)) = aux\<^sub>t t"
-  by (auto simp: aux\<^sub>t_def tr_aux_upd_def tr_upd_def) 
-
-lemma [simp]:
-  "state_rec.more (top (t(x :=\<^sub>t e))) = state_rec.more (top t)"
-  by (auto simp: tr_upd_def)
-
-lemma [simp]:
-  "state_rec.more (top (t(aux\<^sub>t: f))) = f (top t)"
-  by (auto simp: aux_upd_def)
-
-lemma tr_aux_exec [intro!]:
-  assumes "(t\<^sub>1,t\<^sub>2) \<in> P"
-  shows "(t\<^sub>1,t\<^sub>2(aux\<^sub>t: f)) \<in> P O {(t, t'). t' = t(aux\<^sub>t: f)}"
-  using assms by blast
-
+(*
+  flat.aux_exec': (?m\<^sub>1, ?m\<^sub>2) \<in> ?P \<Longrightarrow> (?m\<^sub>1, ?m\<^sub>2(aux: ?f)) \<in> ?P O {(m, m'). m' = m(aux: ?f)}
+  flat.aux_upd: more (?s(aux: ?f)) = ?f ?s
+  flat.aux_upd_st: st (?m(aux: ?f)) ?v = st ?m ?v
+  flat.st_upd: st (?s(?var :=\<^sub>s ?val)) ?var2.0 = (if ?var2.0 = ?var then Some ?val else st ?s ?var2.0)
+  flat.st_upd_aux: more (?s(?v :=\<^sub>s ?x)) = more ?s
+  flat.st_upd_twist: ?a \<noteq> ?c \<Longrightarrow> st (?m(?a :=\<^sub>s ?b, ?c :=\<^sub>s ?d)) ?x = st (?m(?c :=\<^sub>s ?d, ?a :=\<^sub>s ?b)) ?x
+*)
 end
 
 

@@ -72,7 +72,7 @@ lemma assert_ord:
 
 text \<open>Stabilize Ordering\<close>
 lemma stabilize_ord [intro]:
-  assumes "P \<subseteq> Q" 
+  assumes "P \<subseteq> Q"
   shows "R,G \<turnstile>\<^sub>w stabilize R P \<ge> Q"
   using assms stabilizeE unfolding context_order_def 
   by blast
