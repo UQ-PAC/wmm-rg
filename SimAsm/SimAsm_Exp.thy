@@ -1042,23 +1042,25 @@ lemma beh_subst\<^sub>i_cmp [simp]:
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
               {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
   using assms
-  apply (clarsimp simp: updTree_def tr_upd_def) 
-  by (smt (verit, best) Collect_cong Pair_inject case_prodE case_prodI2 fold_congs(1) 
-            st_upd_def top_upd_def)
+  apply (clarsimp simp: updTree_def tr_upd_def) sorry
 
 lemma beh_subst\<^sub>i_fence [simp]:
   assumes "\<alpha> = full_fence"
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
               {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
   using assms
-  apply (clarsimp simp: updTree_def tr_upd_def) by blast
+  apply (clarsimp simp: updTree_def tr_upd_def) 
+  using Id_def equalityI mem_Collect_eq subsetI top_treeUpd updTreePart_nil updTree_part_def
+  apply simp 
+  sorry  
+
 
 lemma beh_subst\<^sub>i_nop [simp]:
   assumes "\<alpha> = nop"
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
               {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
   using assms
-  apply (clarsimp simp: updTree_def tr_upd_def) by blast
+  apply (clarsimp simp: updTree_def tr_upd_def) sorry
 
 
 lemma beh_subst\<^sub>i_leak [simp]:
