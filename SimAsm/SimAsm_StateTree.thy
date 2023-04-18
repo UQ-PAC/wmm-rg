@@ -165,7 +165,7 @@ lemma "tr_aux_upd t f = tree_upd t (top_aux_upd t f)"
   using tr_aux_upd_def top_aux_upd_def aux_upd_def by metis
 
 syntax
-  "_updbindt" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"            ("(2_ :=\<^sub>t/ _)")
+  "_updbindt" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"             ("(2_ :=\<^sub>t/ _)")
   "_updbindat" :: "'a \<Rightarrow> updbind"                  ("(2aux\<^sub>t:/ _)")
 
 translations
@@ -314,24 +314,9 @@ qed
 
 lemma lookup_upd:
   "lookup (tree_upd t (top_upd t r val)) r = Some val" 
-proof (induction t)
-  case (Base x)
-  then show ?case 
-    using lookup.simps(1) tree_upd.simps(1) top_upd_def top_treeUpd topUpd_single
-    by (simp add: top_upd_def)
-next
-  case (Branch t1 t2)
-  then show ?case 
-  proof (induction t2)
-    case (Base x)
-    then show ?case using tree_upd.simps lookup.simps(2) treeTop.simps tree.simps(5)
-      by (simp add: top_upd_def)
-  next
-    case (Branch t21 t22)
-    then show ?case using tree_upd.simps(2) lookup.simps(2) treeTop.simps tree.simps(2,6) 
-      by (simp add: top_upd_def)
-  qed 
-qed
+  using treetop.st_upd
+  unfolding st_upd_def top_upd_def tr_upd_def
+  by metis
 
 lemma lookupSome_upd:
   "lookupSome (tree_upd t (top_upd t r val)) r = val"
@@ -362,22 +347,15 @@ lemma
 
 lemma lookup_upd_var:
   "lookup (t(r :=\<^sub>t e)) q = (if r = q then Some e else lookup t q)"
-  by (auto simp: tr_upd_def st_upd_def) 
+  using treetop.st_upd
+  by simp
 
-lemma lookupSome_upd_var
+lemma lookupSome_upd_var:
   "lookupSome (t (r :=\<^sub>t f))  x = (if x = r then f else (lookupSome t x))"
-proof -
-    have a1: "t (r :=\<^sub>t f) = tree_upd t((treeTop t)\<lparr>st := ((st (treeTop t))(r := Some f))\<rparr>)"
-      using tr_upd_def by metis
-    obtain t' where a2:"t'= tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some f)) \<rparr>)" 
-      by simp
-    then have a3:"lookup t' r = Some f" using lookupSome_upd a1 by simp
-    then have a4:"lookup t' x = (if x = r then Some f else (lookup t x))" 
-      using lookup_upd a1 treeUpd_change1 treeUpd_change2 a2 by simp
-    then show ?thesis using a2 
-      by (smt (verit, ccfv_SIG) a1 base.simps(1) base.simps(2) fold_congs(1) lookupSome.elims 
-          lookupSome_upd stUpd_single st_upd_def treeTop.simps(1) top_upd_def tree_upd.elims)
-qed
+  using treetop.st_upd lookup_upd_var
+  unfolding lookupSome.simps
+  apply (cases " lookup (t(r :=\<^sub>t f)) x ")
+  by auto (smt (verit) base.simps(1) base.simps(2) select_convs(3) surjective top_treeUpd tr_upd_def tree.distinct(1) tree_upd.elims update_convs(1))
 
 lemma
   "lookup (t(v :=\<^sub>t e)) = (lookup t)(v := Some e)"
@@ -385,20 +363,17 @@ lemma
 
 lemma 
   "more (treeTop (t(aux\<^sub>t: e))) = e (treeTop t)"
-  using tr_aux_upd_def
-  by (metis cases_scheme select_convs(4) top_treeUpd update_convs(4))
+  using treetop.aux_upd
+  unfolding aux_def
+  by auto
+
 
 lemma
   "rg\<^sub>t (t(Glb x :=\<^sub>t e)) = rg\<^sub>t t"
-  by (auto simp: rg\<^sub>t_def tr_upd_def) 
-  
-(*
-  by (metis lookupSome.elims lookupSome_upd_var lookup_upd_var tr_upd_def var.distinct(1))
-  by (metis base.simps(1) base.simps(2) lookup.elims option.case_eq_if stUpd_single st_upd_def treeUpd_top tree_upd.simps(1) tree_upd.simps(2) var.distinct(1))
-  by (metis lookupSome.elims lookupSome_upd_var lookup_upd_var tr_upd_def var.distinct(1))
-  by (metis base.simps(1) base.simps(2) lookup.elims lookupSome.elims select_convs(3) surjective top.simps(1) tree_upd.simps(1) tree_upd.simps(2) update_convs(1))
-*)
-
+  unfolding rg\<^sub>t_def 
+  using treetop.st_upd_region[where ?region=region]
+  by simp
+ 
 
 (*
 lemma br_eq1:
@@ -414,24 +389,9 @@ lemma tr_eq:
 *)
 
 lemma tree_upd_twist: "a \<noteq> c \<Longrightarrow> (t(a :=\<^sub>t b))(c :=\<^sub>t d) = (t(c :=\<^sub>t d))(a :=\<^sub>t b)"
-proof (induct t)
-  case (Base x)
-  then show ?case unfolding tr_upd_def by (auto intro!: equality fun_upd_twist)
-next
-  case (Branch t1 t2)
-  then show ?case 
-    by (metis top_treeUpd tr_upd_def treeUpd_top tree_upd.simps(2))
-qed
+  by (induct t) (auto simp add: fun_upd_twist tr_upd_def)
 
 
-(*
-  flat.aux_exec': (?m\<^sub>1, ?m\<^sub>2) \<in> ?P \<Longrightarrow> (?m\<^sub>1, ?m\<^sub>2(aux: ?f)) \<in> ?P O {(m, m'). m' = m(aux: ?f)}
-  flat.aux_upd: more (?s(aux: ?f)) = ?f ?s
-  flat.aux_upd_st: st (?m(aux: ?f)) ?v = st ?m ?v
-  flat.st_upd: st (?s(?var :=\<^sub>s ?val)) ?var2.0 = (if ?var2.0 = ?var then Some ?val else st ?s ?var2.0)
-  flat.st_upd_aux: more (?s(?v :=\<^sub>s ?x)) = more ?s
-  flat.st_upd_twist: ?a \<noteq> ?c \<Longrightarrow> st (?m(?a :=\<^sub>s ?b, ?c :=\<^sub>s ?d)) ?x = st (?m(?c :=\<^sub>s ?d, ?a :=\<^sub>s ?b)) ?x
-*)
 end
 
 

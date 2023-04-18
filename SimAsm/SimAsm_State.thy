@@ -182,7 +182,7 @@ lemma [simp]:
   by (auto simp: aux_upd_def)
 
 
-interpretation flat: state st st_upd state_rec.more aux_upd id "(\<lambda>x. (case x of Reg _ \<Rightarrow> True | Glb _ \<Rightarrow> False))"
+interpretation flat: state st st_upd state_rec.more aux_upd id
   unfolding state_def by auto
 print_theorems 
 
