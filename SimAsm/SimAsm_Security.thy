@@ -47,6 +47,7 @@ end
           exists bottom and top in carrier L
           inf and sup over two elements exists
 *)
+(* type_synonym ('v,'g,'r,'sec, 'more) sec_state = "('v,('g,'r) var,'sec, 'more) sec_state_rec_scheme" *)
 
 context vst
 
@@ -75,6 +76,7 @@ definition low_equiv1
   where "m\<^sub>1 =\<^bsub>Gamma\<^esub> m\<^sub>2 \<equiv> \<forall>x. (the(Gamma x) \<le> attkLev) \<longrightarrow> st m\<^sub>1 x = st m\<^sub>2 x"
 (*  where "m\<^sub>1 =\<^bsub>Gamma\<^esub> m\<^sub>2 \<equiv> \<forall>x. Gamma x \<longrightarrow> st m\<^sub>1 x = st m\<^sub>2 x" *)
 
+text \<open>Security invariant policy, ensuring low \<L> variables have a low \<Gamma>.\<close>
 definition policy 
   where "policy \<L> \<equiv> {m. \<forall>x. the(\<Gamma> m x) \<le> the(ev\<^sub>S m (\<L> x))}"
 (*  where "policy \<L> \<equiv> {m. \<forall>x. st m \<in> \<L> x \<longrightarrow> \<Gamma> m x }" *)
@@ -84,9 +86,10 @@ text \<open> low equivalence has to hold for the security level \<Gamma> over bo
 definition low_equiv 
   ("_ =\<^bsub>_,_\<^esub> _" [70,0,70] 100)
   where "m\<^sub>1 =\<^bsub>\<L>,P\<^esub> m\<^sub>2 \<equiv> 
-             m\<^sub>1 \<in> policy \<L> \<inter> P \<and> m\<^sub>2 \<in> policy \<L> \<inter> P \<and> m\<^sub>1 =\<^bsub>\<Gamma> m\<^sub>1\<^esub> m\<^sub>2 \<and> m\<^sub>1 =\<^bsub>\<Gamma> m\<^sub>2\<^esub> m\<^sub>2"
+             m\<^sub>1 \<in> policy \<L> \<inter> P \<and> m\<^sub>2 \<in> policy \<L> \<inter> P \<and> m\<^sub>1 =\<^bsub>\<Gamma> m\<^sub>1\<^esub> m\<^sub>2 \<and> m\<^sub>1 =\<^bsub>\<Gamma> m\<^sub>2\<^esub> m\<^sub>2" 
 
-definition S
+text \<open>S \<L> relates states which are low-equivalent and satisfy the security invariant.\<close>
+definition S :: "('b \<Rightarrow> ('b \<Rightarrow> 'a option) set) \<Rightarrow> (('a, 'b, bool, 'c) sec_state_rec_scheme) rel"
   where "S \<L> \<equiv> {(m,m'). m =\<^bsub>\<L>,UNIV\<^esub> m'}"
 
 (* definitions on trees  *)

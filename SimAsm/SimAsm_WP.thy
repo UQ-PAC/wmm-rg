@@ -203,9 +203,9 @@ abbreviation "someState ::('v,'g,'r,'a) stateTree \<equiv> undefined" (* add a p
 print_locale rules 
 print_locale semantics
 
-
-interpretation rules "someAuxOp" "someState"   
+interpretation rules "someAuxOp" "someState"  
   done
+  
 
 term obs 
 term lift\<^sub>c 
@@ -269,6 +269,8 @@ abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
 abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
   where "aux a \<equiv> snd (tag a)"
 
+text \<open>A basic is well-formed if its behaviour agrees with the behaviour
+      of its instruction and auxiliary composed.\<close>
 definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
 
@@ -306,9 +308,9 @@ lemma opbasicE:
   obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
           (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
           (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
-          (nop) f v b where "(basic ) = ((nop,f), v, b)" 
-  sorry
-(*  by (cases basic, case_tac a, case_tac aa; clarsimp) *)
+          (nop) f v b where "(basic ) = ((nop,f), v, b)" |
+          (leak) f v b e where "(basic ) = ((leak e,f), v, b)" 
+  by (cases basic, case_tac a, case_tac aa; clarsimp)
 
 lemma [simp]:
   "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"
