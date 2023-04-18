@@ -364,7 +364,7 @@ inductive_set local_trace :: "(('a,'b) com \<times> ('a,'b) basic list \<times> 
   | noStep[intro]: "c \<mapsto>\<^sub>l\<^sup>*[] c" 
   | silStep[intro]: "c\<^sub>1 \<leadsto> c\<^sub>2 \<Longrightarrow> c\<^sub>2 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3 \<Longrightarrow> c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3"
   | lexStep[intro]: "c\<^sub>1 \<mapsto>[\<alpha>,r] c\<^sub>2 \<Longrightarrow> c\<^sub>2 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3 \<Longrightarrow> c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*\<alpha>#t c\<^sub>3"
-  | trStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2 \<Longrightarrow> (Thread c\<^sub>1) \<mapsto>\<^sub>l\<^sup>*t c\<^sub>3" 
+  | trStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2 \<Longrightarrow> (Thread c\<^sub>1) \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2" 
   | parLStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2  \<Longrightarrow> (c\<^sub>1 || c) \<mapsto>\<^sub>l\<^sup>*t (c\<^sub>2 || c)"
   | parRStep[intro]:  "c\<^sub>1 \<mapsto>\<^sub>l\<^sup>*t c\<^sub>2  \<Longrightarrow> (c || c\<^sub>1) \<mapsto>\<^sub>l\<^sup>*t (c || c\<^sub>2)"
 
@@ -384,7 +384,7 @@ next
   case (lexStep c\<^sub>1 \<alpha> r c\<^sub>2 t c\<^sub>3)
   then show ?case using obs_trace.intros(3)[of "c\<^sub>1""\<alpha>""r""c\<^sub>2""t"] by simp
 next
-  case (trStep c\<^sub>1 t c\<^sub>2 c\<^sub>3)
+  case (trStep c\<^sub>1 t c\<^sub>2)
   then show ?case using obs_trace.intros(4)[of "t""c\<^sub>1"] by simp
 next
   case (parLStep c\<^sub>1 t c\<^sub>2 c)
@@ -411,14 +411,15 @@ next
   case (3 c \<alpha> r c' t)        (* c \<mapsto>[\<alpha>,r] c' *)
   then show ?case 
   proof -
-    have a0:"obs_trace (\<alpha> # t) c" using 3 obs_trace.intros(3)[of "c""\<alpha>""r""c'""t"] by simp
+    have a0:"obs_trace (\<alpha> # t) c" 
+      using 3 obs_trace.intros(3)[of "c""\<alpha>""r""c'""t"] by simp
     then show ?thesis
       using local_trace.lexStep[of "c" "\<alpha>""r""c'""t""c''"] 3 3(4)[of "c''"] by blast
   qed
 next
   case (4 t c)                (* Thread c *) 
   then show ?case using obs_trace.intros(4)[of "t" "c"] 4(3)[of "c'"] 
-                  local_trace.trStep[of "c""t""c'""c''"] 4(3)[of "c''"] by auto
+                  local_trace.trStep[of "c""t""c'"] 4(3)[of "c''"] by auto
 next
   case (5 t c c2)             (* c || c2 \<mapsto>\<^sub>l\<^sup>*t c' *)
   then show ?case using obs_trace.intros(5)[of "t""c""c''"] 5(3)[of "c''"] by auto

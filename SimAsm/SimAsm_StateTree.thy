@@ -157,7 +157,11 @@ fun base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rig
 definition tr_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r)var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) stateTree" 
   where "tr_upd t a b = tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (a := Some b)) \<rparr>)"
 
-(*definition tr_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow> 
+fun tr_base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r,'a) stateTree"
+  where "tr_base_upd (Base m) newBase = (Base newBase)" | 
+        "tr_base_upd (Branch m m') newBase = (Branch (tr_base_upd m newBase) m')"
+
+(*definition tr_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow>
                             (('v,'a,'c) state_rec_scheme \<Rightarrow> 'c)  \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" *)
 definition tr_aux_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> 
                                    (('v,'g,'r,'a) state \<Rightarrow> 'a)  \<Rightarrow> ('v,'g,'r,'a) stateTree" 

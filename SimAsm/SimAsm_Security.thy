@@ -1,5 +1,5 @@
 theory SimAsm_Security
-  imports SimAsm "HOL-Algebra.Lattice"
+  imports SimAsm_WP "HOL-Algebra.Lattice"
 begin
 
 (* Temporary definitions to set up access to the components of the tuple type 
@@ -54,6 +54,7 @@ context vst
 begin
 
 print_locale vst
+print_locale security
 term \<Gamma>
 
 text \<open> Some access functions on trees \<close>
@@ -105,10 +106,16 @@ definition low_equivTree  ("_ \<approx>\<^bsub>_,_\<^esub> _" [70,0,70] 100)
 definition STree
   where "STree \<L> \<equiv> {(t,t'). t \<approx>\<^bsub>\<L>,UNIV\<^esub> t'}"
 
+text \<open> Interpretation of abstract locale security \<close>
+
+
+interpretation security "someAuxOp" "someState"
+  done
+
 (* Simplify lemmas on sec_states *)
 
 lemma [simp]:
-  "\<Gamma> (m(aux: f)) = \<Gamma> m"
+  "\<Gamma> (m(aux: f)) = \<Gamma> m" 
   by (simp add: aux_upd_def state_rec.defs \<Gamma>_def) 
 
 lemma [simp]:

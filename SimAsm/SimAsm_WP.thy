@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm_Security
+  imports SimAsm
 begin
 
 section \<open>Wellformedness\<close>
@@ -207,8 +207,10 @@ interpretation rules "someAuxOp" "someState"
   done
   
 
+
 term obs 
 term lift\<^sub>c 
+term lexecute
 
 
 
@@ -262,7 +264,8 @@ qed
 qed (auto simp: guar_def reflexive_def liftl_def step_def) 
 *)
 
-text \<open>Extract the instruction from an abstract operation\<close>
+text \<open>Extract the instruction from an abstract operation \<close>
+(* tag (opbasic) = (op \<times> auxfn) *)
 abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
   where "inst a \<equiv> fst (tag a)"
 
@@ -271,8 +274,19 @@ abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
 
 text \<open>A basic is well-formed if its behaviour agrees with the behaviour
       of its instruction and auxiliary composed.\<close>
+(* beh \<beta> = snd (snd \<beta>) *)
 definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
+
+(* to give a type falls over as the parameter list does not match *)
+
+fun wfbookkeep_list where                  (*:: "('v,'g,'r,'a) bookkeeping \<Rightarrow> bool list"*) 
+  "wfbookkeep_list [] = []" |
+  "wfbookkeep_list (Scope # r) = wfbookkeep_list r" |
+  "wfbookkeep_list ((Reorder \<alpha>' _ _) # r) = (wfbasic \<alpha>') # (wfbookkeep_list r)"
+
+definition wfbookkeep                      (*:: "('v,'g,'r,'a) opbookkeeping \<Rightarrow> bool" *)
+  where "wfbookkeep r \<equiv> fold HOL.eq (wfbookkeep_list r) True"
 
 definition wfcom
   where "wfcom c \<equiv> \<forall>\<beta> \<in> obs c. wfbasic \<beta>"
@@ -309,8 +323,8 @@ lemma opbasicE:
           (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
           (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
           (nop) f v b where "(basic ) = ((nop,f), v, b)" |
-          (leak) f v b e where "(basic ) = ((leak e,f), v, b)" 
-  by (cases basic, case_tac a, case_tac aa; clarsimp)
+          (leak) e f v b where "(basic ) = ((leak e,f), v, b)" 
+  by (cases basic, case_tac a, case_tac aa; clarsimp) 
 
 lemma [simp]:
   "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"
@@ -352,39 +366,44 @@ proof (cases "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}")
 next
   case False
   then show ?thesis using fwd assms 
-    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+    apply (cases \<alpha> rule: opbasicE)
+    apply( cases \<beta> rule: opbasicE)
+    apply (auto simp: Let_def split: if_splits)
     sorry
 qed
 
 lemma fwd_wfbasic:
   assumes "reorder_com \<alpha>' c w \<alpha>" "wfbasic \<alpha>" 
   shows "wfbasic \<alpha>'"
-  using assms sorry
+  using assms 
+  sorry
 (*
 proof (induct \<alpha>' \<alpha> rule: reorder_com.induct)
   case (2 \<alpha>' \<beta> \<alpha>)
-  then show ?case by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def wfbasic_def)
+  then show ?case 
+    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def wfbasic_def)
 qed auto
 *)
 
-
 lemma [simp]:
   "wfcom (c\<^sub>1 ;\<^sub>w c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
-  apply (auto simp: wfcom_def) sorry
+  apply (auto simp: wfcom_def) 
+  sorry
 
-(* we don't have basics_... anymore
 lemma wfcom_silent:
   "silent c c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
-  using basics_silent by (auto simp: wfcom_def)
+  using obs_sil by (auto simp: wfcom_def)
 
 lemma wfcom_exec:
-  "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
-  using basics_exec unfolding wfcom_def by blast
+  "lexecute c \<alpha> r c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
+  using obs_exec unfolding wfcom_def by blast
+
 
 lemma wfcom_exec_prefix:
-  "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom r \<and> wfbasic \<alpha>"
-  using basics_exec_prefix unfolding wfcom_def by blast
-*)
+  "lexecute c \<alpha> r c' \<Longrightarrow> wfcom c \<Longrightarrow> wfbookkeep r \<and> wfbasic \<alpha>"
+  using  wfcom_def wfbookkeep_def wfbookkeep_list.simps wfcom_exec fwd_wfbasic 
+
+
 
 
 (* fix up the commands: no ., Choice, Loop, no SeqChoice
