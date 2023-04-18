@@ -157,9 +157,12 @@ fun base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rig
 definition tr_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r)var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) stateTree" 
   where "tr_upd t a b = tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (a := Some b)) \<rparr>)"
 
-fun tr_base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r,'a) stateTree"
-  where "tr_base_upd (Base m) newBase = (Base newBase)" | 
-        "tr_base_upd (Branch m m') newBase = (Branch (tr_base_upd m newBase) m')"
+fun tree_base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r,'a) stateTree"
+  where "tree_base_upd (Base m) newBase = (Base newBase)" | 
+        "tree_base_upd (Branch m m') newBase = (Branch (tree_base_upd m newBase) m')"
+
+definition tr_base_upd :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r)var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) stateTree"
+  where "tr_base_upd t a b = tree_base_upd t ((base t) \<lparr> st := ((st (base t)) (a := Some b)) \<rparr>)"
 
 (*definition tr_aux_upd :: "('v,'a,'c) state_rec_scheme tree \<Rightarrow>
                             (('v,'a,'c) state_rec_scheme \<Rightarrow> 'c)  \<Rightarrow> ('v,'a,'c) state_rec_scheme tree" *)
@@ -284,6 +287,10 @@ lemma [simp]:
   unfolding tr_upd_def
   by (induct t rule: tree.induct) auto
 
+
+lemma treeUpd_base [simp]:
+  "tree_base_upd t (base t) = t" 
+  by (induct t)(auto)
 
 
 lemma stUpd_single :

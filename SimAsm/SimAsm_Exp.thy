@@ -80,13 +80,14 @@ fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('
 
 section \<open>Operations\<close>
 
-(* the leak operation also specifies where the leak goes, e.g., Cache*)
+(* the leak operation corresponds to Cache+=x in the Refine2019 paper
+    here the op also specifies where the leak goes, e.g., Cache*)
 datatype ('v,'g,'r) op =
     assign "('g,'r) var" "('v,'g,'r) exp"
   | cmp "('v,'g,'r) bexp"
   | full_fence
   | nop
-  | leak "('g,'r) var" "('v,'g,'r) exp"
+  | leak "('g,'r) var" "('v,'g,'r) exp"      
 
 text \<open>Operation Behaviour\<close>
 (* todo: assignment to variable and read of variable has to be notified in cache
@@ -95,7 +96,7 @@ fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |
     "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
-    "beh\<^sub>i (leak Cache e) = {(t,t'). t' = tr_base_upd t ((base t)(Cache :=\<^sub>s (ev\<^sub>E (t) e)))}" | 
+    "beh\<^sub>i (leak Cache e) = {(t,t'). t' = tree_base_upd t ((base t)(Cache :=\<^sub>s (ev\<^sub>E (t) e)))}" | 
     "beh\<^sub>i _ = Id"
  
 (*
@@ -111,6 +112,7 @@ text \<open>Variables written by an operation\<close>
 fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
   where 
     "wr (assign y _) = {y}" |
+    "wr (leak c _) = {c}" |         (* where variable c is part of the the (base t) *)
     "wr _ = {}"
 
 text \<open>Variables read by an operation\<close>
@@ -118,6 +120,7 @@ fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
   where
     "rd (assign _ e) = deps\<^sub>E e" |
     "rd (cmp b) = deps\<^sub>B b" |
+    "rd (leak _ e) = deps\<^sub>E e" |
     "rd _ = {}"
 
 text \<open>Test if an instruction is a memory barrier\<close>
@@ -129,6 +132,7 @@ fun subst\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,
   where
     "subst\<^sub>i (assign x e) y f = assign x (subst\<^sub>E e y f)" |
     "subst\<^sub>i (cmp b) y f = cmp (subst\<^sub>B b y f)" |
+    "subst\<^sub>i (leak c e) y f = leak c (subst\<^sub>E e y f)" |
     "subst\<^sub>i \<alpha> _ _ = \<alpha>"
 
 definition smap1
@@ -826,6 +830,10 @@ definition updTree         (* assume total fun f : 'a \<longrightarrow> 'v *)
   where "updTree S f t \<equiv> 
            tree_upd t ((treeTop t)\<lparr>st := \<lambda>x. if x \<in> S then Some (f x) else st (treeTop t) x\<rparr>)" 
 
+definition updTree_base         (* assume total fun f : 'a \<longrightarrow> 'v *)
+  where "updTree_base S f t \<equiv> 
+           tree_base_upd t ((base t)\<lparr>st := \<lambda>x. if x \<in> S then Some (f x) else st (base t) x\<rparr>)" 
+
 definition updTree_part      (* assume partial fun f : 'a \<rightarrow> 'v option ; like st *)
   where "updTree_part S f t \<equiv> 
            tree_upd t ((treeTop t)\<lparr>st := \<lambda>x. if x \<in> S then (f x) else st (treeTop t) x\<rparr>)" 
@@ -834,6 +842,10 @@ lemma updTree_nil [simp]:
   "updTree {} f t = t"
   unfolding updTree_def 
   by (induct t) auto
+
+lemma updTree_base_nil [simp]:
+  "updTree_base {} f t = t"
+  by (auto simp: updTree_base_def) 
 
 lemma updTreePart_nil [simp]:
   "updTree_part {} f t = t"
@@ -854,6 +866,30 @@ proof -
   have a4:"tree_upd t (treeTop t\<lparr>st := ?f1\<rparr>) = updTree (insert x V) f t"
     by (auto simp: updTree_def st_upd_def upd_def intro!: state_rec.equality)   
   have a5:"updTree (insert x V) f t = tree_upd t ((treeTop (updTree V f t))(x :=\<^sub>s (f x)))"
+    using a3 a4 a2 by simp
+  thus ?thesis by simp
+qed
+
+lemma updTree_base_insert [simp]:
+  "updTree_base (insert x V) f t = tree_base_upd t ((base (updTree_base V f t)) (x :=\<^sub>s (f x)))"
+proof -
+  let ?f1 = "(\<lambda>xa. if xa = x \<or> xa \<in> V then Some (f xa) else (st (base t) xa))"
+  let ?f2 = "(\<lambda>x. if            x \<in> V then Some (f x) else st (base t) x)(x \<mapsto> (f x))"
+  have a0:"?f1 = ?f2" using st_upd_def by fastforce
+  hence a1:"Base (base t\<lparr>st := ?f1\<rparr>) = Base (base t\<lparr>st := ?f2\<rparr>)" by simp
+  hence a2:"tree_base_upd t (base t\<lparr>st := ?f1\<rparr>) = tree_base_upd t (base t\<lparr>st := ?f2\<rparr>)" by simp
+  have a3:"tree_base_upd t (base t\<lparr>st := ?f2\<rparr>) = tree_base_upd t ((base (updTree_base V f t))(x :=\<^sub>s (f x)))" 
+    using a2 apply (auto simp: updTree_base_def st_upd_def intro!: state_rec.equality)
+  proof (induct t)
+    case (Base x)
+    then show ?case by simp
+  next
+    case (Branch t1 t2)
+    then show ?case apply simp by (metis base.simps(2))
+  qed
+  have a4:"tree_base_upd t (base t\<lparr>st := ?f1\<rparr>) = updTree_base (insert x V) f t"
+    by (auto simp: updTree_base_def st_upd_def upd_def intro!: state_rec.equality)   
+  have a5:"updTree_base (insert x V) f t = tree_base_upd t ((base (updTree_base V f t))(x :=\<^sub>s (f x)))"
     using a3 a4 a2 by simp
   thus ?thesis by simp
 qed
@@ -961,25 +997,6 @@ lemma [simp]:
   unfolding rg_def aux_upd_def by simp
 
 
-(*
-lemma beh_substi [simp]:
-  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) | m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s (ev\<^sub>E m\<^sub>1 e)),m) \<in> beh\<^sub>i \<alpha>}"
-  apply (cases \<alpha>)
-  defer 1
-  apply (clarsimp simp: upd_def)
-  apply blast
-  apply (clarsimp simp: upd_def)
-  apply blast
-  apply (clarsimp simp: upd_def)
-  apply blast
-  apply (clarsimp simp: upd_def st_upd_def)
-  apply auto
-  apply (rule state_rec.equality)
-  apply auto
-  apply (rule state_rec.equality)
-  apply auto
-  done
-*)
 
 lemma eq_comm:
   "(a \<Longrightarrow> (b = c)) \<Longrightarrow> (a \<Longrightarrow> (c = b))" by blast
@@ -993,7 +1010,14 @@ lemma treeBase_equality:
 lemma treeBranch_equality:
   "t\<^sub>1 = t\<^sub>1' \<Longrightarrow> t\<^sub>2 = t\<^sub>2' \<Longrightarrow> Branch t\<^sub>1 t\<^sub>2 = Branch t\<^sub>1' t\<^sub>2'" by auto 
 
-lemma beh_help:
+
+(* lemma beh_substi [simp]:
+  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s ev\<^sub>E m\<^sub>1 e),m) \<in> beh\<^sub>i \<alpha>}"
+ *)
+
+(* this lemma needs to be split up into different cases (above) as it does not hold for leak instr *)
+
+lemma beh_subst\<^sub>i_assign [simp]:
   assumes "\<alpha> = assign y z"
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
               {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
@@ -1013,23 +1037,50 @@ proof -
   then show ?thesis using assms a1 a2 a3 by fastforce
 qed
 
- 
-lemma beh_substi [simp]:
-  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
-         {(t,updTree (wr \<alpha>) (lookupSome t') t)| t t'. (t(x :=\<^sub>t (ev\<^sub>E t e)),t') \<in> beh\<^sub>i \<alpha>}"
-  apply (cases \<alpha>)
-  defer 1
-      apply (clarsimp simp: updTree_def tr_upd_def) 
-     apply (smt (verit, best) Collect_cong Pair_inject case_prodE case_prodI2 fold_congs(1) 
-            st_upd_def tr_upd_def)
+lemma beh_subst\<^sub>i_cmp [simp]:
+  assumes "\<alpha> = cmp b"
+  shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+              {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
+  using assms
   apply (clarsimp simp: updTree_def tr_upd_def) 
-    apply blast
-  apply (clarsimp simp: updTree_def tr_upd_def) 
-   apply blast
-  using beh_help apply force
-  using beh_help[of \<alpha> x11 x12 x e]
-  by (smt (verit, del_insts) Collect_cong beh_help)   
-  
+  by (smt (verit, best) Collect_cong Pair_inject case_prodE case_prodI2 fold_congs(1) 
+            st_upd_def top_upd_def)
+
+lemma beh_subst\<^sub>i_fence [simp]:
+  assumes "\<alpha> = full_fence"
+  shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+              {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
+  using assms
+  apply (clarsimp simp: updTree_def tr_upd_def) by blast
+
+lemma beh_subst\<^sub>i_nop [simp]:
+  assumes "\<alpha> = nop"
+  shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+              {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
+  using assms
+  apply (clarsimp simp: updTree_def tr_upd_def) by blast
+
+
+lemma beh_subst\<^sub>i_leak [simp]:
+  assumes "\<alpha> = leak y z"
+  shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+              {(t, updTree_base (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
+proof -
+  have a0:"beh\<^sub>i (subst\<^sub>i \<alpha> x e) = beh\<^sub>i (leak y (subst\<^sub>E z x e))" using assms by simp
+  then have a1:"... = {(t,t'). t' = tree_base_upd t ((base t) (y :=\<^sub>s (ev\<^sub>E (t) (subst\<^sub>E z x e))))}" by simp
+  then have a2:"... = {(t,t'). 
+       t' = updTree_base (wr \<alpha>) (lookupSome(tree_base_upd t ((base t) (y :=\<^sub>s (ev\<^sub>E (t) (subst\<^sub>E z x e)))))) t}"
+    using assms 
+    using Collect_cong fold_congs(1) lookupSome_upd_var split_cong st_upd_def 
+          tr_base_upd_def updTree_base_insert updTree_base_nil wr.simps(2) sorry
+  then have a3:"... = {(t,t'). t' = 
+         updTree_base (wr \<alpha>) (lookupSome(tree_base_upd t ((base t)(y :=\<^sub>s (ev\<^sub>E (t (x :=\<^sub>t (ev\<^sub>E t e))) z))))) t}"
+    using ev_subst\<^sub>E by auto
+  then have a4:"... = {(t,t')| t t' t''. t'' = t(x :=\<^sub>t (ev\<^sub>E t e)) \<and>
+                    t'= updTree_base (wr \<alpha>) (lookupSome(tree_base_upd t ((base t)(y :=\<^sub>s (ev\<^sub>E t'' z))))) t}"
+    by (smt (verit) Collect_cong case_prodE case_prod_conv)
+    then show ?thesis using assms a1 a2 a3 sorry
+qed
 
 lemma [simp]:
   "st (m(x :=\<^sub>s e)) = (st m)(x := Some e)"

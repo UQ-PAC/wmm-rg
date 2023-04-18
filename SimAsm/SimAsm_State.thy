@@ -46,7 +46,7 @@ fun test :: "('v,'a,'c) state_rec_scheme \<Rightarrow> ('v,'a,'c) state_rec_sche
 "test s = s\<lparr>st := st s\<rparr>"
 
 (* state: in its most general form maps a global or register to values, possibly extended. *)
-type_synonym ('v,'g,'r,'a) state = "('v,('g,'r) var,'a) state_rec_scheme"
+type_synonym ('v,'g,'r,'a)state = "('v,('g,'r) var,'a) state_rec_scheme"
 type_synonym ('v,'g,'a) gstate = "('v,'g,'a) state_rec_scheme"
 
 (* a predicate is defined as a set of states satisfying that predicate.
