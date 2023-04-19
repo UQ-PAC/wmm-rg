@@ -1059,8 +1059,7 @@ lemma beh_subst\<^sub>i_nop [simp]:
   assumes "\<alpha> = nop"
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
               {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
-  using assms
-  apply (clarsimp simp: updTree_def tr_upd_def) sorry
+  using assms apply simp by auto 
 
 
 lemma beh_subst\<^sub>i_leak [simp]:

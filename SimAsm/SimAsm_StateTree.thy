@@ -177,10 +177,12 @@ lemma "tr_aux_upd t f = tree_upd t (top_aux_upd t f)"
 syntax
   "_updbindt" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"             ("(2_ :=\<^sub>t/ _)")
   "_updbindat" :: "'a \<Rightarrow> updbind"                  ("(2aux\<^sub>t:/ _)")
+  "_updbindb" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"             ("(2_ :=\<^sub>b/ _)")
 
 translations
   "t(x :=\<^sub>t y)" \<rightleftharpoons> "CONST tr_upd t x y"
   "t(aux\<^sub>t: f)" \<rightleftharpoons> "CONST tr_aux_upd t f"
+  "t(x :=\<^sub>b y)" \<rightleftharpoons> "CONST tr_base_upd t x y"
 
 
 subsection \<open> tree lemmas \<close>
