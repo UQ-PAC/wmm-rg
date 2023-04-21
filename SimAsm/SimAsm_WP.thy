@@ -93,17 +93,37 @@ text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) transTree"
   where "wp\<^sub>a a Q = {t. t(aux\<^sub>t: a) \<in> Q}"
 
+
+fun wp\<^sub>i\<^sub>s :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree"
+  where 
+    "wp\<^sub>i\<^sub>s (leak c e) Q = {t. (t (c :=\<^sub>b ev\<^sub>E t e)) \<in> Q}" |
+    "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
+    "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
+
+fun wp\<^sub>s :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) transTree"
+  where 
+    "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s R c\<^sub>1 (wp\<^sub>s R c\<^sub>2 Q)" |
+    "wp\<^sub>s R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
+
+
+fun po :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) predTree"
+  where
+    "po (assign r e) = UNIV"
+
+
+
+
 (* extend wp R (If...)Q by adding wp\<^sub>i (spec c\<^sub>1; c\<^sub>3) Q *)
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) transTree"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op (po a) a f) Q = stabilize R ((po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
-(*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R 
-                             (wp\<^sub>s (spec c\<^sub>2;c\<^sub>3) (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q)) \<inter> 
-                              wp\<^sub>i (spec c\<^sub>1;c\<^sub>3) (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q)))" | *)
+(*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))"|*) 
+    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
+                 (merge (wp\<^sub>s c\<^sub>2 (wp R c\<^sub>3 Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 (wp R c\<^sub>3 Q)))))
+                \<inter> (merge (wp\<^sub>s c\<^sub>1 (wp R c\<^sub>3 Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 (wp R c\<^sub>3 Q)))))" |
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
     "wp R (DoWhile I c b) Q = 

@@ -1098,6 +1098,7 @@ next
   then show ?thesis using assms by simp
 qed
 
+(* these are subsumed by the above *)
 lemma beh_subst\<^sub>i_assign [simp]:
   assumes "\<alpha> = assign y z"
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
@@ -1121,6 +1122,8 @@ lemma beh_subst\<^sub>i_nop [simp]:
   shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
               {(t, updTree (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
   by (rule beh_subst\<^sub>i_nonleak) (simp add: assms) 
+(*---*)
+
 
 lemma beh_subst\<^sub>i_leak [simp]:
   assumes "\<alpha> = leak y z"
