@@ -894,62 +894,72 @@ proof -
   thus ?thesis by simp
 qed 
 
-lemma 
-  (* assumes "\<And>x y. f x = y \<longleftrightarrow> base (f x) = base (y)" *)
-  shows "{(t,t'). t' = tree_base_upd t base'}
-    = {(t, t'). t' = updTree_base (UNIV) (lookupSome (tree_base_upd t base')) t}"
-  unfolding updTree_base_def 
-  apply auto
-   apply (induct_tac "a")
-    apply auto
-proof goal_cases
-  case (1 x)
-  let ?r = " x\<lparr>st := \<lambda>xa. Some (case st base' xa of None \<Rightarrow> initState (base (tree_base_upd (Base x) base')) xa | Some v \<Rightarrow> v)\<rparr>"
-  have "st base' = st ?r" sorry 
-  then show ?case sorry
-next
-  case (2 x1a x2)
-  then show ?case sorry
-next
-  case (3 a)
-  then show ?case sorry
-qed
+lemma updTree_base_single [simp]: 
+  "updTree_base {y} f t = t(y:=\<^sub>b f y)" 
+  by auto
 
-lemma
-  "{(t,t'). t' = tree_base_upd t ((base t)(y :=\<^sub>s value))}
-    = {(t, t'). t' = updTree_base (UNIV) (lookupSome (tree_base_upd t ((base t)(y :=\<^sub>s value)))) t}"
-  (* unfolding updTree_base_def *)
-  apply auto
-proof (goal_cases)
-  case (1 a)
+text \<open>
+a variable, v, is "based" in a particular tree state, t, if it is not defined outside of the tree's
+base component. this is encoded as the property that any update to v in the base is always visible.
+\<close>
+definition based where 
+  "based t v \<equiv> (\<forall>x. lookup (t(v:=\<^sub>bx)) v = Some x)"
+
+lemma basedE [elim]:
+  "based t v \<Longrightarrow> lookup (t(v:=\<^sub>bx)) v = Some x" 
+  unfolding based_def by simp
+
+lemma basedI [intro]:
+  "(\<And>x. lookup (t(v:=\<^sub>bx)) v = Some x) \<Longrightarrow> based t v" 
+  unfolding based_def by simp
+
+lemma based_branchE: 
+  "based (Branch t1 t2) y \<Longrightarrow> based t1 y" 
+  unfolding based_def 
+  apply simp
+  apply (cases "lookup t2 y")
+   apply auto
+  by (metis (full_types) lookup_tr_base_upd)
+
+lemma based_branchE2: 
+  "based (Branch t1 t2) y \<Longrightarrow> based t2 y" 
+  unfolding based_def 
+  apply simp
+  apply (cases "lookup t2 y")
+   apply auto
+  apply (rule lookup_tr_base_upd_none, simp)
+  by (simp add: lookup_tr_base_upd_id)
+
+lemma based_tr_base_upd:
+  "based t y \<Longrightarrow> based (t(x:=\<^sub>bvalue)) y"
+proof (induct t)
+  case (Branch t1 t2)
+  hence "based t1 y" using based_branchE by auto
   then show ?case 
-    apply (induct a)
-    unfolding updTree_base_def 
-    unfolding st_upd_def
-     apply auto
-  proof goal_cases
-    case (1 x)
-    have "(st x(y \<mapsto> value)) v = (\<lambda>xa. Some (case if xa = y then Some value else st x xa of None \<Rightarrow> initState (base (Base (x\<lparr>st := st x(y \<mapsto> value)\<rparr>))) xa | Some v \<Rightarrow> v)) v" for v
-      
-    proof (cases "v = y")
-      case True
-      then show ?thesis by auto
-    next
-      case False
-      then show ?thesis apply auto
-        apply (cases "st x v")
-        apply auto sorry
-    qed
-    then show ?case by (cases x) auto
-  next
-    case (2 a1 a2)  
-    then show ?case 
-      sorry
-  qed     
-next
-  case (2 a)
-  then show ?case sorry
-qed
+    using Branch based_def lookup.simps(2) tr_base_upd_branch
+    by metis
+qed auto
+
+lemma based_tr_upd:
+  "x \<noteq> y \<Longrightarrow> based t y \<Longrightarrow> based (t(x:=\<^sub>tvalue)) y"
+proof (induct t)
+  case (Branch t1 t2)
+  hence "based t1 y" using based_branchE by auto
+  then show ?case 
+    using Branch based_def tr_base_upd_branch
+    by (metis tr_upd_branch treetop.st_upd_diff)
+qed auto
+
+lemma based_lookupSome:
+  "based t y \<Longrightarrow> (x = y) \<Longrightarrow> lookupSome (t(y :=\<^sub>b value)) x = value"
+  unfolding st_upd_def based_def 
+  by auto
+
+lemma based_updTree_single:
+  "based t y \<Longrightarrow> updTree_base {y} (lookupSome (t(y :=\<^sub>b value))) t = t(y:=\<^sub>bvalue)" 
+  using basedE
+  by fastforce
+
 
 (*
 thm state_rec.equality
@@ -1123,11 +1133,34 @@ lemma beh_subst\<^sub>i_nop [simp]:
 
 lemma beh_subst\<^sub>i_leak [simp]:
   assumes "\<alpha> = leak y z"
-  shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+  shows   "beh\<^sub>i (subst\<^sub>i \<alpha> x e) =
               {(t, updTree_base (wr \<alpha>) (lookupSome t') t) |t t'. (t(x :=\<^sub>t ev\<^sub>E t e), t') \<in> beh\<^sub>i \<alpha>}"
+  using assms
   apply auto
-  (* unfolding updTree_base_def  *)
-  oops
+   apply (case_tac "lookup (a(x :=\<^sub>t ev\<^sub>E a e, y :=\<^sub>b ev\<^sub>E (a(x :=\<^sub>t ev\<^sub>E a e)) z)) y")
+    apply auto
+    apply (metis lookup_tr_base_upd option.simps(3))
+   defer
+   apply (case_tac "lookup (t(x :=\<^sub>t ev\<^sub>E t e, y :=\<^sub>b ev\<^sub>E (t(x :=\<^sub>t ev\<^sub>E t e)) z)) y")
+    apply auto
+    apply (metis lookup_tr_base_upd option.distinct(1))
+proof goal_cases
+  case (1 t a)
+  hence "based t y" "x \<noteq> y" sorry (* are these assumptions required ? ! if so, where? *)
+  hence a: "ev\<^sub>E (t(x :=\<^sub>t ev\<^sub>E t e)) z = a" using 1 based_tr_upd 
+    by (metis basedE option.inject)
+  then show c: "t(y :=\<^sub>b a) = t(y :=\<^sub>b ev\<^sub>E (t(x :=\<^sub>t ev\<^sub>E t e)) z)" using 1 by simp
+  (* there is another possibility. 
+  we do not strictly need the fact (a), we just need to show the ?case. 
+  this could be done by arguing in this way: 
+    - if y is based, then proceed with (a). then, if x = y then x is also based, otherwise as above.
+    - if y is not based in t, then (c) could be argued since y's base update will be hidden in 
+      both states, and so they are "visually equivalent" at that time.
+  *)
+next
+  case (2 t a)
+  show ?case using 2 sorry (* identical argument to 1 *)
+qed
 (*
 proof -
   have a0:"beh\<^sub>i (subst\<^sub>i \<alpha> x e) = beh\<^sub>i (leak y (subst\<^sub>E z x e))" using assms by simp
@@ -1135,15 +1168,15 @@ proof -
   then have a2:"... = {(t,t'). 
        t' = updTree_base (wr \<alpha>) (lookupSome(tree_base_upd t ((base t) (y :=\<^sub>s (ev\<^sub>E (t) (subst\<^sub>E z x e)))))) t}"
     using assms 
-    sedgehammer
+    apply auto sorry
   then have a3:"... = {(t,t'). t' = 
          updTree_base (wr \<alpha>) (lookupSome(tree_base_upd t ((base t)(y :=\<^sub>s (ev\<^sub>E (t (x :=\<^sub>t (ev\<^sub>E t e))) z))))) t}"
     using ev_subst\<^sub>E by auto
   then have a4:"... = {(t,t')| t t' t''. t'' = t(x :=\<^sub>t (ev\<^sub>E t e)) \<and>
                     t'= updTree_base (wr \<alpha>) (lookupSome(tree_base_upd t ((base t)(y :=\<^sub>s (ev\<^sub>E t'' z))))) t}"
-    sorry
+    by auto
     then show ?thesis using assms a1 a2 a3 sorry
-qed
+  qed
 *)
 
 lemma [simp]:

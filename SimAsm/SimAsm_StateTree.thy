@@ -204,12 +204,12 @@ lemma [simp]:
 
 interpretation treebase: state
   "\<lambda>s v. state_rec.st (base s) v"
-  "\<lambda>s v x. base_upd s (st_upd (base s) v x)"
+  tr_base_upd
   "aux" 
   "\<lambda>s f. base_upd s (aux_upd (base s) f)"
   "base"
   apply unfold_locales 
-  unfolding aux_def
+  unfolding aux_def tr_base_upd_def
      apply (induct_tac s; auto)
     apply (induct_tac s; auto)
    apply (induct_tac s; auto)
@@ -407,6 +407,95 @@ lemma rg\<^sub>t_glbupd:
   by simp
  
 
+lemma [simp]: (* possibly dangerous simp? *)
+  "tree_base_upd t ((base t)(y :=\<^sub>s value)) = tr_base_upd t y value"
+  unfolding tr_base_upd_def st_upd_def by simp
+
+lemma tr_base_upd_branch [simp]:
+  "(Branch t1 t2)(y :=\<^sub>b value) = Branch (t1(y :=\<^sub>b value)) t2"
+  unfolding tr_base_upd_def
+  by auto
+
+lemma tr_upd_branch [simp]:
+  "(Branch t1 t2)(y :=\<^sub>t value) = Branch t1 (t2(y :=\<^sub>t value))"
+  unfolding tr_upd_def
+  by auto
+
+lemma tr_base_upd_base [simp]:
+  "(Base s)(y :=\<^sub>b value) = Base (s(y :=\<^sub>s value))"
+  unfolding tr_base_upd_def st_upd_def
+  by auto
+
+lemma tr_upd_base [simp]:
+  "(Base s)(y :=\<^sub>t value) = Base (s(y :=\<^sub>s value))"
+  unfolding tr_upd_def st_upd_def
+  by auto
+
+
+lemma lookup_tr_base_upd:
+  obtains value' where
+  "lookup (t(y :=\<^sub>b value)) y = Some value'"
+proof (induct t)
+  case (Base x)
+  then show ?case unfolding tr_base_upd_def by auto
+next
+  case (Branch t1 t2)
+  then show ?case
+    by (simp, cases "lookup t2 y") auto
+qed
+
+lemma lookup_tr_upd:
+  obtains value' where
+  "lookup (t(y :=\<^sub>t value)) y = Some value'"
+  by auto  
+
+lemma lookup_tr_base_upd_base [simp]:
+  "lookup ((Base s)(y :=\<^sub>b value)) y = Some value"
+  by auto
+
+lemma tr_base_upd_eqE: 
+  "t(v :=\<^sub>b x1) = t(v :=\<^sub>b x2) \<Longrightarrow> x1 = x2"
+  unfolding tr_base_upd_def
+proof (induct t)
+  case (Base x)
+  have "\<And>f. f(v \<mapsto> x1) = f(v \<mapsto> x2) \<Longrightarrow>  x1 = x2" 
+    using fun_upd_eqD by fast
+  then show ?case using Base
+    by (metis tr_base_upd_def treebase.st_upd_map)
+next
+  case (Branch t1 t2)
+  then show ?case by auto
+qed
+
+lemma tr_base_upd_mono:
+  assumes "lookup t v = Some something"
+  shows "lookup (t(v:=\<^sub>bx)) v \<noteq> None"
+  using assms
+  by (metis lookup_tr_base_upd option.distinct(1))
+
+lemma lookup_tr_base_upd_id:
+  assumes "lookup t v = Some a" 
+  shows "lookup (t(v :=\<^sub>b a)) v = Some a" 
+  using assms
+proof (induct t)
+  case (Branch t1 t2)
+  then show ?case by (simp, cases "lookup t2 v") auto
+qed auto
+
+lemma lookup_tr_base_upd_none:
+  "lookup t y = None \<Longrightarrow> lookup (t(y :=\<^sub>b x)) y = Some x"
+proof (induct t)
+  case (Branch t1 t2)
+  then show ?case by (simp, cases "lookup t2 y") auto
+qed auto
+
+(*
+lemma lookup_tr_base_upd_some:
+  assumes "lookup t y = Some something"
+  shows "lookup t(y :=\<^sub>b
+*)
+
+
 (*
 lemma br_eq1:
    "t\<^sub>1 = t\<^sub>2 \<Longrightarrow> \<forall> t. Branch t t\<^sub>1 = Branch t t\<^sub>2" by simp
@@ -423,6 +512,8 @@ lemma tr_eq:
 lemma tree_upd_twist: "a \<noteq> c \<Longrightarrow> (t(a :=\<^sub>t b))(c :=\<^sub>t d) = (t(c :=\<^sub>t d))(a :=\<^sub>t b)"
   by (induct t) (auto simp add: fun_upd_twist tr_upd_def)
 
+lemma tr_base_upd_twist: "a \<noteq> c \<Longrightarrow> (t(a :=\<^sub>b b))(c :=\<^sub>b d) = (t(c :=\<^sub>b d))(a :=\<^sub>b b)"
+  by (induct t) (auto simp add: st_upd_twist)
 
 end
 
