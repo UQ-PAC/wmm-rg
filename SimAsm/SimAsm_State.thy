@@ -1,5 +1,5 @@
 theory SimAsm_State
-  imports Main State2
+  imports Main 
 begin
 
 section \<open>State\<close>
@@ -181,11 +181,9 @@ lemma [simp]:
   "state_rec.more (m(aux: f)) = f m"
   by (auto simp: aux_upd_def)
 
-
-interpretation flat: state st st_upd state_rec.more aux_upd id
-  unfolding state_def by auto
-print_theorems 
-
-
+lemma aux_exec [intro!]:
+  assumes "(m\<^sub>1,m\<^sub>2) \<in> P"
+  shows "(m\<^sub>1,m\<^sub>2(aux: f)) \<in> P O {(m, m'). m' = m(aux: f)}"
+  using assms by blast
 
 end
