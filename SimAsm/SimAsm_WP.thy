@@ -86,6 +86,7 @@ fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree"
   where 
     "wp\<^sub>i (assign r e) Q = {t. (t (r :=\<^sub>t ev\<^sub>E t e)) \<in> Q}" |
     "wp\<^sub>i (cmp b) Q =  {t. ev\<^sub>B t b \<longrightarrow> t \<in> Q}" | 
+    "wp\<^sub>i (leak c e) Q = {t. (t (c :=\<^sub>b ev\<^sub>E t e)) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
@@ -99,8 +100,8 @@ fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
-(*    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R 
+    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+(*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R 
                              (wp\<^sub>s (spec c\<^sub>2;c\<^sub>3) (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q)) \<inter> 
                               wp\<^sub>i (spec c\<^sub>1;c\<^sub>3) (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q)))" | *)
     "wp R (While b I c) Q = 
@@ -140,7 +141,7 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
     "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) w (lift\<^sub>c c\<^sub>2))" |   (* lang.seq no wmm *)
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> state. if (ev\<^sub>B state b)       
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) = (Choice (\<lambda> state. if (ev\<^sub>B state b)       
                                  then (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>1)) 
                                  else (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>2))))" |
     "lift\<^sub>c (While b I c) = (((Basic (\<lfloor>cmp b\<rfloor>)) ;\<^sub>w (lift\<^sub>c c))*\<^sub>w) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" | 
