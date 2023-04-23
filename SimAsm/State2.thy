@@ -15,6 +15,8 @@ locale state =
   assumes aux_upd [simp]: "aux (aux_extract (aux_upd s f)) = f (aux_extract s)" 
   assumes aux_upd_st [simp]: "st (m(aux: f)) v = st m v"
 
+  (* assumes st_upd_structure: "s(var :=\<^sub>s val) = t(var :=\<^sub>s val) \<longleftrightarrow> aux_extract (s(var :=\<^sub>s val)) = aux_extract (t(var :=\<^sub>s val))" *)
+
 
 
 context state
