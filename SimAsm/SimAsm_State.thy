@@ -73,7 +73,6 @@ definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)
 definition aux :: "('v,'g,'r,'a) state \<Rightarrow> 'a"
   where "aux m \<equiv> more m"
 
-(* this contains \<Gamma> variables if they are in aux *)
 text \<open>define a state on globals only from a full state record\<close>
 definition glbSt :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
   where "glbSt s \<equiv> 

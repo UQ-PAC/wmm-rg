@@ -75,12 +75,13 @@ section \<open>Language Definition\<close>
 
 datatype ('v,'g,'r,'a) lang =
   Skip
-  | Op "('v,'g,'r,'a) predTree" "('v,'g,'r) op" "('v,'g,'r,'a) auxfn"
+  | Op "('v,'g,'r,'a) pred" "('v,'g,'r) op" "('v,'g,'r,'a) auxfn"
   | Seq "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"
-  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" 
-(*  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" *)
+(*  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"  *)
+  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" 
   | While "('v,'g,'r) bexp" "('v,'g,'r,'a) predTree" "('v,'g,'r,'a) lang"
   | DoWhile "('v,'g,'r,'a) predTree" "('v,'g,'r,'a) lang" "('v,'g,'r) bexp"
+
 
 
 end

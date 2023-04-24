@@ -25,7 +25,7 @@ text \<open> stateTree as data structure in which each leaf is a state record;
 
 datatype  'n tree = Base 'n | Branch "'n tree" "'n tree"
 
-instantiation "tree" :: (type) pstate         (* state is a type class 
+instantiation "tree" :: (type) pstate         (* type is a type class 
         and tree has to define a push operation whose arg is of type *)
 begin
 definition  
@@ -38,6 +38,7 @@ instance proof             (* has to verify that the axiom of the class state ho
 qed
 end
 
+(* now we instantiate "type" as state_rec_scheme *)
 
 type_synonym ('v,'g,'r,'a) stateTree = "(('v,('g,'r) var,'a) state_rec_scheme) tree"
 type_synonym ('v,'g,'a) gstateTree = "(('v,'g,'a) state_rec_scheme) tree"
@@ -201,6 +202,10 @@ lemma [simp]:
 (* lemma [simp]: *)
   (* shows "base (base_upd t x) = x" *)
   (* by (induct t) auto *)
+
+text \<open> Define two interpretations of abstract state, base and top, which are the only 
+        nodes in the stateTree that we want to modify, only lookup goes through 
+        intermediate levels of frames \<close>
 
 interpretation treebase: state
   "\<lambda>s v. state_rec.st (base s) v"

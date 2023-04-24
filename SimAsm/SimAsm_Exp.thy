@@ -24,13 +24,16 @@ fun ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow
     "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"
 *)
 
+fun ev\<^sub>E' :: "(('g,'r) var\<Rightarrow> 'v) \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
+  where 
+    "ev\<^sub>E' m (Var r) =  m r" |
+    "ev\<^sub>E' _ (Val v) = v" |
+    "ev\<^sub>E' m (Exp f rs) = f (map (ev\<^sub>E' m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
+
+
 fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
   where 
-    "ev\<^sub>E m (Var r) = lookupSome m r" |
-    "ev\<^sub>E _ (Val v) = v" |
-    "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
-
-
+    "ev\<^sub>E m r = ev\<^sub>E' (lookupSome m) r" 
 
 text \<open>The syntactic dependencies of an expression\<close>
 fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
@@ -164,7 +167,7 @@ lemma ev_subst\<^sub>E [simp]:
   "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (t (r :=\<^sub>t (ev\<^sub>E t f))) e"
 proof (induct e)
   case (Var x)
-  then show ?case using lookupSome_upd_var Var by (metis ev\<^sub>E.simps(1) subst\<^sub>E.simps(1))
+  then show ?case using lookupSome_upd_var Var by (metis ev\<^sub>E'.simps(1) ev\<^sub>E.simps(1) subst\<^sub>E.simps(1))
   next
   case (Val x)
   then show ?case by simp
@@ -200,7 +203,7 @@ lemma ev_nop\<^sub>E [simp]:
  "r \<notin> deps\<^sub>E e  \<Longrightarrow> ev\<^sub>E ((t(r :=\<^sub>t f))) e = ev\<^sub>E t e"
 proof (induct e)
   case (Var x)
-  then show ?case using lookupSome_upd_var ev\<^sub>E.simps(1) Var by (metis deps\<^sub>E.simps(1) insert_iff)
+  then show ?case using lookupSome_upd_var ev\<^sub>E'.simps(1) ev\<^sub>E.simps(1) Var by (metis deps\<^sub>E.simps(1) insert_iff)
 next
   case (Exp fn rs)
   hence [simp]: "map (ev\<^sub>E (t(r :=\<^sub>t f))) rs = map (ev\<^sub>E t) rs" by auto
@@ -1152,8 +1155,7 @@ proof goal_cases
   case (1 t a)
   hence "based t y" "x \<noteq> y" sorry (* are these assumptions required ? ! if so, where? *)
   hence a: "ev\<^sub>E (t(x :=\<^sub>t ev\<^sub>E t e)) z = a" using 1 based_tr_upd 
-    by (metis basedE option.inject)
-  then show c: "t(y :=\<^sub>b a) = t(y :=\<^sub>b ev\<^sub>E (t(x :=\<^sub>t ev\<^sub>E t e)) z)" using 1 by simp
+    sorry  then show c: "t(y :=\<^sub>b a) = t(y :=\<^sub>b ev\<^sub>E (t(x :=\<^sub>t ev\<^sub>E t e)) z)" using 1 by simp
   (* there is another possibility. 
   we do not strictly need the fact (a), we just need to show the ?case. 
   this could be done by arguing in this way: 

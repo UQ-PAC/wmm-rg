@@ -2,10 +2,13 @@ theory SimAsm_WP
   imports SimAsm
 begin
 
+text \<open> Reasoning is performed on "simple" predicates, not on stateTrees, which are 
+        later (in the soundness proof) matched to the stateTrees on which the semantics operates \<close>
+
 section \<open>Wellformedness\<close>
 
 definition stabilize
-  where "stabilize R P \<equiv> {m. \<forall>m'. (glb\<^sub>tTree m,glb\<^sub>tTree m') \<in> R \<longrightarrow> rg\<^sub>t m = rg\<^sub>t m' \<longrightarrow> m' \<in> P}"
+  where "stabilize R P \<equiv> {m. \<forall>m'. (glbSt m,glbSt m') \<in> R \<longrightarrow> rg m = rg m' \<longrightarrow> m' \<in> P}"
 
 definition reflexive
   where "reflexive R \<equiv> \<forall>m. (m,m) \<in> R"
@@ -18,13 +21,13 @@ definition assert
 
 
 text \<open>Lift a relational predicate\<close>
-definition step :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
-  where "step R \<equiv> {(t,t'). (glb\<^sub>tTree t, glb\<^sub>tTree t') \<in> R}"
+definition step\<^sub>t :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
+  where "step\<^sub>t R \<equiv> {(m,m'). (glbSt m, glbSt m') \<in> R \<and> rg m = rg m'}"
 
 
 text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step\<^sub>t :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) trelTree"
-  where "step\<^sub>t R \<equiv> {(t,t'). (glb\<^sub>tTree t, glb\<^sub>tTree t') \<in> R \<and> rg\<^sub>t t = rg\<^sub>t t'}"
+definition step :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
+  where "step R \<equiv> {(t,t'). (glbSt t, glbSt t') \<in> R}"
 
 
 text \<open>Define stability in terms of a relational predicate that preserves the thread state\<close>
@@ -32,7 +35,7 @@ abbreviation stable\<^sub>t
   where "stable\<^sub>t R P \<equiv> stable (step\<^sub>t R) P"
 
 text \<open>Couple all wellformedness conditions into a single definition\<close>
-abbreviation wellformed :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'a) grelTree \<Rightarrow> bool"
+abbreviation wellformed :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'a) grel \<Rightarrow> bool"
   where "wellformed R G \<equiv> reflexive R \<and> transitive R \<and> reflexive G" 
 
 text \<open>Show that a stabilized predicate is stable\<close>
@@ -42,8 +45,8 @@ lemma stabilize_stable [intro]:
   unfolding stable_def step\<^sub>t_def
 proof (clarsimp)
   fix m m'
-  assume a: "m \<in> stabilize R Q" "(glb\<^sub>tTree m, glb\<^sub>tTree m') \<in> R" "rg\<^sub>t m = rg\<^sub>t m'"
-  have "\<forall>g''. (glb\<^sub>tTree m',g'') \<in> R \<longrightarrow> (glb\<^sub>tTree m,g'') \<in> R"
+  assume a: "m \<in> stabilize R Q" "(glbSt m, glbSt m') \<in> R" "rg m = rg m'"
+  have "\<forall>g''. (glbSt m',g'') \<in> R \<longrightarrow> (glbSt m,g'') \<in> R"
     using assms a(2) unfolding transitive_def by blast
   thus "m' \<in> stabilize R Q" using a(1,3) by (auto simp: stabilize_def)
 qed
@@ -56,12 +59,12 @@ lemma stable\<^sub>t_conj [intro]:
 
 text \<open>Elimination rule to ignore the stabilization process\<close>
 lemma stabilizeE:
-  assumes "t \<in> stabilize R P"
+  assumes "m \<in> stabilize R P"
   assumes "reflexive R"
-  obtains "t \<in> P"
+  obtains "m \<in> P"
 proof -
-  have "\<forall>g. (glb\<^sub>tTree t, glb\<^sub>tTree g) \<in> R \<longrightarrow> rg\<^sub>t t = rg\<^sub>t g \<longrightarrow> g \<in> P" 
-       "(glb\<^sub>tTree t, glb\<^sub>tTree t) \<in>  R"
+  have "\<forall>g. (glbSt m, glbSt g) \<in> R \<longrightarrow> rg m = rg g \<longrightarrow> g \<in> P" 
+       "(glbSt m, glbSt m) \<in>  R"
     using assms by (auto simp: reflexive_def stabilize_def)
   thus ?thesis using that by auto
 qed
@@ -78,52 +81,71 @@ lemma stabilize_entail :
 
 section \<open>Predicate Transformations\<close>
 
-(* define (spec c) = \<triangle>(Capture s c) *)
+(* define (spec c) = \<triangle>(Capture s c)? No, only in the semantics (i.e., the abstract logic) *)
 
-(* define wp\<^sub>i(spec c)Q *)
 text \<open>Transform a predicate based on an sub-operation\<close>
+fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred" 
+  where 
+    "wp\<^sub>i (assign r e) Q = {t. (st_upd t r (ev\<^sub>E' (the o st t) e)) \<in>Q}" |
+
+    "wp\<^sub>i _ Q = Q"
+(*
 fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree" 
   where 
     "wp\<^sub>i (assign r e) Q = {t. (t (r :=\<^sub>t ev\<^sub>E t e)) \<in> Q}" |
     "wp\<^sub>i (cmp b) Q =  {t. ev\<^sub>B t b \<longrightarrow> t \<in> Q}" | 
     "wp\<^sub>i (leak c e) Q = {t. (t (c :=\<^sub>b ev\<^sub>E t e)) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
+*)
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) transTree"
+fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
   where "wp\<^sub>a a Q = {t. t(aux\<^sub>t: a) \<in> Q}"
 
 
-fun wp\<^sub>i\<^sub>s :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree"
+
+datatype 'g label = U 'g | G 'g
+
+
+text \<open> Transform a predicate over a speculation \<close>
+fun wp\<^sub>i\<^sub>s :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"          (* wp_spec on ops *)
   where 
     "wp\<^sub>i\<^sub>s (leak c e) Q = {t. (t (c :=\<^sub>b ev\<^sub>E t e)) \<in> Q}" |
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
 
-fun wp\<^sub>s :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) transTree"
-  where 
-    "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s R c\<^sub>1 (wp\<^sub>s R c\<^sub>2 Q)" |
-    "wp\<^sub>s R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
-
-
-fun po :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) predTree"
+fun po :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred"
   where
-    "po (assign r e) = UNIV"
+    "po (assign r e) = undefined" |
+    "po (cmp v) = undefined" |
+    "po full_fence = undefined" |
+    "po nop = undefined" |
+    "po (leak v va) = undefined"
+
+fun wp\<^sub>s :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"     (* wp_spec transformer on lang *)
+  where 
+    "wp\<^sub>s Skip Q = Q" |
+    "wp\<^sub>s (Op v a f) Q = (v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
+    "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
+    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
+    "wp\<^sub>s (While v va vb) b = undefined" | 
+    "wp\<^sub>s (DoWhile v va vb) b = undefined"
 
 
 
+fun merge :: "('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
+  where "merge Q\<^sub>1 Q\<^sub>2 = undefined"
 
-(* extend wp R (If...)Q by adding wp\<^sub>i (spec c\<^sub>1; c\<^sub>3) Q *)
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "('v,'g,'a) grelTree \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) transTree"
+fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op (po a) a f) Q = stabilize R ((po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))"|*) 
-    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
-                 (merge (wp\<^sub>s c\<^sub>2 (wp R c\<^sub>3 Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 (wp R c\<^sub>3 Q)))))
-                \<inter> (merge (wp\<^sub>s c\<^sub>1 (wp R c\<^sub>3 Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 (wp R c\<^sub>3 Q)))))" |
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
+                 (merge (wp\<^sub>s c\<^sub>2 Q) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
+                \<inter> (merge (wp\<^sub>s c\<^sub>1 Q)   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
     "wp R (DoWhile I c b) Q = 
@@ -143,7 +165,7 @@ text \<open>Ensure all global operations in a thread conform to its guarantee\<c
 fun guar\<^sub>c
   where 
     "guar\<^sub>c Skip G = True" |
-    "guar\<^sub>c (Op v a f) G = (v \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
+    "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (While _ _ c) G = (guar\<^sub>c c G)" |
