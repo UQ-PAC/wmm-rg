@@ -1,13 +1,9 @@
 theory SimAsm_State
-  imports Main State2
+  imports Var_map
 begin
 
 section \<open>State\<close>
 
-
-(* variable: either a register or a global, where registers equal local vars *)
-datatype 'r Reg = reg 'r | tmp 'r
-datatype ('g,'r) var = Reg 'r | Glb 'g
 
 text \<open> A state record is a partial mapping from vars to values, st
          capture set, cap, denotes the set of "new" variables that the frame quantifies over
@@ -184,5 +180,27 @@ lemma aux_exec [intro!]:
   assumes "(m\<^sub>1,m\<^sub>2) \<in> P"
   shows "(m\<^sub>1,m\<^sub>2(aux: f)) \<in> P O {(m, m'). m' = m(aux: f)}"
   using assms by blast
+
+
+(*---these start to talk about state ---------------------*)
+
+lemma local_ev\<^sub>E [intro]:
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E' (st m) e = ev\<^sub>E' (st m') e"
+  apply (intro deps_ev\<^sub>E ballI, case_tac x) 
+  using rg_def apply simp by auto 
+
+lemma ev_aux\<^sub>E [simp]:
+  "ev\<^sub>E' (st (s(aux: f))) g = ev\<^sub>E' (st s) g"
+proof (induct g)
+  case (Var x)
+  then show ?case by (auto simp: aux_upd_def)
+next
+  case (Val x)
+  then show ?case by (auto simp: aux_upd_def)
+next
+  case (Exp x1a x2a)
+  then show ?case by (metis (mono_tags, lifting) ev\<^sub>E'.simps(3) map_eq_conv)
+qed
+
 
 end

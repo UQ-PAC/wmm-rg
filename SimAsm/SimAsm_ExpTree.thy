@@ -1,45 +1,18 @@
-theory SimAsm_Exp
+theory SimAsm_ExpTree
   imports SimAsm_StateTree
 begin
 
-section \<open>Expression Language based on states \<close>
+section \<open>Expression Language based on state trees \<close>
 
 
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the 
           innermost scope in which a value is mapped to variable \<close>
 
-
-
-text \<open>Evaluate an expression given a state\<close>
-fun st_ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
-  where 
-    "st_ev\<^sub>E m r = ev\<^sub>E' (st m) r" 
-
-(*
 fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
   where 
     "ev\<^sub>E m r = ev\<^sub>E' (lookupSome m) r" 
-*)
-(*
-text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
-  where 
-    "deps\<^sub>E (Var r) = {r}" |
-    "deps\<^sub>E (Exp _ rs) = \<Union>(deps\<^sub>E ` set rs)" |
-    "deps\<^sub>E _ = {}"
 
 
-text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) exp"
-  where
-    "subst\<^sub>E (Var r) r' e = (if r = r' then e else Var r)" |
-    "subst\<^sub>E (Exp f rs) r e = (Exp f (map (\<lambda>x. subst\<^sub>E x r e) rs))" |
-    "subst\<^sub>E e _ _ = e"
-
-datatype ('v,'g,'r) bexp = 
-  Neg "('v,'g,'r) bexp" | 
-  Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'g,'r) exp list"
-*)
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
         innermost scope in which a value exists \<close>
 fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
@@ -47,27 +20,7 @@ fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Right
     "ev\<^sub>B t (Neg e) = (\<not> (ev\<^sub>B t e))" |
     "ev\<^sub>B t (Exp\<^sub>B f rs) = f (map (ev\<^sub>E t) rs)"
 
-(*
-text \<open>Evaluate an expression given a state\<close>
-fun ev\<^sub>B :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
-  where 
-    "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
-    "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
-*)
 
-(*
-text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var set"
-  where 
-    "deps\<^sub>B (Neg e) = deps\<^sub>B e" |
-    "deps\<^sub>B (Exp\<^sub>B _ rs) = \<Union>(deps\<^sub>E ` set rs)"
-
-text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) bexp"
-  where
-    "subst\<^sub>B (Neg b) r e = Neg (subst\<^sub>B b r e)" |
-    "subst\<^sub>B (Exp\<^sub>B f rs) r e = (Exp\<^sub>B f (map (\<lambda>x. subst\<^sub>E x r e) rs))"
-*)
 section \<open>Operations\<close>
 
 (* the leak operation corresponds to Cache+=x in the Refine2019 paper
@@ -80,8 +33,7 @@ datatype ('v,'g,'r) op =
   | leak "('g,'r) var" "('v,'g,'r) exp"      
 
 text \<open>Operation Behaviour\<close>
-(* todo: assignment to variable and read of variable has to be notified in cache
-         and this cache variable should not sit in top state but at the base *)
+
 fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |
@@ -90,14 +42,6 @@ fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
                   tree_base_upd t ((base t)(Cache :=\<^sub>s (ev\<^sub>E (t) e)))}" | 
     "beh\<^sub>i _ = Id"
  
-(*
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) state rel"
-  where
-    "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s ev\<^sub>E m e)}" |
-    "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> ev\<^sub>B m b}" |
-    "beh\<^sub>i _ = Id"
-*)
-
 
 text \<open>Variables written by an operation\<close>
 fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
@@ -162,7 +106,8 @@ next
   case (Exp fn rs) 
   hence [simp]: "(map (ev\<^sub>E t \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs) = (map (ev\<^sub>E  (t (r :=\<^sub>t (ev\<^sub>E t f)))) rs)" 
     by auto
-  show ?case by simp
+  show ?case using ev\<^sub>E'.simps(2) subst\<^sub>E.simps(2) apply simp 
+    by (smt (verit, ccfv_threshold) Exp comp_apply ev\<^sub>E.simps map_eq_conv)
 qed
 
 
@@ -196,7 +141,8 @@ proof (induct e)
 next
   case (Exp fn rs)
   hence [simp]: "map (ev\<^sub>E (t(r :=\<^sub>t f))) rs = map (ev\<^sub>E t) rs" by auto
-  show ?case by simp
+  show ?case using ev\<^sub>E'.simps(2) subst\<^sub>E.simps(2) Exp ev\<^sub>E.simps map_eq_conv apply simp 
+    by (metis map_cong)
 qed auto
 
 (*
@@ -225,7 +171,8 @@ proof (induct e)
 next
   case (Exp fn rs)
   hence [simp]: "map (ev\<^sub>E t) rs = map (ev\<^sub>E t') rs" by (induct rs) auto
-  show ?case by simp
+  then show ?case using Exp ev\<^sub>E'.simps(2) subst\<^sub>E.simps(2) Exp ev\<^sub>E.simps map_eq_conv apply simp 
+    by (metis map_cong)
 qed
 
 (*
@@ -329,21 +276,6 @@ lemma ev_aux\<^sub>E' [simp]:
   using ev_aux\<^sub>E
   by auto
 
-(*
-lemma subst\<^sub>E_flip [simp]:
-  "x \<noteq> y \<Longrightarrow> 
-       subst\<^sub>E (subst\<^sub>E e x (Val v')) y (Val v) = subst\<^sub>E (subst\<^sub>E e y (Val v)) x (Val v')"
-  by (induct e) auto
-
-lemma subst\<^sub>E_rep [simp]:
-  "subst\<^sub>E (subst\<^sub>E e x (Val v')) x (Val v) = subst\<^sub>E e x (Val v')"
-  by (induct e) auto
-
-lemma finite_deps\<^sub>E [intro]:
-  "finite (deps\<^sub>E e)"
-  by (induct e) auto
-*)
-
 
 subsection \<open>Boolean Expression\<close>
 
@@ -389,7 +321,7 @@ proof (induct b)
   case (Exp\<^sub>B fn rs)
   hence [simp]: "map (ev\<^sub>E (tree_upd t (top_upd t r f))) rs = map (ev\<^sub>E t) rs" 
     using ev_nop\<^sub>E[of r _ t f] apply (auto simp: top_upd_def)
-    by (metis ev_nop\<^sub>E st_upd_def tr_upd_def)
+    by (metis st_upd_def tr_upd_def)
   show ?case by auto 
 qed simp
 
@@ -402,7 +334,8 @@ proof (induct b)
 next
   case (Exp\<^sub>B fn rs)
   hence [simp]: "map (ev\<^sub>E (t (r :=\<^sub>t f))) rs = map (ev\<^sub>E t) rs" 
-    using top_upd_def by simp 
+    using top_upd_def apply simp 
+    by (smt (verit, ccfv_threshold) SimAsm_ExpTree.ev_nop\<^sub>E ev\<^sub>E.elims)
   then show ?case by auto
 qed
 
@@ -451,19 +384,6 @@ lemma ev_aux\<^sub>B' [simp]:
   "ev\<^sub>B (t (aux\<^sub>t: f)) g = ev\<^sub>B t g"
   by (metis aux_upd_def ev_aux\<^sub>B top_aux_upd_def tr_aux_upd_def)
 
-(*
-lemma subst\<^sub>B_flip [simp]:
-  "x \<noteq> y \<Longrightarrow> subst\<^sub>B (subst\<^sub>B e x (Val v')) y (Val v) = subst\<^sub>B (subst\<^sub>B e y (Val v)) x (Val v')"
-  by (induct e) auto
-
-lemma subst\<^sub>B_rep [simp]:
-  "subst\<^sub>B (subst\<^sub>B e x (Val v')) x (Val v) = subst\<^sub>B e x (Val v')"
-  by (induct e) auto
-
-lemma finite_deps\<^sub>B [intro]:
-  "finite (deps\<^sub>B e)"
-  by (induct e) auto
-*)
 
 subsection \<open>Operations\<close>
 
@@ -489,7 +409,10 @@ lemma subst_nop [simp]:
 
 lemma finite_rd [intro]:
   "finite (rd \<alpha>)"
-  by (cases \<alpha>) auto
+proof (cases \<alpha>)
+  case (cmp x2)
+  then show ?thesis sorry
+qed auto
 
 abbreviation ncmp
   where "ncmp b \<equiv> cmp (Neg b)"
