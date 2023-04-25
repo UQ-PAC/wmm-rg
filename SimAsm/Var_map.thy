@@ -7,6 +7,11 @@ begin
 datatype 'r Reg = reg 'r | tmp 'r
 datatype ('g,'r) var = Reg 'r | Glb 'g
 
+definition glb' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('g \<Rightarrow> 'v)"
+  where "glb' m \<equiv> \<lambda>v. m (Glb v)"
+
+definition rg' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('r \<Rightarrow> 'v)"
+  where "rg' m \<equiv> \<lambda>v. m (Reg v)"
 
 section \<open>Expression Language based on a generic mapping of variables to values \<close>
 
@@ -64,6 +69,72 @@ fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('
     "subst\<^sub>B (Exp\<^sub>B f rs) r e = (Exp\<^sub>B f (map (\<lambda>x. subst\<^sub>E x r e) rs))"
 
 text \<open> Some lemmas \<close>
+
+(* simple lemmas from SimAsm_State *)
+
+lemma [simp]:
+  "(m (r := e)) q = (if r = q then e else m q)"
+  by (auto simp: fun_upd_def)
+
+lemma [simp]:
+  "(m(v := e)) =  (m(v := e))"
+  by (auto simp: fun_upd_def)
+
+lemma [simp]:
+  "rg' (m(Glb x := e)) = rg' m"
+  by (auto simp: rg'_def fun_upd_def)
+
+lemma [simp]:
+  "rg' (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
+  by (auto simp: st_upd_def rg_def)
+
+lemma aux_nop [simp]:
+  "m(aux:more) = m"
+  by (auto simp: aux_upd_def)
+
+lemma aux_st [simp]:
+  "st (m(aux: e)) = st m"
+  by (auto simp: aux_upd_def)
+
+lemma st_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a :=\<^sub>s b))(c :=\<^sub>s d) = (m(c :=\<^sub>s d))(a :=\<^sub>s b)"
+  unfolding st_upd_def by (auto intro!: equality fun_upd_twist)
+
+
+lemma [simp]:
+  "glb (m(Reg r :=\<^sub>s e)) = glb m"
+  by (auto simp: glb_def st_upd_def)
+
+lemma [simp]:
+  "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
+  by (auto simp: aux_def glb_def)
+
+lemma [simp]:
+  "st m (Reg x) = rg m x"
+  by (auto simp: rg_def)
+
+lemma [simp]:
+  "aux (m(Reg x :=\<^sub>s e)) = aux m"
+  by (auto simp: aux_def st_upd_def)
+
+lemma [simp]:
+  "P O {(m, m'). m' = m} = P"
+  by auto
+
+lemma [simp]:
+  "state_rec.more (m(x :=\<^sub>s e)) = state_rec.more m"
+  by (auto simp: st_upd_def)
+
+lemma [simp]:
+  "state_rec.more (m(aux: f)) = f m"
+  by (auto simp: aux_upd_def)
+
+lemma aux_exec [intro!]:
+  assumes "(m\<^sub>1,m\<^sub>2) \<in> P"
+  shows "(m\<^sub>1,m\<^sub>2(aux: f)) \<in> P O {(m, m'). m' = m(aux: f)}"
+  using assms by blast
+
+(*--------------*)
+
 
 lemma ev_subst\<^sub>E [simp]:
   "ev\<^sub>E' m (subst\<^sub>E e r f) = ev\<^sub>E' (m (r := (ev\<^sub>E' m f))) e"
@@ -154,6 +225,14 @@ lemma subst\<^sub>E_rep [simp]:
 lemma finite_deps\<^sub>E [intro]:
   "finite (deps\<^sub>E e)"
   by (induct e) auto
+
+
+lemma local_ev\<^sub>E' [intro]:
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E' m e = ev\<^sub>E' m' e"
+  apply (intro deps_ev\<^sub>E ballI, case_tac x) 
+  using rg'_def apply simp by auto 
+
+
 
 end
 
