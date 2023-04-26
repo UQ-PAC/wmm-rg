@@ -91,10 +91,14 @@ definition st_upd :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow
 definition aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> ('v,'r,'a) state_rec_scheme"
   where "aux_upd m f \<equiv> m\<lparr>state_rec.more := f m\<rparr>"
 
+definition base_upd :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) state"
+  where "base_upd m a b = st_upd m a b"
+
 nonterminal updbinds and updbind
 
 syntax
   "_updbindm" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"            ("(2_ :=\<^sub>s/ _)")
+  "_updbindb" :: "'a \<Rightarrow> 'a \<Rightarrow> updbind"            ("(2_ :=\<^sub>b/ _)")
   "_updbinda" :: "'a \<Rightarrow> updbind"                  ("(2aux:/ _)")
   ""         :: "updbind \<Rightarrow> updbinds"             ("_")
   "_updbinds":: "updbind \<Rightarrow> updbinds \<Rightarrow> updbinds" ("_,/ _")
@@ -103,7 +107,12 @@ syntax
 translations
   "_Update f (_updbinds b bs)" \<rightleftharpoons> "_Update (_Update f b) bs"
   "m(x :=\<^sub>s y)" \<rightleftharpoons> "CONST st_upd m x y"
+  "m(x :=\<^sub>b y)" \<rightleftharpoons> "CONST base_upd m x y"
   "m(aux: y)" \<rightleftharpoons> "CONST aux_upd m y"
+
+fun lookupSome :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
+  "lookupSome s var = (case (st s var) of Some v \<Rightarrow> v | 
+                                                   _ \<Rightarrow> (initState s var))"
 
 section \<open>Simp Lemmas\<close>
 

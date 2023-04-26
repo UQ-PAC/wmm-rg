@@ -9,20 +9,18 @@ text \<open>Evaluate an expression given a state tree, such that variable values
           innermost scope in which a value is mapped to variable \<close>
 
 fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
-  where 
-    "ev\<^sub>E m r = ev\<^sub>E' (lookupSome m) r" 
+  where "ev\<^sub>E m r = ev\<^sub>E' (lookupSome m) r" 
 
 
 text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
         innermost scope in which a value exists \<close>
 fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
-  where 
-    "ev\<^sub>B t (Neg e) = (\<not> (ev\<^sub>B t e))" |
-    "ev\<^sub>B t (Exp\<^sub>B f rs) = f (map (ev\<^sub>E t) rs)"
+  where  "ev\<^sub>B m r = ev\<^sub>B' (lookupSome m) r" 
+
 
 
 section \<open>Operations\<close>
-
+(*
 (* the leak operation corresponds to Cache+=x in the Refine2019 paper
     here the op also specifies where the leak goes, e.g., Cache*)
 datatype ('v,'g,'r) op =
@@ -31,6 +29,7 @@ datatype ('v,'g,'r) op =
   | full_fence
   | nop
   | leak "('g,'r) var" "('v,'g,'r) exp"      
+*)
 
 text \<open>Operation Behaviour\<close>
 
@@ -38,11 +37,10 @@ fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
   where
     "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |
     "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
-    "beh\<^sub>i (leak Cache e) = {(t,t'). t' = 
-                  tree_base_upd t ((base t)(Cache :=\<^sub>s (ev\<^sub>E (t) e)))}" | 
+    "beh\<^sub>i (leak Cache e) = {(t,t'). t' = t(Cache :=\<^sub>b (ev\<^sub>E (t) e))}" | 
     "beh\<^sub>i _ = Id"
  
-
+(*
 text \<open>Variables written by an operation\<close>
 fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
   where 
@@ -69,6 +67,8 @@ fun subst\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,
     "subst\<^sub>i (cmp b) y f = cmp (subst\<^sub>B b y f)" |
     "subst\<^sub>i (leak c e) y f = leak c (subst\<^sub>E e y f)" |
     "subst\<^sub>i \<alpha> _ _ = \<alpha>"
+*)
+
 
 definition smap1
   where "smap1 V x \<alpha> \<equiv> if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha>"

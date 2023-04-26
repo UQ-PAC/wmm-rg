@@ -80,6 +80,54 @@ fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('
     "subst\<^sub>B (Neg b) r e = Neg (subst\<^sub>B b r e)" |
     "subst\<^sub>B (Exp\<^sub>B f rs) r e = (Exp\<^sub>B f (map (\<lambda>x. subst\<^sub>E x r e) rs))"
 
+
+section \<open>Operations\<close>
+
+(* the leak operation corresponds to Cache+=x in the Refine2019 paper
+    here the op also specifies where the leak goes, e.g., Cache*)
+datatype ('v,'g,'r) op =
+    assign "('g,'r) var" "('v,'g,'r) exp"
+  | cmp "('v,'g,'r) bexp"
+  | full_fence
+  | nop
+  | leak "('g,'r) var" "('v,'g,'r) exp"      
+
+text \<open>Variables written by an operation\<close>
+fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
+  where 
+    "wr (assign y _) = {y}" |
+    "wr (leak c _) = {c}" |         (* where variable c is part of the the (base t) *)
+    "wr _ = {}"
+
+text \<open>Variables read by an operation\<close>
+fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
+  where
+    "rd (assign _ e) = deps\<^sub>E e" |
+    "rd (cmp b) = deps\<^sub>B b" |
+    "rd (leak _ e) = deps\<^sub>E e" |
+    "rd _ = {}"
+
+text \<open>Test if an instruction is a memory barrier\<close>
+fun barriers :: "('v,'g,'r) op \<Rightarrow> bool"
+  where "barriers full_fence = True" | "barriers _ = False"
+
+text \<open>Operation Substitution\<close>
+fun subst\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) op"
+  where
+    "subst\<^sub>i (assign x e) y f = assign x (subst\<^sub>E e y f)" |
+    "subst\<^sub>i (cmp b) y f = cmp (subst\<^sub>B b y f)" |
+    "subst\<^sub>i (leak c e) y f = leak c (subst\<^sub>E e y f)" |
+    "subst\<^sub>i \<alpha> _ _ = \<alpha>"
+
+definition smap1
+  where "smap1 V x \<alpha> \<equiv> if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha>"
+
+definition smap 
+  where "smap \<alpha> V \<equiv> Finite_Set.fold (smap1 V) \<alpha> (rd \<alpha>)"
+
+definition forall
+  where "forall V \<alpha> \<equiv> {smap \<alpha> M | M. dom M = V}"
+
 text \<open> Some lemmas \<close>
 
 (* simple lemmas from SimAsm_State *)
@@ -118,7 +166,7 @@ lemma [simp]:
 (*-  lemmas from SimAsm_Exp  -------------*)
 
 
-lemma ev_subst\<^sub>E [simp]:
+lemma ev_subst\<^sub>E' [simp]:
   "ev\<^sub>E' m (subst\<^sub>E e r f) = ev\<^sub>E' (m (r := (ev\<^sub>E' m f))) e"
 proof (induct e)
   case (Exp fn rs)
@@ -144,7 +192,7 @@ proof (induct e)
   show ?case by simp
 qed auto
 
-lemma ev_nop\<^sub>E [simp]:
+lemma ev_nop\<^sub>E' [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E' (m(r := f)) e = ev\<^sub>E' m e"
 proof (induct e)
   case (Exp fn rs)

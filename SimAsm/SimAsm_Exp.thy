@@ -1,231 +1,120 @@
 theory SimAsm_Exp
-  imports SimAsm_StateTree
+  imports SimAsm_State
 begin
 
 section \<open>Expression Language based on states \<close>
 
-
-text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the 
-          innermost scope in which a value is mapped to variable \<close>
-
-
-
 text \<open>Evaluate an expression given a state\<close>
-fun st_ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
-  where 
-    "st_ev\<^sub>E m r = ev\<^sub>E' (st m) r" 
-
-(*
-fun ev\<^sub>E :: "('v,'g, 'r,'a) stateTree \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
-  where 
-    "ev\<^sub>E m r = ev\<^sub>E' (lookupSome m) r" 
-*)
-(*
-text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
-  where 
-    "deps\<^sub>E (Var r) = {r}" |
-    "deps\<^sub>E (Exp _ rs) = \<Union>(deps\<^sub>E ` set rs)" |
-    "deps\<^sub>E _ = {}"
+fun ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
+  where "ev\<^sub>E m r = ev\<^sub>E' (lookupSome m) r" 
 
 
-text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) exp"
-  where
-    "subst\<^sub>E (Var r) r' e = (if r = r' then e else Var r)" |
-    "subst\<^sub>E (Exp f rs) r e = (Exp f (map (\<lambda>x. subst\<^sub>E x r e) rs))" |
-    "subst\<^sub>E e _ _ = e"
-
-datatype ('v,'g,'r) bexp = 
-  Neg "('v,'g,'r) bexp" | 
-  Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'g,'r) exp list"
-*)
-text \<open>Evaluate an expression given a state tree, such that variable values are looked up in the
-        innermost scope in which a value exists \<close>
-fun ev\<^sub>B :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
-  where 
-    "ev\<^sub>B t (Neg e) = (\<not> (ev\<^sub>B t e))" |
-    "ev\<^sub>B t (Exp\<^sub>B f rs) = f (map (ev\<^sub>E t) rs)"
-
-(*
-text \<open>Evaluate an expression given a state\<close>
+text \<open>Evaluate a boolean expression given a state\<close>
 fun ev\<^sub>B :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
-  where 
-    "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
-    "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
-*)
+  where  "ev\<^sub>B m r = ev\<^sub>B' (lookupSome m) r" 
 
-(*
-text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var set"
-  where 
-    "deps\<^sub>B (Neg e) = deps\<^sub>B e" |
-    "deps\<^sub>B (Exp\<^sub>B _ rs) = \<Union>(deps\<^sub>E ` set rs)"
-
-text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) bexp"
-  where
-    "subst\<^sub>B (Neg b) r e = Neg (subst\<^sub>B b r e)" |
-    "subst\<^sub>B (Exp\<^sub>B f rs) r e = (Exp\<^sub>B f (map (\<lambda>x. subst\<^sub>E x r e) rs))"
-*)
-section \<open>Operations\<close>
-
-(* the leak operation corresponds to Cache+=x in the Refine2019 paper
-    here the op also specifies where the leak goes, e.g., Cache*)
-datatype ('v,'g,'r) op =
-    assign "('g,'r) var" "('v,'g,'r) exp"
-  | cmp "('v,'g,'r) bexp"
-  | full_fence
-  | nop
-  | leak "('g,'r) var" "('v,'g,'r) exp"      
 
 text \<open>Operation Behaviour\<close>
-(* todo: assignment to variable and read of variable has to be notified in cache
-         and this cache variable should not sit in top state but at the base *)
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
-  where
-    "beh\<^sub>i (assign a e) = {(t,t'). t' = t (a :=\<^sub>t (ev\<^sub>E (t) e))}" |
-    "beh\<^sub>i (cmp b) = {(t,t'). t = t' \<and> ev\<^sub>B t b}" |
-    "beh\<^sub>i (leak Cache e) = {(t,t'). t' = 
-                  tree_base_upd t ((base t)(Cache :=\<^sub>s (ev\<^sub>E (t) e)))}" | 
-    "beh\<^sub>i _ = Id"
- 
-(*
+
 fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) state rel"
   where
-    "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s ev\<^sub>E m e)}" |
-    "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> ev\<^sub>B m b}" |
+    "beh\<^sub>i (assign a e) = {(s,s'). s' = s (a :=\<^sub>s (ev\<^sub>E (s) e))}" |
+    "beh\<^sub>i (cmp b) = {(s,s'). s = s' \<and> ev\<^sub>B s b}" |
+    "beh\<^sub>i (leak Cache e) = {(s,s'). s' = s (Cache :=\<^sub>b (ev\<^sub>E (s) e))}" | 
     "beh\<^sub>i _ = Id"
-*)
-
-
-text \<open>Variables written by an operation\<close>
-fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
-  where 
-    "wr (assign y _) = {y}" |
-    "wr (leak c _) = {c}" |         (* where variable c is part of the the (base t) *)
-    "wr _ = {}"
-
-text \<open>Variables read by an operation\<close>
-fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
-  where
-    "rd (assign _ e) = deps\<^sub>E e" |
-    "rd (cmp b) = deps\<^sub>B b" |
-    "rd (leak _ e) = deps\<^sub>E e" |
-    "rd _ = {}"
-
-text \<open>Test if an instruction is a memory barrier\<close>
-fun barriers :: "('v,'g,'r) op \<Rightarrow> bool"
-  where "barriers full_fence = True" | "barriers _ = False"
-
-text \<open>Operation Substitution\<close>
-fun subst\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) op"
-  where
-    "subst\<^sub>i (assign x e) y f = assign x (subst\<^sub>E e y f)" |
-    "subst\<^sub>i (cmp b) y f = cmp (subst\<^sub>B b y f)" |
-    "subst\<^sub>i (leak c e) y f = leak c (subst\<^sub>E e y f)" |
-    "subst\<^sub>i \<alpha> _ _ = \<alpha>"
-
-definition smap1
-  where "smap1 V x \<alpha> \<equiv> if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha>"
-
-definition smap 
-  where "smap \<alpha> V \<equiv> Finite_Set.fold (smap1 V) \<alpha> (rd \<alpha>)"
-
-definition forall
-  where "forall V \<alpha> \<equiv> {smap \<alpha> M | M. dom M = V}"
+ 
 
 section \<open>Rules\<close>
 
 subsection \<open>Expression\<close>
 
- 
-(*
+
 lemma ev_subst\<^sub>E [simp]:
   "ev\<^sub>E m (subst\<^sub>E e r f) = ev\<^sub>E (m(r :=\<^sub>s (ev\<^sub>E m f))) e"
 proof (induct e)
-  case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (ev\<^sub>E (m(r :=\<^sub>s ev\<^sub>E m f))) rs" by auto
-  show ?case by simp
-qed auto
-*)
-
-lemma ev_subst\<^sub>E [simp]:
-  "ev\<^sub>E t (subst\<^sub>E e r f) = ev\<^sub>E (t (r :=\<^sub>t (ev\<^sub>E t f))) e"
-proof (induct e)
   case (Var x)
-  then show ?case using lookupSome_upd_var Var by (metis ev\<^sub>E'.simps(1) ev\<^sub>E.simps(1) subst\<^sub>E.simps(1))
+  then show ?case 
+  proof(cases "x=r")
+    case True
+    then show ?thesis by simp
   next
+    case False
+    then show ?thesis using st_upd_def fun_upd_def ev\<^sub>E'.simps(1) apply simp 
+      by (smt (verit) select_convs(3) st_upd_def surjective update_convs(1))
+  qed
+next
   case (Val x)
   then show ?case by simp
 next
-  case (Exp fn rs) 
-  hence [simp]: "(map (ev\<^sub>E t \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs) = (map (ev\<^sub>E  (t (r :=\<^sub>t (ev\<^sub>E t f)))) rs)" 
-    by auto
-  show ?case by simp
-qed
-
-
-(*
-lemma subst_nop\<^sub>E [simp]:
-  "r \<notin> deps\<^sub>E e \<Longrightarrow> subst\<^sub>E e r f = e"
-proof (induct e)
   case (Exp fn rs)
-  hence [simp]: "map (\<lambda>x. subst\<^sub>E x r f) rs = rs" by (induct rs) auto
-  show ?case by simp
-qed auto
-*)
+  hence [simp]: "map (ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (ev\<^sub>E (m(r :=\<^sub>s ev\<^sub>E m f))) rs" by auto
+  then show ?case  using ev\<^sub>E'.simps(3) map_map subst\<^sub>E.simps(2) 
+    by (metis (no_types, lifting) ev\<^sub>E.simps map_eq_conv)
+qed                          
 
-(*
+
 lemma ev_nop\<^sub>E [simp]:
   "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (m(r :=\<^sub>s f)) e = ev\<^sub>E m e"
 proof (induct e)
-  case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E (m(r :=\<^sub>s f))) rs = map (ev\<^sub>E m) rs" by auto
-  show ?case by simp
-qed auto
-*)
-
-
-
-lemma ev_nop\<^sub>E [simp]:
- "r \<notin> deps\<^sub>E e  \<Longrightarrow> ev\<^sub>E ((t(r :=\<^sub>t f))) e = ev\<^sub>E t e"
-proof (induct e)
   case (Var x)
-  then show ?case using lookupSome_upd_var ev\<^sub>E'.simps(1) ev\<^sub>E.simps(1) Var by (metis deps\<^sub>E.simps(1) insert_iff)
+  then show ?case using Var
+  proof(cases "x=r")
+    case True
+    hence "r \<in> deps\<^sub>E (Var x)" using deps\<^sub>E.simps(1) by simp
+    then show ?thesis using st_upd_def Var by simp
+  next
+    case False
+    then show ?thesis using st_upd_def fun_upd_def ev\<^sub>E'.simps(1) apply simp 
+      by (smt (verit) select_convs(3) st_upd_def surjective update_convs(1))
+  qed
+next
+  case (Val x)
+  then show ?case by simp
 next
   case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E (t(r :=\<^sub>t f))) rs = map (ev\<^sub>E t) rs" by auto
-  show ?case by simp
-qed auto
+  hence [simp]: "map (ev\<^sub>E (m(r :=\<^sub>s f))) rs = map (ev\<^sub>E m) rs" by auto
+  then show ?case using ev\<^sub>E'.simps(3) ev\<^sub>E.simps 
+    by (metis (mono_tags, lifting) map_eq_conv)
+qed 
 
-(*
-lemma deps_subst\<^sub>E [simp]:
-  "deps\<^sub>E (subst\<^sub>E e x e') = deps\<^sub>E e - {x} \<union> (if x \<in> deps\<^sub>E e then deps\<^sub>E e' else {})"
-  by (induct e; auto simp: if_splits)
-*)
 
-(*
+
 lemma deps_ev\<^sub>E [intro]:
-  "\<forall>x \<in> deps\<^sub>E e. st m x = st m' x \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
+  "\<forall>x \<in> deps\<^sub>E e. st m x = st m' x \<Longrightarrow> initState m x = initState m' x \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
 proof (induct e)
+  case (Var x)
+  then show ?case using equality ev\<^sub>E.simps deps\<^sub>E.simps(1) ev\<^sub>E'.simps(1) 
+  proof -
+    have a0:"deps\<^sub>E (Var x) ={x}" by simp
+    then have a1:"st m x = st m' x" using Var by simp
+    then have a2:"lookupSome m x = lookupSome m' x" using Var lookupSome.simps[of m x] 
+           lookupSome.simps[of m' x] sorry
+    then show ?thesis       using ev\<^sub>E.simps deps\<^sub>E.simps(1) ev\<^sub>E'.simps(1) Var by simp
+  qed
+next
+  case (Val x)
+  then show ?case by simp
+next
   case (Exp fn rs)
   hence [simp]: "map (ev\<^sub>E m) rs = map (ev\<^sub>E m') rs" by (induct rs) auto
-  show ?case by simp
-qed auto
-*)
-lemma deps_ev\<^sub>E [intro]:
-  "\<forall>x \<in> deps\<^sub>E e . lookupSome t x = lookupSome t' x \<Longrightarrow> ev\<^sub>E t e = ev\<^sub>E t' e"
+  then show ?case using ev\<^sub>E'.simps(3)ev\<^sub>E.simps map_eq_conv 
+    by (metis (no_types, lifting))
+qed 
+
+
+lemma deps_ev\<^sub>E'' [intro]:
+  "\<forall>x \<in> deps\<^sub>E e . lookupSome s x = lookupSome s' x \<Longrightarrow> ev\<^sub>E s e = ev\<^sub>E s' e"
 proof (induct e)
   case (Var x) 
-  show ?case using deps\<^sub>E.simps(1) ev\<^sub>E.simps(1) lookup.simps ev\<^sub>E.simps(1) using Var by simp
+  show ?case using deps\<^sub>E.simps(1) ev\<^sub>E.simps(1) lookupSome.simps ev\<^sub>E.simps(1) using Var by simp
   next
   case (Val x)
   then show ?case by auto
 next
   case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E t) rs = map (ev\<^sub>E t') rs" by (induct rs) auto
-  show ?case by simp
+  hence [simp]: "map (ev\<^sub>E s) rs = map (ev\<^sub>E s') rs" by (induct rs) auto
+  show ?case using ev\<^sub>E'.simps(3)ev\<^sub>E.simps map_eq_conv 
+    sorry   
 qed
 
 (*
@@ -1318,5 +1207,6 @@ proof -
  sorry
   finally show ?thesis unfolding smap_def .
 qed
+*)
 *)
 end
