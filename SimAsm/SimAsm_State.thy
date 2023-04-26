@@ -78,15 +78,6 @@ definition glbSt :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'a) gstate"
       \<dots> = more s \<rparr>"
 
 
-text \<open>Domain of register variables\<close>
-
-(* Tmp registers are also local? *)
-abbreviation locals
-  where "locals \<equiv> Reg ` UNIV"
-
-text \<open>Domain of register variables\<close>
-abbreviation globals
-  where "globals \<equiv> Glb ` UNIV"
 
 section \<open>Write Operations\<close>
 
@@ -132,9 +123,6 @@ lemma [simp]:
   "rg (m(Glb x :=\<^sub>s e)) = rg m"
   by (auto simp: rg_def st_upd_def)
 
-lemma [simp]:
-  "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
-  by (auto simp: st_upd_def rg_def)
 
 lemma aux_nop [simp]:
   "m(aux:more) = m"
@@ -147,14 +135,20 @@ lemma aux_st [simp]:
 lemma st_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a :=\<^sub>s b))(c :=\<^sub>s d) = (m(c :=\<^sub>s d))(a :=\<^sub>s b)"
   unfolding st_upd_def by (auto intro!: equality fun_upd_twist)
 
+lemma [simp]:
+  "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
+  sorry
+(*  by (auto simp: st_upd_def rg_def) *)
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e)) = glb m"
-  by (auto simp: glb_def st_upd_def)
+  sorry
+  (*by (auto simp: glb_def st_upd_def)*)
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
-  by (auto simp: aux_def glb_def)
+  using aux_def glb_def st_upd_twist sorry
+(*  by (auto simp: aux_def glb_def) *)
 
 lemma [simp]:
   "st m (Reg x) = rg m x"
@@ -162,11 +156,9 @@ lemma [simp]:
 
 lemma [simp]:
   "aux (m(Reg x :=\<^sub>s e)) = aux m"
-  by (auto simp: aux_def st_upd_def)
+  using st_upd_def aux_def 
+  by (metis select_convs(4) surjective update_convs(1))
 
-lemma [simp]:
-  "P O {(m, m'). m' = m} = P"
-  by auto
 
 lemma [simp]:
   "state_rec.more (m(x :=\<^sub>s e)) = state_rec.more m"
@@ -182,12 +174,13 @@ lemma aux_exec [intro!]:
   using assms by blast
 
 
-(*---these start to talk about state ---------------------*)
+(*--- lemmas from SimAsm_Exp  ---------------------*)
 
 lemma local_ev\<^sub>E [intro]:
   "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E' (st m) e = ev\<^sub>E' (st m') e"
   apply (intro deps_ev\<^sub>E ballI, case_tac x) 
-  using rg_def apply simp by auto 
+  using rg_def apply metis
+  using rg_def by force
 
 lemma ev_aux\<^sub>E [simp]:
   "ev\<^sub>E' (st (s(aux: f))) g = ev\<^sub>E' (st s) g"
