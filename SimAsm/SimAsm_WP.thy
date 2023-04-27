@@ -4,7 +4,6 @@ begin
 
 section \<open>Wellformedness\<close>
 
-
 definition stabilize
   where "stabilize R P \<equiv> {m. \<forall>m'. (glb m,glb m') \<in> R \<longrightarrow> rg m = rg m' \<longrightarrow> m' \<in> P}"
 
@@ -74,10 +73,10 @@ lemma stabilize_entail :
 section \<open>Predicate Transformations\<close>
 
 text \<open>Transform a predicate based on an sub-operation\<close>
-fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) trans" 
+fun wp\<^sub>i :: "('v::truth,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) trans" 
   where 
-    "wp\<^sub>i (assign r e) Q = {m. (m (r :=\<^sub>s ev\<^sub>E m e)) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {m. ev\<^sub>B m b \<longrightarrow> m \<in> Q}" | 
+    "wp\<^sub>i (assign r e) Q = {m. (m (r :=\<^sub>s eval m e)) \<in> Q}" |
+    "wp\<^sub>i (cmp b) Q =  {m. holds (eval m b) \<longrightarrow> m \<in> Q}" | 
     "wp\<^sub>i _ Q = Q"
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
@@ -85,7 +84,7 @@ fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) trans"
   where "wp\<^sub>a a Q = {m. m(aux: a) \<in> Q}"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) trans"
+fun wp :: "('v::truth,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) trans"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
@@ -118,32 +117,28 @@ fun guar\<^sub>c
 
 section \<open>Locale Interpretation\<close>
 
+definition reorder_inst :: "('v::truth,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+  where "reorder_inst a b c \<equiv> (a = fwd\<^sub>s c (fst b) \<and> re\<^sub>a (fst b) (fst a))"
+
+abbreviation Seqw (infixr ";;" 80)
+  where "Seqw c c' \<equiv> com.Seq c reorder_inst c'"
+
+abbreviation Iterw ("_*" [90] 90)
+  where "Iterw c \<equiv> com.Loop c reorder_inst"
+
 text \<open>Convert the language into the abstract language expected by the underlying logic\<close> 
-fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com"
+fun lift\<^sub>c :: "('v::truth,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com"
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
-    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) (lift\<^sub>c c\<^sub>2))" |
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice 
-      (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c\<^sub>1)) (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) (lift\<^sub>c c\<^sub>2)))" |
-    "lift\<^sub>c (While b I c) = (com.Seq ((com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) (lift\<^sub>c c))*) (Basic (\<lfloor>ncmp b\<rfloor>)))" | 
+    "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) = lift\<^sub>c c\<^sub>1 ;; lift\<^sub>c c\<^sub>2" |
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = 
+       Choice (\<lambda>s. if holds (eval s b) then Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>1
+                   else Basic (\<lfloor>ncmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>2)" |
+    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>)  ;; lift\<^sub>c c)* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | 
     "lift\<^sub>c (DoWhile I c b) = (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
-text \<open>Correctness of the guarantee check\<close>
-lemma com_guar:
-  "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow> \<forall>\<beta>\<in>basics (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
-proof (induct c) 
-  case (Op v p)
-  then show ?case by (cases p) (auto simp: liftg_def guar_def wp\<^sub>r_def)
-qed (auto simp: guar_def reflexive_def liftl_def step_def)
-
-interpretation rules fwd\<^sub>s re\<^sub>a 
-  apply (unfold_locales)
-  apply (auto)
-  apply (case_tac ad)
-  apply auto
-  (* apply (auto simp: Let_def) *)
-  done
+interpretation rules by (unfold_locales)
 
 text \<open>Extract the instruction from an abstract operation\<close>
 abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
@@ -152,15 +147,8 @@ abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
 abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
   where "aux a \<equiv> snd (tag a)"
 
-definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+definition wfbasic :: "('v::truth,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
-
-definition wfcom
-  where "wfcom c \<equiv> \<forall>\<beta> \<in> basics c. wfbasic \<beta>"
-
-lemma wfcomI [intro]:
-  "wfcom (lift\<^sub>c c)"
-  by (induct c) (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
 
 lemma opbasicE:
   obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
@@ -196,62 +184,6 @@ lemma aux_fwd\<^sub>s [simp]:
 lemma inst_fwd\<^sub>s [simp]:
   "inst (fwd\<^sub>s \<alpha> (assign x e, f)) = subst\<^sub>i (inst \<alpha>) x e"
   by (cases \<alpha> rule: opbasicE; auto simp: Let_def split: if_splits)
-
-lemma fwdE:
-  assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
-  obtains (no_fwd) "inst \<alpha>' = inst \<alpha>" "aux \<alpha>' = aux \<alpha>" "vc \<alpha>' = vc \<alpha>" "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}" |
-          (fwd) x e f where "tag \<beta> = (assign x e,f)" "x \<in> rd (inst \<alpha>)" "deps\<^sub>E e \<subseteq> locals"
-proof (cases "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}")
-  case True
-  then show ?thesis using no_fwd assms    
-    by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-next
-  case False
-  then show ?thesis using fwd assms 
-    by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-qed
-
-lemma fwd_wfbasic:
-  assumes "reorder_com \<alpha>' r \<alpha>" "wfbasic \<alpha>" 
-  shows "wfbasic \<alpha>'"
-  using assms
-proof (induct \<alpha>' r \<alpha> rule: reorder_com.induct)
-  case (2 \<alpha>' \<beta> \<alpha>)
-  then show ?case by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def wfbasic_def)
-qed auto
-
-lemma [simp]:
-  "wfcom (c\<^sub>1 ;; c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
-  by (auto simp: wfcom_def)
-
-lemma wfcom_silent:
-  "silent c c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
-  using basics_silent by (auto simp: wfcom_def)
-
-lemma wfcom_exec:
-  "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
-  using basics_exec unfolding wfcom_def by blast
-
-lemma wfcom_exec_prefix:
-  "lexecute c r \<alpha> c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom r \<and> wfbasic \<alpha>"
-  using basics_exec_prefix unfolding wfcom_def by blast
-
-fun sim :: "('a,'b) com \<Rightarrow> bool"
-  where 
-    "sim (c\<^sub>1 || c\<^sub>2) = False" |
-    "sim (Thread _) = False" |
-    "sim (SeqChoice _) = False" |
-    "sim (c\<^sub>1 ;; c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
-    "sim (c\<^sub>1 \<cdot> c\<^sub>2) = False" |
-    "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |  
-    "sim (c*) = (sim c)" |    
-    "sim _ = True"
-
-
-text \<open>The language is always thread-local\<close>
-lemma sim_lift [intro]:
-  "sim (lift\<^sub>c c)"
-  by (induct c) auto
 
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:

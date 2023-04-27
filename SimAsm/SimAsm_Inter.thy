@@ -38,12 +38,12 @@ text \<open>Test if a point is dependent on an operation, implying ordering of t
 fun ord :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) point \<Rightarrow> bool"
   where
     "ord nop p = (bar p)" |
-    "ord (cmp b) p = (bar p \<or> hasGlobal (wrs p) \<or> hasGlobal (deps\<^sub>B b \<inter> rds p) \<or> wrs p \<inter> deps\<^sub>B b \<noteq> {})" |
+    "ord (cmp b) p = (bar p \<or> hasGlobal (wrs p) \<or> hasGlobal (deps b \<inter> rds p) \<or> wrs p \<inter> deps b \<noteq> {})" |
     "ord (assign v e) p = 
       (bar p \<or> 
-        hasGlobal (deps\<^sub>E e \<inter> (rds p \<union> wrs p)) \<or> 
+        hasGlobal (deps e \<inter> (rds p \<union> wrs p)) \<or> 
         (case v of Glb g \<Rightarrow> Glb g \<in> wrs p | _ \<Rightarrow> False) \<or> 
-        (hasGlobal (deps\<^sub>E e) \<and> v \<in> rds p))" |
+        (hasGlobal (deps e) \<and> v \<in> rds p))" |
     "ord full_fence _ = True"
 
 subsection \<open>Point Manipulations\<close>
@@ -81,9 +81,9 @@ text \<open>Process a full program, lifted to low-level choice and loop structur
 fun rif :: "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com \<Rightarrow> (_,_,_,_) points \<Rightarrow> (_,_,_,_) points"
   where 
     "rif (Basic a) P = rif\<^sub>i a P" |
-    "rif (Choice c\<^sub>1 c\<^sub>2) P = (rif c\<^sub>1 P \<union> rif c\<^sub>2 P)" |
+    "rif (Choice C) P = \<Union>{rif (C l) P | l. True}" |
     "rif (Loop c) P = lfp (\<lambda>Y. (P \<union> rif c Y))" |
-    "rif (c\<^sub>1 ;; c\<^sub>2) P = rif c\<^sub>1 (rif c\<^sub>2 P)" |
+    "rif (c\<^sub>1 ;\<^sub>_ c\<^sub>2) P = rif c\<^sub>1 (rif c\<^sub>2 P)" |
     "rif _ P = P"
 
 subsection \<open>Interference Check\<close>
@@ -255,7 +255,7 @@ lemma ev_upd_exec [simp]:
   by (cases \<gamma> rule: opbasicE) (auto simp: wfbasic_def st_upd_def aux_upd_def)
 
 lemma ev_upd_local [simp]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E (upd V f m) e = ev\<^sub>E (upd V f m') e"
+  "deps e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E (upd V f m) e = ev\<^sub>E (upd V f m') e"
   apply (intro deps_ev\<^sub>E ballI, case_tac x) 
   by (auto simp: upd_def rg_def) metis
 
@@ -282,7 +282,7 @@ proof (auto split: op.splits elim!: escE, goal_cases)
 qed
 
 lemma escape_wp:
-  assumes "deps\<^sub>E e \<subseteq> locals" "wfbasic \<gamma>" "x \<in> rd (inst \<alpha>)" 
+  assumes "deps e \<subseteq> locals" "wfbasic \<gamma>" "x \<in> rd (inst \<alpha>)" 
   assumes "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R (wp\<^sub>\<alpha> \<alpha>' (stabilize R Q)))) \<subseteq>
                                       stabilize R (wp\<^sub>\<alpha> (fwd\<^sub>s \<alpha>' (tag \<gamma>)) (stabilize R (wp\<^sub>\<alpha> \<gamma> (stabilize R Q))))"
   shows "\<forall> \<alpha>' \<in> escape V (fwd\<^sub>s \<alpha> (assign x e,f)). 
@@ -298,9 +298,9 @@ proof (intro allI impI ballI subsetI, elim escE, goal_cases)
   have "insert x V = dom ?M" using 1 by auto
   hence esc: "?\<alpha> \<in> escape (insert x V) \<alpha>" unfolding escape_def by auto
 
-  have "rd (inst \<alpha>') = rd (inst \<alpha>) - {x} \<union> deps\<^sub>E e - V"
+  have "rd (inst \<alpha>') = rd (inst \<alpha>) - {x} \<union> deps e - V"
     using 1 assms(3) by auto
-  hence "wr (inst \<gamma>) \<inter> (deps\<^sub>E e - V) = {} \<or> rd (inst \<gamma>) \<subseteq> locals"
+  hence "wr (inst \<gamma>) \<inter> (deps e - V) = {} \<or> rd (inst \<gamma>) \<subseteq> locals"
     using 1(1) assms(1,2,3)
     by (cases \<alpha>' rule: opbasicE; cases \<gamma> rule: opbasicE; clarsimp; blast)
 
@@ -347,7 +347,7 @@ lemma escape_reorder:
   by (auto split: if_splits)
 
 lemma escape_check:
-  assumes "deps\<^sub>E e \<subseteq> locals" "x \<in> rd (inst \<alpha>)"
+  assumes "deps e \<subseteq> locals" "x \<in> rd (inst \<alpha>)"
   assumes "\<forall>\<alpha>' \<in> escape (insert x V) \<alpha>. chk \<gamma> \<alpha>' R G"
   shows "\<forall>\<alpha>' \<in> escape V (fwd\<^sub>s \<alpha> (assign x e,f)). chk \<gamma> \<alpha>' R G"
   unfolding chk_def

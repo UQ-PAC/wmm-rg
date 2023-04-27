@@ -20,9 +20,6 @@ parse_translation \<open>
 type_synonym ('v,'g,'r,'a) thread = "(('v,'g,'a) grel \<times> ('v,'g,'a) grel \<times> ('v,'g,'r,'a) pred \<times> ('v,'g,'r,'a) lang \<times> ('v,'g,'r,'a) pred)"
 type_synonym ('v,'g,'r,'a) threads = "('v,'g,'r,'a) thread list"
 
-definition test 
-  where "test e = Exp\<^sub>B (\<lambda>x. x ! 0) [e]"
-
 syntax
   "_AssignR"  :: "'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<^bold>r_ := _)" [70, 65] 61)
   "_AssignRA"  :: "'r \<Rightarrow> 'b \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) lang" ("(\<^bold>r_ := _ :\<^sub>a _)" [70, 65] 61)

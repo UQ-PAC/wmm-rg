@@ -168,26 +168,16 @@ lemma univ_captureI:
   shows "R,G \<turnstile> P {\<forall>\<^sub>c c} Q"
   using assms by (intro choice allI capture) simp
 
-(*
 lemma falseI:
-  "local c \<Longrightarrow> \<forall>\<beta> \<in> obs c. guar\<^sub>\<alpha> \<beta> G \<Longrightarrow> R,G \<turnstile> {} {c} {}"
+  "local c \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
 next
-  case (Choice x)
-  thus ?case
-    by (intro choice allI Choice(1)) auto
-next
   case (Seq c1 w c2)
-  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by auto
+  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by (meson local_simps(3) subsetD)+
   then show ?case by auto
-next
-  case (Capture s c)
-  hence "\<forall>\<beta>\<in>overbasic c. \<forall>s s'. guar\<^sub>\<alpha> (popbasic s s' \<beta>) G" by fastforce
-  hence "\<forall>\<beta>\<in>overbasic c. guar\<^sub>\<alpha> \<beta> (uncapGuar G)" using guar_mix by force
-  thus ?case using Capture(2) by (intro capture, simp, intro Capture(1) ballI; simp)
-qed (auto) *)
+qed (auto)
 
 end
 

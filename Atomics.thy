@@ -24,13 +24,13 @@ section \<open>Atomic Rule\<close>
 text \<open>Rule for an atomic operation\<close>
 definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [65,0,0,0,65] 65)
-  where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> guar\<^sub>\<alpha> \<alpha> G \<and> stable R P \<and> stable R Q"
+  where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> (P = {} \<or> guar\<^sub>\<alpha> \<alpha> G) \<and> stable R P \<and> stable R Q"
 
 lemma atomicI [intro]:
-  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" "stable R P" "stable R Q"
+  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "(P = {} \<or> guar\<^sub>\<alpha> \<alpha> G)" "stable R P" "stable R Q"
   shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-using assms
-by (auto simp add: atomic_rule_def)
+  using assms
+  by (auto simp add: atomic_rule_def)
 
 (* 
 lemma thr_atomic:
@@ -294,11 +294,11 @@ unfolding atomic_rule_def
 proof (intro conjI)
   have A:
     "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q"
-    "guar\<^sub>\<alpha> \<alpha> G"
+    "P = {} \<or> guar\<^sub>\<alpha> \<alpha> G"
     "stable R P"
     "stable R Q"
     using assms unfolding atomic_rule_def by auto
-  thus "stable R P" "guar\<^sub>\<alpha> \<alpha> G" by auto
+  thus "stable R P" "P = {} \<or> guar\<^sub>\<alpha> \<alpha> G" by auto
 
   show "stable R (stabilise R (sp \<alpha> P))" by (rule stable_stabilise)
   
@@ -369,14 +369,14 @@ proof (clarsimp)
 qed
 
 lemma help3:
-  assumes "guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
-  shows "guar (poppred' s (vc \<alpha>)) (poprel' s s' (beh \<alpha>)) G"
+  assumes "P = {} \<or> guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
+  shows "P = {} \<or> guar (poppred' s (vc \<alpha>)) (poprel' s s' (beh \<alpha>)) G"
   unfolding guar_def
 proof (clarify)
-  fix m m' assume a: "m \<in> poppred' s (vc \<alpha>)" "(m,m') \<in> poprel' s s' (beh \<alpha>)" 
+  fix m m' assume a: "P \<noteq> {}" "m \<in> poppred' s (vc \<alpha>)" "(m,m') \<in> poprel' s s' (beh \<alpha>)" 
   hence "push m s \<in> vc \<alpha>" by (auto simp: poppred'_def)
   moreover have "(push m s, push m' s') \<in> beh \<alpha>" using a by (auto simp: poprel'_def)
-  ultimately have "(push m s, push m' s') \<in> pushrelAll G" using assms by (auto simp: guar_def)
+  ultimately have "(push m s, push m' s') \<in> pushrelAll G" using assms a(1) by (auto simp: guar_def)
   thus "(m,m') \<in> G" unfolding pushrelAll_def using push_inj apply (auto ) by blast
 qed
 
@@ -394,6 +394,10 @@ proof (clarify)
     by (auto simp: poppred'_def poprel'_def)
 qed
 
+lemma [simp]:
+  "pushpred s P = {} \<equiv> P = {}"
+  unfolding pushpred_def by auto
+
 text \<open>
 Critical for soundness: atomic judgement with a hidden top-most state fixed to an initial s
 can be lifted to a judgement over its observable behaviour fixed to a final internal state s'\<close>
@@ -405,7 +409,7 @@ proof (unfold atomic_rule_def, intro conjI, goal_cases)
   then show ?case using assms help4 unfolding atomic_rule_def by blast
 next
   case 2
-  then show ?case using assms help3 by (auto simp: atomic_rule_def)
+  then show ?case using assms help3 unfolding atomic_rule_def by fastforce
 next
   case 3
   then show ?case using assms stable_uncap by (auto simp: atomic_rule_def)

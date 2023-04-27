@@ -1,67 +1,28 @@
 theory SimAsm_Exp
-  imports SimAsm_State
+  imports SimAsm_State "../Expression"
 begin
 
-section \<open>Expression Language\<close>
-
-(* first value in Exp is a function used to combine the values from its
-subexpressions into one value. *)
-datatype ('v,'g,'r) exp = Var "('g,'r) var" | Val 'v | Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list"
-
-text \<open>Evaluate an expression given a state\<close>
-fun ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
-  where 
-    "ev\<^sub>E m (Var r) = st m r" |
-    "ev\<^sub>E _ (Val v) = v" |
-    "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"
-
-text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
-  where 
-    "deps\<^sub>E (Var r) = {r}" |
-    "deps\<^sub>E (Exp _ rs) = \<Union>(deps\<^sub>E ` set rs)" |
-    "deps\<^sub>E _ = {}"
-
-text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) exp"
-  where
-    "subst\<^sub>E (Var r) r' e = (if r = r' then e else Var r)" |
-    "subst\<^sub>E (Exp f rs) r e = (Exp f (map (\<lambda>x. subst\<^sub>E x r e) rs))" |
-    "subst\<^sub>E e _ _ = e"
-
-datatype ('v,'g,'r) bexp = Neg "('v,'g,'r) bexp" | Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'g,'r) exp list"
-
-text \<open>Evaluate an expression given a state\<close>
-fun ev\<^sub>B :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
-  where 
-    "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
-    "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
-
-text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var set"
-  where 
-    "deps\<^sub>B (Neg e) = deps\<^sub>B e" |
-    "deps\<^sub>B (Exp\<^sub>B _ rs) = \<Union>(deps\<^sub>E ` set rs)"
-
-text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) bexp"
-  where
-    "subst\<^sub>B (Neg b) r e = Neg (subst\<^sub>B b r e)" |
-    "subst\<^sub>B (Exp\<^sub>B f rs) r e = (Exp\<^sub>B f (map (\<lambda>x. subst\<^sub>E x r e) rs))"
+interpretation expression st st_upd
+  by standard auto
 
 section \<open>Operations\<close>
 
+type_synonym ('v,'g,'r) exp = "('v,('g,'r) var) exp"
+
 datatype ('v,'g,'r) op =
     assign "('g,'r) var" "('v,'g,'r) exp"
-  | cmp "('v,'g,'r) bexp"
+  | cmp "('v,'g,'r) exp"
   | full_fence
   | nop
 
+abbreviation ncmp
+  where "ncmp b \<equiv> cmp (Uop neg b)"
+
 text \<open>Operation Behaviour\<close>
-fun beh\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) state rel"
+fun beh\<^sub>i :: "('v::truth,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) state rel"
   where
-    "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s ev\<^sub>E m e)}" |
-    "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> ev\<^sub>B m b}" |
+    "beh\<^sub>i (assign a e) = {(m,m'). m' = m (a :=\<^sub>s eval m e)}" |
+    "beh\<^sub>i (cmp b) = {(m,m'). m = m' \<and> holds (eval m b)}" |
     "beh\<^sub>i _ = Id"
 
 text \<open>Variables written by an operation\<close>
@@ -73,8 +34,8 @@ fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
 text \<open>Variables read by an operation\<close>
 fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
   where
-    "rd (assign _ e) = deps\<^sub>E e" |
-    "rd (cmp b) = deps\<^sub>B b" |
+    "rd (assign _ e) = deps e" |
+    "rd (cmp b) = deps b" |
     "rd _ = {}"
 
 text \<open>Test if an instruction is a memory barrier\<close>
@@ -84,14 +45,14 @@ fun barriers :: "('v,'g,'r) op \<Rightarrow> bool"
 text \<open>Operation Substitution\<close>
 fun subst\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) op"
   where
-    "subst\<^sub>i (assign x e) y f = assign x (subst\<^sub>E e y f)" |
-    "subst\<^sub>i (cmp b) y f = cmp (subst\<^sub>B b y f)" |
+    "subst\<^sub>i (assign x e) y f = assign x (subst e y f)" |
+    "subst\<^sub>i (cmp b) y f = cmp (subst b y f)" |
     "subst\<^sub>i \<alpha> _ _ = \<alpha>"
 
 definition smap1
   where "smap1 V x \<alpha> \<equiv> if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha>"
 
-definition smap 
+definition smap
   where "smap \<alpha> V \<equiv> Finite_Set.fold (smap1 V) \<alpha> (rd \<alpha>)"
 
 definition forall
@@ -99,135 +60,16 @@ definition forall
 
 section \<open>Rules\<close>
 
-subsection \<open>Expression\<close>
-
-lemma ev_subst\<^sub>E [simp]:
-  "ev\<^sub>E m (subst\<^sub>E e r f) = ev\<^sub>E (m(r :=\<^sub>s (ev\<^sub>E m f))) e"
-proof (induct e)
-  case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (ev\<^sub>E (m(r :=\<^sub>s ev\<^sub>E m f))) rs" by auto
-  show ?case by simp
-qed auto
-
-lemma subst_nop\<^sub>E [simp]:
-  "r \<notin> deps\<^sub>E e \<Longrightarrow> subst\<^sub>E e r f = e"
-proof (induct e)
-  case (Exp fn rs)
-  hence [simp]: "map (\<lambda>x. subst\<^sub>E x r f) rs = rs" by (induct rs) auto
-  show ?case by simp
-qed auto
-
-lemma ev_nop\<^sub>E [simp]:
-  "r \<notin> deps\<^sub>E e \<Longrightarrow> ev\<^sub>E (m(r :=\<^sub>s f)) e = ev\<^sub>E m e"
-proof (induct e)
-  case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E (m(r :=\<^sub>s f))) rs = map (ev\<^sub>E m) rs" by auto
-  show ?case by simp
-qed auto
-
-lemma deps_subst\<^sub>E [simp]:
-  "deps\<^sub>E (subst\<^sub>E e x e') = deps\<^sub>E e - {x} \<union> (if x \<in> deps\<^sub>E e then deps\<^sub>E e' else {})"
-  by (induct e; auto simp: if_splits)
-
-lemma deps_ev\<^sub>E [intro]:
-  "\<forall>x \<in> deps\<^sub>E e. st m x = st m' x \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
-proof (induct e)
-  case (Exp fn rs)
-  hence [simp]: "map (ev\<^sub>E m) rs = map (ev\<^sub>E m') rs" by (induct rs) auto
-  show ?case by simp
-qed auto
-
 lemma local_ev\<^sub>E [intro]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
-  apply (intro deps_ev\<^sub>E ballI, case_tac x)
+  "deps e \<subseteq> locals \<Longrightarrow> rg (m :: ('v,'g,'r,'a) state) = rg (m' :: ('v,'g,'r,'a) state) \<Longrightarrow> 
+    eval m e = eval m' e"
+  apply (intro eval_eq_state ballI, case_tac x)
   by (auto simp: rg_def) metis
 
 lemma ev_aux\<^sub>E [simp]:
-  "ev\<^sub>E (x(aux: f)) g = ev\<^sub>E x g"
-proof (induct g)
-  case (Var x)
-  then show ?case by (auto simp: aux_upd_def)
-next
-  case (Val x)
-  then show ?case by (auto simp: aux_upd_def)
-next
-  case (Exp x1a x2a)
-  then show ?case by (metis (mono_tags, lifting) ev\<^sub>E.simps(3) map_eq_conv)
-qed
-
-lemma subst\<^sub>E_flip [simp]:
-  "x \<noteq> y \<Longrightarrow> subst\<^sub>E (subst\<^sub>E e x (Val v')) y (Val v) = subst\<^sub>E (subst\<^sub>E e y (Val v)) x (Val v')"
-  by (induct e) auto
-
-lemma subst\<^sub>E_rep [simp]:
-  "subst\<^sub>E (subst\<^sub>E e x (Val v')) x (Val v) = subst\<^sub>E e x (Val v')"
-  by (induct e) auto
-
-lemma finite_deps\<^sub>E [intro]:
-  "finite (deps\<^sub>E e)"
-  by (induct e) auto
-
-subsection \<open>Boolean Expression\<close>
-
-lemma ev_subst\<^sub>B [simp]:
-  "ev\<^sub>B m (subst\<^sub>B b r e) = ev\<^sub>B (m(r :=\<^sub>s (ev\<^sub>E m e))) b"
-proof (induct b)
-  case (Exp\<^sub>B fn rs)
-  have [simp]: "map (ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r e)) rs = map (ev\<^sub>E (m(r :=\<^sub>s ev\<^sub>E m e))) rs"
-    by (auto simp: fun_upd_def)     
-  show ?case by simp
-qed simp
-
-lemma ev_nop\<^sub>B [simp]:
-  "r \<notin> deps\<^sub>B b \<Longrightarrow> ev\<^sub>B (m(r :=\<^sub>s f)) b = ev\<^sub>B m b"
-proof (induct b)
-  case (Exp\<^sub>B fn rs)
-  hence [simp]: "map (ev\<^sub>E (m(r :=\<^sub>s f))) rs = map (ev\<^sub>E m) rs"
-    using ev_nop\<^sub>E[of r _ m f] by (auto simp: fun_upd_def) 
-  show ?case by simp
-qed simp
-
-lemma subst_nop\<^sub>B [simp]:
-  "r \<notin> deps\<^sub>B e \<Longrightarrow> subst\<^sub>B e r f = e"
-proof (induct e)
-  case (Exp\<^sub>B fn rs)
-  hence [simp]: "map (\<lambda>x. subst\<^sub>E x r f) rs = rs"  by (induct rs) auto
-  show ?case by simp
-qed auto
-
-lemma deps_subst\<^sub>B [simp]:
-  "deps\<^sub>B (subst\<^sub>B e x e') = deps\<^sub>B e - {x} \<union> (if x \<in> deps\<^sub>B e then deps\<^sub>E e' else {})"
-  by (induct e; auto simp: if_splits)
-
-lemma deps_ev\<^sub>B [intro]:
-  "\<forall>x \<in> deps\<^sub>B e. st m x = st m' x \<Longrightarrow> ev\<^sub>B m e = ev\<^sub>B m' e"
-proof (induct e)
-  case (Exp\<^sub>B fn rs)
-  hence [simp]: "map (ev\<^sub>E m) rs = map (ev\<^sub>E m') rs" by (induct rs) auto
-  show ?case by simp
-qed auto
-
-lemma ev_aux\<^sub>B [simp]:
-  "ev\<^sub>B (x(aux: f)) g = ev\<^sub>B x g"
-proof (induct g)
-  case (Neg g)
-  then show ?case by simp
-next
-  case (Exp\<^sub>B x1a x2)
-  then show ?case by (metis (no_types, lifting) ev\<^sub>B.simps(2) ev_aux\<^sub>E map_eq_conv)
-qed
-
-lemma subst\<^sub>B_flip [simp]:
-  "x \<noteq> y \<Longrightarrow> subst\<^sub>B (subst\<^sub>B e x (Val v')) y (Val v) = subst\<^sub>B (subst\<^sub>B e y (Val v)) x (Val v')"
-  by (induct e) auto
-
-lemma subst\<^sub>B_rep [simp]:
-  "subst\<^sub>B (subst\<^sub>B e x (Val v')) x (Val v) = subst\<^sub>B e x (Val v')"
-  by (induct e) auto
-
-lemma finite_deps\<^sub>B [intro]:
-  "finite (deps\<^sub>B e)"
-  by (induct e) auto
+  "eval (x(aux: f)) g = eval x g"
+  apply (intro eval_eq_state ballI, case_tac x)
+  by (auto simp: aux_upd_def)
 
 subsection \<open>Operations\<close>
 
@@ -236,7 +78,7 @@ lemma subst_wr [simp]:
   by (cases \<alpha>; auto)
 
 lemma subst_rd [simp]:
-  "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then deps\<^sub>E e else {})"
+  "rd (subst\<^sub>i \<alpha> x e) = rd \<alpha> - {x} \<union> (if x \<in> rd \<alpha> then deps e else {})"
   by (cases \<alpha>; auto)
 
 lemma subst_barriers [simp]:
@@ -247,16 +89,13 @@ lemma subst_not_fence [simp]:
   "(subst\<^sub>i \<alpha> x e \<noteq> full_fence) = (\<alpha> \<noteq> full_fence)"
   by (cases \<alpha>; auto)
 
-lemma subst_nop [simp]:
+lemma subst\<^sub>i_nop [simp]:
   "x \<notin> rd \<beta> \<Longrightarrow> subst\<^sub>i \<beta> x e = \<beta>"
-  unfolding smap1_def by (cases \<beta>) (auto split: if_splits)
+  by (cases \<beta>) (auto split: if_splits)
 
 lemma finite_rd [intro]:
   "finite (rd \<alpha>)"
   by (cases \<alpha>) auto
-
-abbreviation ncmp
-  where "ncmp b \<equiv> cmp (Neg b)"
 
 subsection \<open>smap1 Theories\<close>
 
@@ -573,10 +412,10 @@ lemma st_upd_eq [intro]:
   by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
 
 lemma beh_substi [simp]:
-  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s ev\<^sub>E m\<^sub>1 e),m) \<in> beh\<^sub>i \<alpha>}"
+  "beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s eval m\<^sub>1 e),m) \<in> beh\<^sub>i \<alpha>}"
   apply (cases \<alpha>)
   defer 1
-  apply (clarsimp simp: upd_def)
+     apply (clarsimp simp: upd_def)
   apply blast
   apply (clarsimp simp: upd_def)
   apply blast
@@ -639,13 +478,13 @@ proof -
     apply fastforce
     apply (rule equality; auto)
     apply fastforce
-    apply (subgoal_tac "ev\<^sub>B (upd (deps\<^sub>B x2 \<inter> dom M) (the \<circ> M) m\<^sub>1) x2 = ev\<^sub>B (upd (dom M) (the \<circ> M) m\<^sub>1) x2")
-    apply blast
-    apply (rule deps_ev\<^sub>B)
+     apply (subgoal_tac "eval (upd (deps x2 \<inter> dom M) (the \<circ> M) m\<^sub>1) x2 = eval (upd (dom M) (the \<circ> M) m\<^sub>1) x2")
+    apply simp
+    apply (rule eval_eq_state)
     apply auto
-    apply (subgoal_tac "ev\<^sub>B (upd (deps\<^sub>B x2 \<inter> dom M) (the \<circ> M) m\<^sub>1) x2 = ev\<^sub>B (upd (dom M) (the \<circ> M) m\<^sub>1) x2")
-    apply blast
-    apply (rule deps_ev\<^sub>B)
+    apply (subgoal_tac "eval (upd (deps x2 \<inter> dom M) (the \<circ> M) m\<^sub>1) x2 = eval (upd (dom M) (the \<circ> M) m\<^sub>1) x2")
+    apply simp
+    apply (rule eval_eq_state)
     apply auto
     done
 

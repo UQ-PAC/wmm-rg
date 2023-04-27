@@ -136,7 +136,7 @@ qed (cases rule: silentE, auto)+
 text \<open>Judgements are preserved across global execution steps\<close>
 lemma gexecute_ruleI [intro]:
   assumes "R,G \<turnstile> P {c} Q"
-  assumes "c \<mapsto>[g] c'"
+  assumes "c \<mapsto>[g] c'" "P \<noteq> {}"
   shows "\<exists>M v. P \<subseteq> wp v g M \<and> guar v g G \<and> R,G \<turnstile> M {c'} Q"
   using assms
 proof (induct arbitrary: g c' rule: rules.induct)
@@ -146,7 +146,8 @@ proof (induct arbitrary: g c' rule: rules.induct)
     case (par1 c\<^sub>1')
     obtain M\<^sub>2 where m2: "P\<^sub>2 \<subseteq> M\<^sub>2" "stable R\<^sub>2 M\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2} Q\<^sub>2" using par
       by (meson stable_preE)
-    obtain M\<^sub>1 v where m1: "P\<^sub>1 \<subseteq> wp v g M\<^sub>1" "guar v g G\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1'} Q\<^sub>1" 
+    hence "P\<^sub>1 \<noteq> {}" using par by blast
+    then obtain M\<^sub>1 v where m1: "P\<^sub>1 \<subseteq> wp v g M\<^sub>1" "guar v g G\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1'} Q\<^sub>1" 
       using par1 par(2)[OF par1(2)] by blast
     hence "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> M\<^sub>1 \<inter> M\<^sub>2 {c'} Q\<^sub>1 \<inter> Q\<^sub>2" using par1 m2 par by blast
     moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp v g (M\<^sub>1 \<inter> M\<^sub>2)" 
@@ -157,7 +158,8 @@ proof (induct arbitrary: g c' rule: rules.induct)
     case (par2 c\<^sub>2')
     obtain M\<^sub>1 where m1: "P\<^sub>1 \<subseteq> M\<^sub>1" "stable R\<^sub>1 M\<^sub>1" "R\<^sub>1,G\<^sub>1 \<turnstile> M\<^sub>1 {c\<^sub>1} Q\<^sub>1" using par
       by (meson stable_preE)
-    obtain M\<^sub>2 v where m2: "P\<^sub>2 \<subseteq> wp v g M\<^sub>2" "guar v g G\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2'} Q\<^sub>2" 
+    hence "P\<^sub>2 \<noteq> {}" using par by blast
+    then obtain M\<^sub>2 v where m2: "P\<^sub>2 \<subseteq> wp v g M\<^sub>2" "guar v g G\<^sub>2" "R\<^sub>2,G\<^sub>2 \<turnstile> M\<^sub>2 {c\<^sub>2'} Q\<^sub>2" 
       using par2 par(4)[OF par2(2)] by blast
     hence "R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> M\<^sub>1 \<inter> M\<^sub>2 {c'} Q\<^sub>1 \<inter> Q\<^sub>2" using par2 m1 par by blast
     moreover have "P\<^sub>1 \<inter> P\<^sub>2 \<subseteq> wp v g (M\<^sub>1 \<inter> M\<^sub>2)" 
@@ -167,18 +169,19 @@ proof (induct arbitrary: g c' rule: rules.induct)
   qed 
 next
   case (conseq R G P c Q P' R' G' Q')
-  thus ?case by (smt Un_iff guar_def rules.conseq subset_iff)
+  hence "P \<noteq> {}" by auto
+  thus ?case using conseq by (smt Un_iff guar_def rules.conseq subset_iff)
 next
   case (inv R G P c Q R' M')
-  then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {c'} Q" by metis
+  then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {c'} Q" by blast
   hence "P \<inter> M' \<subseteq> wp v g (M \<inter> M')" using inv(3,4) by (auto simp: stable_def guar_def wp_def) blast
   thus ?case using rules.inv p(2,3) inv(3,4) by blast
 next
   case (thread R G P c Q)
-  then obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" by auto
+  then obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" by blast
   then obtain M where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R G c''"
     using thread lexecute_ruleI[OF thread(1) e(2)] indep_stepI[OF thread(3) e(2)] by metis
-  thus ?case using stabilise_supset[of P R] e unfolding atomic_rule_def by auto
+  thus ?case using stabilise_supset[of P R] e thread(5) unfolding atomic_rule_def by blast
 qed auto
 
 end

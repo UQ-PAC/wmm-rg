@@ -58,9 +58,10 @@ proof (induct arbitrary: c P rule: transitions.induct)
   thus ?case using env by (auto simp: stable_def)
 next
   case (prg s s' t)
-  then obtain g where \<alpha>: "c \<mapsto>[g] (fst s')" "(snd s,snd s') \<in> g" by auto
+  hence reach: "P \<noteq> {}" by auto
+  then obtain g where \<alpha>: "c \<mapsto>[g] (fst s')" "(snd s,snd s') \<in> g" using prg by auto
   then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {fst s'} Q"
-    using gexecute_ruleI[OF prg(5) \<alpha>(1)] by metis
+    using gexecute_ruleI[OF prg(5) \<alpha>(1) reach] by metis
   hence "rely R (s' # t)" "pre M (s' # t)" "(snd s, snd s') \<in> G\<^sup>="
     using prg \<alpha>(2) by (auto simp: wp_def guar_def)
   thus ?case using prg p(3) by auto
