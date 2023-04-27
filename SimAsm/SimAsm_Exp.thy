@@ -2,10 +2,8 @@ theory SimAsm_Exp
   imports SimAsm_State
 begin
 
-(*
-context expression
-begin
-*)
+
+
 section \<open>Expression Language based on states \<close>
 
 text \<open>Evaluate an expression given a state\<close>

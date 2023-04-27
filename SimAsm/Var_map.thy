@@ -8,12 +8,20 @@ begin
 datatype 'r Reg = reg 'r | tmp 'r
 datatype ('g,'r) var = Reg 'r | Glb 'g
 
-(*
+(* first value in Exp is a function used to combine the values from its
+subexpressions into one value. *)
+
+datatype ('v,'g,'r) exp =
+  Var "('g,'r) var" | 
+  Val 'v | 
+  Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list" (* some fct over a list of subexpr *) 
+
+
 locale expression = state 
 
 context expression
 begin
-*)
+
 
 definition glb' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('g \<Rightarrow> 'v)"
   where "glb' m \<equiv> \<lambda>v. m (Glb v)"
@@ -33,13 +41,6 @@ abbreviation globals
 
 section \<open>Expression Language based on a generic mapping of variables to values \<close>
 
-(* first value in Exp is a function used to combine the values from its
-subexpressions into one value. *)
-
-datatype ('v,'g,'r) exp =
-  Var "('g,'r) var" | 
-  Val 'v | 
-  Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list" (* some fct over a list of subexpr *) 
 
 text \<open>Evaluate an expression given a state\<close>
 
@@ -476,7 +477,7 @@ lemma forall_unfold:
 proof -
   have "?L \<subseteq> ?R"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M assume d: "dom (M :: ('b, 'c) var \<Rightarrow> 'a option) = insert x V" "x \<in> V"
+    fix M assume d: "dom (M :: ('g, 'h) var \<Rightarrow> 'f option) = insert x V" "x \<in> V"
     hence "smap \<alpha> M = subst\<^sub>i (smap \<alpha> M) x (Val (the (M x)))" by simp
     moreover have "dom M = V" using d by auto
     ultimately show "\<exists>c \<alpha>'. smap \<alpha> M = subst\<^sub>i \<alpha>' x (Val c) \<and> (\<exists>M. \<alpha>' = smap \<alpha> M \<and> dom M = V)"
@@ -576,7 +577,7 @@ lemma forallI [intro]:
   "smap \<alpha> M \<in> forall (dom M) \<alpha>"
   by (auto simp: forall_def)
 
-(*end *)(*of locale *)
+end (*of locale *)
 
 end
 

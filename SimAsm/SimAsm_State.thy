@@ -115,7 +115,7 @@ fun lookupSome :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> '
                                                    _ \<Rightarrow> (initState s var))"
 
 
-interpretation simasm_state: state
+interpretation  expression
   st
   st_upd
   aux
