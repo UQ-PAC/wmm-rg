@@ -188,8 +188,6 @@ translations
 
 subsection \<open> tree lemmas \<close>
 
-
-
 (* lemma [simp]: *)
   (* "glb\<^sub>t (t(Reg r :=\<^sub>t e, aux\<^sub>t: f)) = glb\<^sub>t (t(aux\<^sub>t: \<lambda>m. f(treeTop (t(Reg r :=\<^sub>t e)))))" *)
   (* by (auto simp: glb\<^sub>t_def) *)
@@ -214,8 +212,8 @@ interpretation treebase: state
   "\<lambda>s f. base_upd s (aux_upd (base s) f)"
   "base"
   apply unfold_locales 
-  unfolding aux_def tr_base_upd_def
-     apply (induct_tac s; auto)
+   unfolding aux_def tr_base_upd_def
+    apply (induct_tac s; auto)
     apply (induct_tac s; auto)
    apply (induct_tac s; auto)
   apply (induct_tac m; auto)
@@ -240,8 +238,8 @@ interpretation treetop: state
 
 lemma [simp]:
   "glb\<^sub>t (t(Reg r :=\<^sub>t e)) = glb\<^sub>t t"
-  unfolding glb\<^sub>t_def
-  by auto
+  unfolding glb\<^sub>t_def 
+  by (metis treetop.st_upd_diff var.distinct(1))
 
 lemma tr_aux_exec [intro!]:
   assumes "(t\<^sub>1,t\<^sub>2) \<in> P"
@@ -251,8 +249,8 @@ lemma tr_aux_exec [intro!]:
 lemma [simp]:
   "aux\<^sub>t (t(Reg x :=\<^sub>t e)) = aux\<^sub>t t"
   unfolding aux\<^sub>t_def
-  using treetop.st_upd_aux
-  by simp
+  using treetop.st_upd_aux var.distinct(1) apply simp
+  by (smt (verit) rg'_def treetop.st_upd_aux)
 
 lemma
   "state_rec.more (treeTop (t(x :=\<^sub>t e))) = state_rec.more (treeTop t)"
@@ -267,8 +265,8 @@ lemma
 lemma
   "rg\<^sub>t (t(Reg x :=\<^sub>t e)) = (rg\<^sub>t t)(x := Some e)"
   using treetop.st_upd_map
-  unfolding rg\<^sub>t_def
-  by auto
+  unfolding rg\<^sub>t_def apply simp
+  sorry
  
 lemma tr_aux_nop:
   "t(aux\<^sub>t:more) = t"
@@ -345,13 +343,13 @@ lemma lookupSome_upd:
 
 
 lemma treeUpd_change1:
-  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
+  "x \<noteq> r  \<Longrightarrow> lookup (tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some (tr_ev\<^sub>E t f))) \<rparr>)) x
                                        = lookup t x"
   using treeUpd_change by (metis option.sel st_upd_def top_upd_def)
 
 lemma treeUpd_change2:
-  "x = r  \<Longrightarrow> lookup (tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some (ev\<^sub>E t f))) \<rparr>)) x
-                                       = Some (ev\<^sub>E t f)"
+  "x = r  \<Longrightarrow> lookup (tree_upd t ((treeTop t) \<lparr> st := ((st (treeTop t)) (r := Some (tr_ev\<^sub>E t f))) \<rparr>)) x
+                                       = Some (tr_ev\<^sub>E t f)"
      by (metis lookup_upd st_upd_def top_upd_def)
 
 section \<open>Simp Lemmas\<close>
@@ -409,8 +407,8 @@ lemma rg\<^sub>t_glbupd:
   "rg\<^sub>t (t(Glb x :=\<^sub>t e)) = rg\<^sub>t t"
   unfolding rg\<^sub>t_def 
   using treetop.st_upd_region[where ?region=region]
-  by simp
- 
+  apply simp sorry
+
 
 lemma [simp]: (* possibly dangerous simp? *)
   "tree_base_upd t ((base t)(y :=\<^sub>s value)) = tr_base_upd t y value"

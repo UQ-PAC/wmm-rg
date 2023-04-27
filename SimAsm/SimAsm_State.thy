@@ -114,6 +114,22 @@ fun lookupSome :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> '
   "lookupSome s var = (case (st s var) of Some v \<Rightarrow> v | 
                                                    _ \<Rightarrow> (initState s var))"
 
+
+interpretation simasm_state: state
+  st
+  st_upd
+  aux
+  aux_upd
+  id
+  apply unfold_locales 
+  unfolding st_upd_def aux_upd_def 
+     apply (induct_tac s; auto) 
+    apply (auto)
+  unfolding aux_def
+  apply (induct_tac s; auto) 
+  apply (induct_tac s; auto) 
+  done
+
 section \<open>Simp Lemmas\<close>
 
 lemma [simp]:
@@ -146,18 +162,19 @@ lemma st_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a :=\<^sub>s b))(c :=\<^s
 
 lemma [simp]:
   "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
-  sorry
-(*  by (auto simp: st_upd_def rg_def) *)
+  using st_upd_def rg_def apply simp sorry
+(*   by (auto simp: st_upd_def rg_def) *)
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e)) = glb m"
   sorry
-  (*by (auto simp: glb_def st_upd_def)*)
+(*   by (auto simp: glb_def st_upd_def) *)
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
-  using aux_def glb_def st_upd_twist sorry
-(*  by (auto simp: aux_def glb_def) *)
+  using aux_def glb_def st_upd_twist 
+  sorry
+  (* by (auto simp: aux_def glb_def) *)
 
 lemma [simp]:
   "st m (Reg x) = rg m x"
@@ -181,28 +198,6 @@ lemma aux_exec [intro!]:
   assumes "(m\<^sub>1,m\<^sub>2) \<in> P"
   shows "(m\<^sub>1,m\<^sub>2(aux: f)) \<in> P O {(m, m'). m' = m(aux: f)}"
   using assms by blast
-
-
-(*--- lemmas from SimAsm_Exp  ---------------------*)
-
-lemma local_ev\<^sub>E [intro]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> ev\<^sub>E' (st m) e = ev\<^sub>E' (st m') e"
-  apply (intro deps_ev\<^sub>E ballI, case_tac x) 
-  using rg_def apply metis
-  using rg_def by force
-
-lemma ev_aux\<^sub>E [simp]:
-  "ev\<^sub>E' (st (s(aux: f))) g = ev\<^sub>E' (st s) g"
-proof (induct g)
-  case (Var x)
-  then show ?case by (auto simp: aux_upd_def)
-next
-  case (Val x)
-  then show ?case by (auto simp: aux_upd_def)
-next
-  case (Exp x1a x2a)
-  then show ?case by (metis (mono_tags, lifting) ev\<^sub>E'.simps(3) map_eq_conv)
-qed
 
 
 end
