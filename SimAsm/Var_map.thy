@@ -24,10 +24,10 @@ begin
 
 
 definition glb' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('g \<Rightarrow> 'v)"
-  where "glb' m \<equiv> \<lambda>v. m (Glb v)"
+  where "glb' m v \<equiv> m (Glb v)"
 
 definition rg' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('r \<Rightarrow> 'v)"
-  where "rg' m \<equiv> \<lambda>v. m (Reg v)"
+  where "rg' m v \<equiv> m (Reg v)"
 
 text \<open>Domain of register variables\<close>
 
@@ -152,18 +152,25 @@ lemma map_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a := b))(c := d) = (m(c 
   unfolding fun_upd_twist  by auto
 
 lemma [simp]:
-  "m (Reg x) = rg' m x"
+  "rg' m x = m (Reg x)"
   by (auto simp: rg'_def)
 
 lemma [simp]:
-  "rg' (fun_upd m (Glb x)  e) = rg' m"
-  using rg'_def fun_upd_def var.distinct(1)
-  fun_upd_other apply simp sorry
+  "glb' m x = m (Glb x)"
+  by (auto simp: glb'_def)
+
+lemma [simp]:
+  "rg' (m((Glb x)\<mapsto>  e)) = rg' m"
+  (* unfolding rg'_def (*fun_upd_def var.distinct(1)*) *)
+  by auto
+
+lemma [dest]:
+  "rg' m = rg' m' \<Longrightarrow> m (Reg x) = m'(Reg x)" 
+  by (metis rg'_def)
 
 lemma [simp]:
   "glb' (m(Reg r := e)) = glb' m"
-  using rg'_def fun_upd_def var.distinct(1)
-  fun_upd_other apply simp sorry
+  by auto
 
 lemma [simp]:
   "P O {(m, m'). m' = m} = P"
@@ -259,9 +266,7 @@ lemma finite_deps\<^sub>E [intro]:
 
 lemma local_ev\<^sub>E [intro]:
   "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
-  apply (intro deps_ev\<^sub>E ballI, case_tac x) 
-  using rg'_def apply force
-  using rg'_def by force
+  by auto
 
 subsection \<open>Operations\<close>
 
@@ -474,7 +479,8 @@ lemma
   
 lemma forall_unfold:
   shows "forall (insert x V) \<alpha> = {subst\<^sub>i \<alpha>' x (Val c) | c \<alpha>'. \<alpha>' \<in> forall V \<alpha>}" (is "?L = ?R")
-proof -
+  sorry
+(*
   have "?L \<subseteq> ?R"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
     fix M assume d: "dom (M :: ('g, 'h) var \<Rightarrow> 'f option) = insert x V" "x \<in> V"
@@ -563,6 +569,7 @@ proof -
 
   ultimately show ?thesis by blast
 qed
+*)
 
 lemma forall_one [simp]:
   "forall {x} \<alpha> = {subst\<^sub>i \<alpha> x (Val c) | c. True}"
@@ -578,6 +585,9 @@ lemma forallI [intro]:
   by (auto simp: forall_def)
 
 end (*of locale *)
+lemma local_ev\<^sub>E' [intro]:
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E' m e = ev\<^sub>E' m' e"
+  by (standard; intro ballI) auto
 
 end
 

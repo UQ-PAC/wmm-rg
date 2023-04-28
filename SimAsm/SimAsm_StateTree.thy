@@ -238,8 +238,9 @@ interpretation treetop: state
 
 lemma [simp]:
   "glb\<^sub>t (t(Reg r :=\<^sub>t e)) = glb\<^sub>t t"
-  unfolding glb\<^sub>t_def 
-  by (metis treetop.st_upd_diff var.distinct(1))
+  unfolding glb\<^sub>t_def
+  using treetop.st_upd_diff
+  by fast
 
 lemma tr_aux_exec [intro!]:
   assumes "(t\<^sub>1,t\<^sub>2) \<in> P"
@@ -249,8 +250,8 @@ lemma tr_aux_exec [intro!]:
 lemma [simp]:
   "aux\<^sub>t (t(Reg x :=\<^sub>t e)) = aux\<^sub>t t"
   unfolding aux\<^sub>t_def
-  using treetop.st_upd_aux var.distinct(1) apply simp
-  by (smt (verit) rg'_def treetop.st_upd_aux)
+  using treetop.st_upd_aux
+  by fast
 
 lemma
   "state_rec.more (treeTop (t(x :=\<^sub>t e))) = state_rec.more (treeTop t)"
@@ -264,16 +265,18 @@ lemma
 
 lemma
   "rg\<^sub>t (t(Reg x :=\<^sub>t e)) = (rg\<^sub>t t)(x := Some e)"
-  using treetop.st_upd_map
-  unfolding rg\<^sub>t_def apply simp
-  sorry
+proof
+  fix v
+  show "rg\<^sub>t (t(Reg x :=\<^sub>t e)) v = (rg\<^sub>t t(x \<mapsto> e)) v" 
+    unfolding rg\<^sub>t_def treetop.st_upd_map
+    by (cases "v = x") (metis fun_upd_same, metis fun_upd_other var.inject(1))
+qed
  
 lemma tr_aux_nop:
   "t(aux\<^sub>t:more) = t"
   using treetop.aux_upd
-  unfolding aux_def
-  oops
-
+  unfolding aux_def tr_aux_upd_def
+  by (induct t) auto
 
 lemma tr_aux_st:
   "lookup (t(aux\<^sub>t: e)) = lookup t" 
@@ -371,10 +374,19 @@ lemma lookup_upd_var:
 
 lemma lookupSome_upd_var:
   "lookupSome (t (r :=\<^sub>t f))  x = (if x = r then f else (lookupSome t x))"
-  using treetop.st_upd lookup_upd_var
-  unfolding lookupSome.simps
-  apply (cases "lookup (t(r :=\<^sub>t f)) x")
-  by auto (smt (verit) base.simps(1) base.simps(2) select_convs(3) surjective top_treeUpd tr_upd_def tree.distinct(1) tree_upd.elims update_convs(1))
+  (* using treetop.st_upd lookup_upd_var *)
+  (* unfolding lookupSome.simps *)
+proof (cases "lookup (t(r :=\<^sub>t f)) x")
+  case None
+  then show ?thesis      
+    apply simp
+    unfolding tr_upd_def
+    
+    by (induct t) auto
+next
+  case (Some a)
+  then show ?thesis by auto
+qed
 
 lemma initState_auxupd [simp]: 
   "initState (base (t(aux\<^sub>t: f))) x = initState (base t) x"
@@ -402,13 +414,11 @@ lemma
   unfolding aux_def
   by auto
 
-
 lemma rg\<^sub>t_glbupd:
   "rg\<^sub>t (t(Glb x :=\<^sub>t e)) = rg\<^sub>t t"
   unfolding rg\<^sub>t_def 
   using treetop.st_upd_region[where ?region=region]
-  apply simp sorry
-
+  by standard (metis var.simps(5) var.simps(6))
 
 lemma [simp]: (* possibly dangerous simp? *)
   "tree_base_upd t ((base t)(y :=\<^sub>s value)) = tr_base_upd t y value"
