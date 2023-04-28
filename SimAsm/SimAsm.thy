@@ -33,8 +33,8 @@ This auxiliary state cannot influence real execution behaviour by definition.
 \<close>
 type_synonym ('v,'g,'r,'a) auxop = "('v,'g,'r) op \<times> ('v,'g,'r,'a) auxfn"
 
-fun beh\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) stateTree rel"
-  where "beh\<^sub>a (\<alpha>,f) = beh\<^sub>i \<alpha> O {(t,t'). t' = t(aux\<^sub>t: f)}"
+fun beh\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) state rel"
+  where "beh\<^sub>a (\<alpha>,f) = st_beh\<^sub>i \<alpha> O {(t,t'). t' = t(aux: f)}"
 
 fun re\<^sub>a :: "('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) auxop \<Rightarrow> bool" 
   where "re\<^sub>a (\<alpha>,_) (\<beta>,_) = re\<^sub>i \<alpha> \<beta>"
@@ -46,7 +46,7 @@ text \<open>
 To instantiate the abstract theory, we must couple each sub-operation with its precondition
 and behaviour in a tuple\<close>
 (* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
-type_synonym ('v,'g,'r,'a) opbasic = "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) basic"
+type_synonym ('v,'g,'r,'a) opbasic = "(('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) basic"
 
 fun re\<^sub>s :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
@@ -55,10 +55,11 @@ text \<open>Duplicate forwarding and reordering behaviour of underlying instruct
 fun fwd\<^sub>s :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxop \<Rightarrow> ('v,'g,'r,'a) opbasic" 
   where 
     "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
+    "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" |
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation with specification\<close>
-definition liftg :: "('v,'g,'r,'a) predTree \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) opbasic" 
+definition liftg :: "('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) opbasic" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
@@ -71,16 +72,17 @@ section \<open>Language Definition\<close>
 
 
 (* predicates are no longer sets of states but sets of trees, ie., of type predTree *)
-(* IF has another sub-command c\<^sub>3 to model the program after the If -- for speculation *)
+(* IF has another sub-command c\<^sub>3 to model the program after the If -- for the semantics of 
+         the speculation; even though for wp reasoning we make use of the wp(c\<^sub>3, Q) instead *)
 
 datatype ('v,'g,'r,'a) lang =
   Skip
   | Op "('v,'g,'r,'a) pred" "('v,'g,'r) op" "('v,'g,'r,'a) auxfn"
   | Seq "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"
-(*  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"  *)
-  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" 
-  | While "('v,'g,'r) bexp" "('v,'g,'r,'a) predTree" "('v,'g,'r,'a) lang"
-  | DoWhile "('v,'g,'r,'a) predTree" "('v,'g,'r,'a) lang" "('v,'g,'r) bexp"
+  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang"  
+(*  | If "('v,'g,'r) bexp" "('v,'g,'r,'a) lang" "('v,'g,'r,'a) lang" *)
+  | While "('v,'g,'r) bexp" "('v,'g,'r,'a) pred" "('v,'g,'r,'a) lang"
+  | DoWhile "('v,'g,'r,'a) pred" "('v,'g,'r,'a) lang" "('v,'g,'r) bexp"
 
 
 

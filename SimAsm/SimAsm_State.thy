@@ -157,8 +157,10 @@ lemma aux_st [simp]:
   "st (m(aux: e)) = st m"
   by (auto simp: aux_upd_def)
 
-lemma st_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a :=\<^sub>s b))(c :=\<^sub>s d) = (m(c :=\<^sub>s d))(a :=\<^sub>s b)"
-  unfolding st_upd_def by (auto intro!: equality fun_upd_twist)
+lemma stUpd_twist:
+  "a \<noteq> c \<Longrightarrow> (m(a :=\<^sub>s b))(c :=\<^sub>s d) = (m(c :=\<^sub>s d))(a :=\<^sub>s b)"
+  unfolding st_upd_def  fun_upd_twist apply auto 
+  by (simp add: map_upd_twist)
 
 lemma [simp]:
   "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
@@ -172,7 +174,7 @@ lemma [simp]:
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
-  using aux_def glb_def st_upd_twist 
+  using aux_def glb_def stUpd_twist 
   sorry
   (* by (auto simp: aux_def glb_def) *)
 
