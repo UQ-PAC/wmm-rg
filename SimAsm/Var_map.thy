@@ -585,9 +585,12 @@ lemma forallI [intro]:
   by (auto simp: forall_def)
 
 end (*of locale *)
+
+(*
 lemma local_ev\<^sub>E' [intro]:
   "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E' m e = ev\<^sub>E' m' e"
   by (standard; intro ballI) auto
+*)
 
 end
 
