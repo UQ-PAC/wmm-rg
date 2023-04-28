@@ -86,33 +86,28 @@ section \<open>Predicate Transformations\<close>
 text \<open>Transform a predicate based on an sub-operation\<close>
 fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred" 
   where 
-    "wp\<^sub>i (assign r e) Q = {t. (st_upd t r (ev\<^sub>E' (the o st t) e)) \<in>Q}" |
+    "wp\<^sub>i (assign r e) Q = {s. (st_upd s r (ev\<^sub>E (the o st s) e)) \<in>Q}" |
+    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B  (the o st s) b) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i (leak c e) Q = {s. (s (c :=\<^sub>s ev\<^sub>E (the o st s) e)) \<in> Q}" |
+    "wp\<^sub>i _ Q = Q"
 
-    "wp\<^sub>i _ Q = Q"
-(*
-fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) transTree" 
-  where 
-    "wp\<^sub>i (assign r e) Q = {t. (t (r :=\<^sub>t ev\<^sub>E t e)) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {t. ev\<^sub>B t b \<longrightarrow> t \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {t. (t (c :=\<^sub>b ev\<^sub>E t e)) \<in> Q}" |
-    "wp\<^sub>i _ Q = Q"
-*)
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
-  where "wp\<^sub>a a Q = {t. t(aux\<^sub>t: a) \<in> Q}"
+  where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}"
 
 
+datatype 'g label = Un 'g | Gl 'g
 
-datatype 'g label = U 'g | G 'g
 
 
 text \<open> Transform a predicate over a speculation \<close>
 fun wp\<^sub>i\<^sub>s :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"          (* wp_spec on ops *)
   where 
-    "wp\<^sub>i\<^sub>s (leak c e) Q = {t. (t (c :=\<^sub>b ev\<^sub>E t e)) \<in> Q}" |
+    "wp\<^sub>i\<^sub>s (leak c e) Q = {s. (s (c :=\<^sub>s ev\<^sub>E (the o st s) e)) \<in> Q}" |
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
+
 
 fun po :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred"
   where
@@ -127,7 +122,7 @@ fun wp\<^sub>s :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightar
     "wp\<^sub>s Skip Q = Q" |
     "wp\<^sub>s (Op v a f) Q = (v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
+    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = (wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter> (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q))" |
     "wp\<^sub>s (While v va vb) b = undefined" | 
     "wp\<^sub>s (DoWhile v va vb) b = undefined"
 
@@ -142,18 +137,19 @@ fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-(*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))"|*) 
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
-                 (merge (wp\<^sub>s c\<^sub>2 Q) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
-                \<inter> (merge (wp\<^sub>s c\<^sub>1 Q)   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
+    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
+               (merge (wp\<^sub>s c\<^sub>2  (wp\<^sub>s c\<^sub>3 Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1  (wp R c\<^sub>3 Q)))))
+               \<inter> (merge (wp\<^sub>s c\<^sub>1  (wp\<^sub>s c\<^sub>3 Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2  (wp R c\<^sub>3 Q)))))" |
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
     "wp R (DoWhile I c b) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
+
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
-definition wp\<^sub>r :: "('v,'g,'r,'a) transTree \<Rightarrow> ('v,'g,'r,'a) rtransTree"
-  where "wp\<^sub>r f G \<equiv> {(t,t'). t' \<in> f {t'. (t,t') \<in> G}}"
+definition wp\<^sub>r :: "('v,'g,'r,'a) trans \<Rightarrow> ('v,'g,'r,'a) rtrans"
+  where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {s'. (s,s') \<in> G}}"
+
 
 subsection \<open>Guarantee Checks\<close>
 
@@ -167,60 +163,77 @@ fun guar\<^sub>c
     "guar\<^sub>c Skip G = True" |
     "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
+    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2 c\<^sub>3) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G \<and> guar\<^sub>c c\<^sub>3 G)" |
     "guar\<^sub>c (While _ _ c) G = (guar\<^sub>c c G)" |
     "guar\<^sub>c (DoWhile _ c _) G = (guar\<^sub>c c G)"
 
+
+
 section \<open>Locale Interpretation\<close>
 
-definition w 
+
+(*
+definition w
   where "w \<alpha>' \<beta> \<alpha> \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
+*)
+
+text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
+
+definition sc :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+  where "sc \<alpha>' \<beta> \<alpha>  \<equiv> \<not>(re\<^sub>s \<beta> \<alpha>)"
+
+abbreviation Seqsc (infixr "." 80)                      (* i.e., Seq c sc c' *)
+  where "Seqsc c c' \<equiv> com.Seq c sc c'"
+
+abbreviation Itersc ("_**" [90] 90)                       (* i.e., Loop c sc *)
+  where "Itersc c \<equiv> com.Loop c sc"
+
+
+definition reorder_inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+  where "reorder_inst \<alpha>' \<beta> \<alpha>  \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
+
+abbreviation Seqw (infixr ";;" 80)                      (* i.e., Seq c w c' *)
+  where "Seqw c c' \<equiv> com.Seq c reorder_inst c'"
+
+abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
+  where "Iterw c \<equiv> com.Loop c reorder_inst"
+
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
-fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
+fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
-    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (com.Seq (lift\<^sub>c c\<^sub>1) w (lift\<^sub>c c\<^sub>2))" |   (* lang.seq no wmm *)
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) = (Choice (\<lambda> state. if (ev\<^sub>B state b)       
-                                 then (com.Seq (Basic (\<lfloor>cmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>1)) 
-                                 else (com.Seq (Basic (\<lfloor>ncmp b\<rfloor>)) w (lift\<^sub>c c\<^sub>2))))" |
-    "lift\<^sub>c (While b I c) = (((Basic (\<lfloor>cmp b\<rfloor>)) ;\<^sub>w (lift\<^sub>c c))*\<^sub>w) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" | 
-    "lift\<^sub>c (DoWhile I c b) = ((((lift\<^sub>c c) ;\<^sub>w (Basic (\<lfloor>cmp b\<rfloor>)))*\<^sub>w) ;\<^sub>w (lift\<^sub>c c)) ;\<^sub>w (Basic (\<lfloor>ncmp b\<rfloor>))" 
+    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>2)" |  
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) =  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
+                    then Interrupt (\<forall>\<^sub>c((lift\<^sub>c c\<^sub>2) ;; (lift\<^sub>c c\<^sub>3))) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
+                    else Interrupt (\<forall>\<^sub>c((lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>3))) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" |
+(* without speculation:  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
+                                 then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
+                                 else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | *)
+    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" |
+    "lift\<^sub>c (DoWhile I c b) = ((lift\<^sub>c c) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; (lift\<^sub>c c) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
 
 (* TODO:
   in lift\<^sub>c we have to model how lang maps to its semantics;
   to model speculative execution, we have to match
-     (If b c\<^sub>1 c\<^sub>2) ---> (spec c\<^sub>2; c\<^sub>3); [b]; c\<^sub>1 ; c\<^sub>3 \choice (spec c\<^sub>1; c\<^sub>3); [\<not>b]; c\<^sub>2 ; c\<^sub>3
-  or            ---> \<triangle>(Capture s c\<^sub>2;c\<^sub>3) ;\<^sub>s\<^sub>c [b] ; c\<^sub>1 \choice \<triangle>(Capture s c\<^sub>1;c\<^sub>3) ;\<^sub>s\<^sub>c [\<not>b] ; c\<^sub>2
- 
-c\<^sub>3 probably not needed since it sits in the postcondition!
-
-      (If b c\<^sub>1 c\<^sub>2) ---> (spec c\<^sub>2; c\<^sub>3); [b]; c\<^sub>1 ; c\<^sub>3 \choice (spec c\<^sub>1; c\<^sub>3); [\<not>b]; c\<^sub>2 ; c\<^sub>3
-                   --->   
-
-  where c\<^sub>3 is the rest of the program after the If command; (and similarly for loops!)
-  hence we need another parameter ('v,'g,'r,'a) lang which models the remaining program c\<^sub>3
-
-  fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) stateTree) com" 
-
+      lift\<^sub>c (While b I c) = ...
+      lift\<^sub>c (DoWhile I c b) = 
 *)
 
 (* these two dummy parameters used in the interpretation of locale rules, locale semantics resp.,
     and help to instantiate the types of auxop and state*)
 
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
-abbreviation "someState ::('v,'g,'r,'a) stateTree \<equiv> undefined" (* add a push instance *)
+abbreviation "someState ::('v,'g,'r,'a) state \<equiv> undefined" (* add a push instance *)
 
 print_locale rules 
 print_locale semantics
 
-interpretation rules "someAuxOp" "someState"  
+interpretation rules           (*"someAuxOp" "someState" *)
   done
-  
-
 
 term obs 
 term lift\<^sub>c 

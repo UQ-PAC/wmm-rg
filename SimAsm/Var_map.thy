@@ -489,7 +489,7 @@ lemma forall_unfold:
     ultimately show "\<exists>c \<alpha>'. smap \<alpha> M = subst\<^sub>i \<alpha>' x (Val c) \<and> (\<exists>M. \<alpha>' = smap \<alpha> M \<and> dom M = V)"
       by blast
   next
-    fix M assume d: "dom (M :: ('b, 'c) var \<Rightarrow> 'a option) = insert x V" "x \<notin> V"
+    fix M assume d: "dom (M :: ('g, 'h) var \<Rightarrow> 'f option) = insert x V" "x \<notin> V"
     let ?M = "\<lambda>y. if x = y then None else M y"
     have "smap \<alpha> M = subst\<^sub>i (smap \<alpha> ?M) x (Val (the (M x)))"
     proof -
@@ -526,13 +526,13 @@ lemma forall_unfold:
 
   moreover have "?R \<subseteq> ?L"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M c assume d: "V = dom (M :: ('b, 'c) var \<Rightarrow> 'a option)" "x \<in> V" 
+    fix M c assume d: "V = dom (M :: ('g, 'h) var \<Rightarrow> 'f option)" "x \<in> V" 
     have "dom M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> M" using d by simp
     ultimately show "\<exists>Ma. subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> Ma \<and> dom Ma = insert x (dom M)"
       by blast
   next
-    fix M c assume d: "V = dom (M :: ('b, 'c) var \<Rightarrow> 'a option)" "x \<notin> V" 
+    fix M c assume d: "V = dom (M :: ('g, 'h) var \<Rightarrow> 'f option)" "x \<notin> V" 
     let ?M = "\<lambda>y. if y = x then Some c else M y"
     have "dom ?M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> ?M"
