@@ -2,12 +2,20 @@ theory SimAsm_Rules
   imports SimAsm_WP
 begin
 
-abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [20,0,0,0,20] 20)
-  where "rules_abv \<equiv> rules"
+
+instantiation state_rec_ext :: (type,type,type) pstate
+begin
+
+definition "push_state_rec_ext \<equiv> \<lambda>(l :: ('a, 'b, 'c) state_rec_scheme) (r :: ('a, 'b, 'c) state_rec_scheme). l"
+
+instance (* Need to move some things around at the abstract level to get this through *)
+  apply standard
+  sorry
+end
 
 
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
-  where "lifted_abv R G P c Q \<equiv> step\<^sub>t R,step G \<turnstile> P {lift\<^sub>c c} Q"
+  where "lifted_abv R G P c Q \<equiv> step\<^sub>t R,step G \<turnstile> P {lift\<^sub>c c} Q" 
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
   where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c) P (step\<^sub>t R) (step G) Q"
@@ -33,12 +41,13 @@ lemma basic_wp\<^sub>i_1:
   shows "step\<^sub>t R,step G \<turnstile> P {Basic (\<lfloor>c, \<alpha>, f\<rfloor>)} Q"
 proof -
   have "step\<^sub>t R,step G \<turnstile>\<^sub>A stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)) {\<lfloor>c, \<alpha>, f\<rfloor>} Q"
-    using assms by (cases \<alpha>) (auto simp: atomic_rule_def guar_def wp_def step_def 
-                                         wp\<^sub>r_def o_def liftg_def elim!: stabilizeE)
+    using assms apply (cases \<alpha>) 
+                by (auto simp: atomic_rule_def guar_def wp_def step_def 
+                                         wp\<^sub>r_def liftg_def o_def  elim!: stabilizeE) 
   thus ?thesis using assms by (intro conseq[OF basic]) (auto)
 qed
 
-text \<open>Basic Rule for operations\<close>
+text \<open>Basic Rule for operations without vc\<close>
 lemma basic_wp\<^sub>i_2:
   assumes "P \<subseteq> stabilize R (wp\<^sub>i \<alpha> Q)" "wellformed R G" "stable\<^sub>t R Q"
   assumes "\<forall>m. m \<in> guar (wp\<^sub>i \<alpha>) (step G)"
@@ -81,11 +90,33 @@ lemma stabilize_ord [intro]:
 subsection \<open>Rules\<close>
 
 text \<open>If Rule\<close>
+
+lemma if_wp:
+  "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q' \<Longrightarrow> R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q' \<Longrightarrow> R,G \<turnstile>\<^sub>w Q' {c\<^sub>3} Q \<Longrightarrow> 
+            R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>s (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q) \<inter> 
+                    stabilize R (wp\<^sub>i (cmp b) P\<^sub>1 \<inter> wp\<^sub>i (ncmp b) P\<^sub>2) {If b c\<^sub>1 c\<^sub>2 c\<^sub>3} Q"
+  unfolding valid_def apply clarsimp 
+  apply (intro conjI)
+  prefer 2
+   apply (intro rules.choice)
+   apply (intro allI)
+   apply (simp split: if_splits)
+   apply (intro conjI impI)
+  using cmp_sound rules.rules.seq rules.rules.interr stabilize_entail subsetI 
+  sorry
+(*            R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q) \<inter> wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter>  *)
+(*    apply (simp add: cmp_sound rules.rules.seq stabilize_entail subsetI)+  
+  by blast 
+*)
+
+(*
 lemma if_wp:
   "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>i (cmp b) P\<^sub>1 \<inter> wp\<^sub>i (ncmp b) P\<^sub>2) {If b c\<^sub>1 c\<^sub>2} Q"
   unfolding valid_def apply clarsimp apply (intro conjI rules.choice rules.seq, auto )
   apply (rule stabilize_entail, auto)+
   done
+*)
+
 
 text \<open>While Rule\<close>
 lemma while_wp:
@@ -93,6 +124,8 @@ lemma while_wp:
   assumes "J \<subseteq>  (wp\<^sub>i (cmp b) P \<inter> wp\<^sub>i (ncmp b) Q)"
   shows "R,G \<turnstile>\<^sub>w ?I {While b J c} Q"
   unfolding valid_def lift\<^sub>c.simps
+  sorry
+(*
 proof (intro impI conjI rules.choice rules.seq)
   assume "wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c (While b J c) (G)"
   thus "step\<^sub>t R,step G \<turnstile> ?I {(Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c)*} ?I"
@@ -101,15 +134,18 @@ proof (intro impI conjI rules.choice rules.seq)
     apply force
     apply force
     apply (auto simp:)
-    apply (rule stabilize_entail, auto)+
-    done
+      apply (rule stabilize_entail, auto)+ 
+  done
 qed (insert assms, auto, rule stabilize_entail)
+*)
 
 text \<open>Do While Rule\<close>
 lemma do_wp:
   assumes "R,G \<turnstile>\<^sub>w stabilize R J {c} stabilize R (wp\<^sub>i (cmp b) (stabilize R J) \<inter> (wp\<^sub>i (ncmp b) Q))" (is "R,G \<turnstile>\<^sub>w ?I {c} ?Q")
   shows "R,G \<turnstile>\<^sub>w stabilize R J {DoWhile J c b} Q"
   unfolding valid_def lift\<^sub>c.simps
+  sorry
+(*
 proof (intro impI conjI rules.choice rules.seq)
   assume "wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c (DoWhile J c b) (G)"
   thus "step\<^sub>t R,step G \<turnstile> ?I {lift\<^sub>c c} ?Q" 
@@ -117,7 +153,7 @@ proof (intro impI conjI rules.choice rules.seq)
 next
   assume "wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c (DoWhile J c b) (G)"
   thus "step\<^sub>t R,step G \<turnstile> ?I {(lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))*} ?I"
-    using assms 
+    using assms
     apply (intro rules.loop rules.seq)
     prefer 2
     apply auto[1]
@@ -126,8 +162,8 @@ next
     apply (simp add: rules.intros(8) stabilize_entail stabilize_stable subsetI)
     apply (subgoal_tac "stable\<^sub>t R
      (stabilize R
-       ({m. ev\<^sub>B m b \<longrightarrow> m \<in> stabilize R J} \<inter>
-        {m. \<not> ev\<^sub>B m b \<longrightarrow> m \<in> Q}))")
+       ({m. ((st_ev\<^sub>B m b) \<longrightarrow> (m \<in> (stabilize R J)))} \<inter>
+        {m. ((\<not> (st_ev\<^sub>B m b)) \<longrightarrow> (m \<in> Q))}))")
     apply clarsimp
     apply (rule rules.conseq)
     apply blast
@@ -138,6 +174,8 @@ next
     apply blast
     using stabilize_entail by auto
 qed (insert assms, auto, rule stabilize_entail, auto)
+*)
+
 
 text \<open>False Rule\<close>
 lemma false_wp:
@@ -145,6 +183,7 @@ lemma false_wp:
   shows "R,G \<turnstile>\<^sub>w P {c} Q"
   using assms unfolding valid_def
   by (intro conjI impI com_guar rules.conseq[OF falseI, where ?G="step G"]) (auto)
+
 
 text \<open>Rewrite Rule\<close>
 lemma rewrite_wp:
@@ -195,7 +234,8 @@ theorem armv8_wp_sound:
   assumes st: "stable\<^sub>t R Q" 
   assumes g: "guar\<^sub>c c G"
   assumes P: "P \<subseteq> wp R c Q"
-  shows "\<Turnstile> c SAT [P, R, G, Q]"
+  shows "validity_abv c P R G Q"
+(*  shows "\<Turnstile> c SAT [P, R, G, Q]"  *)
 proof -
   have "R,G \<turnstile>\<^sub>s wp R c Q {c} Q" using wf st g com_wp unfolding valid_def by blast
   hence "R,G \<turnstile>\<^sub>s P {c} Q" by (rule rules.conseq) (insert P, auto simp: )

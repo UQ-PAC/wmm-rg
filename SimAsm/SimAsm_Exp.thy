@@ -113,8 +113,7 @@ proof (induct e)
 next
   case (Exp fn rs)
   hence [simp]: "map (st_ev\<^sub>E s) rs = map (st_ev\<^sub>E s') rs" by (induct rs) auto
-  show ?case using ev\<^sub>E.simps(3)st_ev\<^sub>E.simps map_eq_conv 
-    sorry   
+  show ?case using st_ev\<^sub>E.simps by (metis (mono_tags, lifting) Exp.prems deps_ev\<^sub>E)
 qed
 
 
@@ -122,20 +121,21 @@ lemma local_st_ev\<^sub>E [intro]:
   "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg m = rg m' \<Longrightarrow> st_ev\<^sub>E m e = st_ev\<^sub>E m' e"
   apply (intro deps_st_ev\<^sub>E ballI, case_tac x) 
   using rg_def apply simp
-  apply (smt (verit, del_insts) rg'_def rg_def) by blast  
+  by blast  
 
 
 lemma st_ev_aux\<^sub>E [simp]:
   "st_ev\<^sub>E (m(aux: f)) g = st_ev\<^sub>E m g"
 proof (induct g)
   case (Var x)
-  then show ?case apply simp sorry
+  then show ?case apply simp 
+    by (metis aux_upd_def select_convs(3) surjective update_convs(4))
 next
   case (Val x)
-  then show ?case sorry
+  then show ?case by simp 
 next
   case (Exp x1a x2a)
-  then show ?case sorry
+  then show ?case apply simp by (metis (mono_tags, lifting) map_eq_conv)
 qed
 
 
