@@ -103,7 +103,8 @@ text \<open>Variables written by an operation\<close>
 fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
   where 
     "wr (assign y _) = {y}" |
-    "wr (leak c _) = {c}" |         (* where variable c is part of the the (base t) *)
+    "wr (leak c _) = {}" |         (* for the sake of fwd we assume no var is written  *)
+(*    "wr (leak c _) = {c}" |         (* where variable c is part of the the (base t) *) *)
     "wr _ = {}"
 
 text \<open>Variables read by an operation\<close>
@@ -588,9 +589,10 @@ end (*of locale *)
 
 (*
 lemma local_ev\<^sub>E' [intro]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E' m e = ev\<^sub>E' m' e"
+  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
   by (standard; intro ballI) auto
 *)
+
 
 end
 

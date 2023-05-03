@@ -86,10 +86,11 @@ section \<open>Predicate Transformations\<close>
 text \<open>Transform a predicate based on an sub-operation\<close>
 fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred" 
   where 
-    "wp\<^sub>i (assign r e) Q = {s. (st_upd s r (ev\<^sub>E (the o st s) e)) \<in>Q}" |
-    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B  (the o st s) b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s (c :=\<^sub>s ev\<^sub>E (the o st s) e)) \<in> Q}" |
+    "wp\<^sub>i (assign r e) Q = {s. (st_upd s r (st_ev\<^sub>E s e)) \<in>Q}" |
+    "wp\<^sub>i (cmp b) Q =  {s. (st_ev\<^sub>B s b) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i (leak c e) Q = {s. (s (c :=\<^sub>s st_ev\<^sub>E s e)) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
+
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
@@ -104,7 +105,6 @@ datatype 'g label = Un 'g | Gl 'g
 text \<open> Transform a predicate over a speculation \<close>
 fun wp\<^sub>i\<^sub>s :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"          (* wp_spec on ops *)
   where 
-    "wp\<^sub>i\<^sub>s (leak c e) Q = {s. (s (c :=\<^sub>s ev\<^sub>E (the o st s) e)) \<in> Q}" |
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
 
@@ -232,18 +232,85 @@ abbreviation "someState ::('v,'g,'r,'a) state \<equiv> undefined" (* add a push 
 print_locale rules 
 print_locale semantics
 
-interpretation rules           (*"someAuxOp" "someState" *)
+interpretation rules  (* No type arity state_rec_ext :: pstate  when "someAuxOp" "someState" *)
   done
 
 term obs 
 term lift\<^sub>c 
 term lexecute
+print_locale rules
+
+
+
+text \<open>Extract the instruction from an abstract operation \<close>
+(* tag (opbasic) = (op \<times> auxfn) *)
+abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
+  where "inst a \<equiv> fst (tag a)"
+
+abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
+  where "aux a \<equiv> snd (tag a)"
+
+text \<open>A basic is well-formed if its behaviour agrees with the behaviour
+      of its instruction and auxiliary composed.\<close>
+(* beh \<beta> = snd (snd \<beta>) *)
+definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
+
+
+lemma opbasicE:
+  obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
+          (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
+          (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
+          (nop) f v b where "(basic ) = ((nop,f), v, b)" |
+          (leak) c e f v b where "(basic ) = ((leak c e,f), v, b)" 
+  by (cases basic, case_tac a, case_tac aa; clarsimp) 
+
+lemma [simp]:
+  "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+
+lemma [simp]:
+  "barriers (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = barriers (inst \<alpha>)"
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
+
+lemma [simp]:
+"rd (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = (if wr (inst \<beta>) \<inter> rd (inst \<alpha>) \<noteq> {} 
+                                  then rd (inst \<alpha>) - wr (inst \<beta>) \<union> rd (inst \<beta>) else rd (inst \<alpha>))"
+  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto)
+
+lemma vc_fwd\<^sub>s[simp]:
+  "vc (fwd\<^sub>s \<alpha> \<beta>) = vc \<alpha>"
+  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
+
+lemma beh_fwd\<^sub>s [simp]:
+  "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (aux \<alpha>)) )"
+  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits) 
+
+lemma aux_fwd\<^sub>s [simp]:
+  "aux (fwd\<^sub>s \<alpha> \<beta>) = aux \<alpha>"
+  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
+
+lemma inst_fwd\<^sub>s [simp]:
+  "inst (fwd\<^sub>s \<alpha> (assign x e, f)) = subst\<^sub>i (inst \<alpha>) x e"
+  by (cases \<alpha> rule: opbasicE; auto simp: Let_def split: if_splits)
+
+
+text \<open>The language is always thread-local\<close>
+lemma local_lift [intro]:
+  "local (lift\<^sub>c c)"
+  by (induct c) auto
+
+end
+
+
+(* old stuff, not needed for Nick's new soundness proof:
 
 
 
 (* TODO: try using local_trace (from semantics.thy) instead of obs_trace *)
 
 text \<open>Correctness of the guarantee check\<close>
+
 lemma com_guar:
   "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow>  \<forall>\<beta> \<in> obs (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
 proof (induct c)
@@ -283,103 +350,7 @@ next
     sorry
 qed
 
-(*
-  case (Op pred op aux)
-  then show ?case  
-    apply (cases op) using Op  
-       by (auto simp: liftg_def guar_def wp\<^sub>r_def) 
-qed (auto simp: guar_def reflexive_def liftl_def step_def) 
-*)
 
-text \<open>Extract the instruction from an abstract operation \<close>
-(* tag (opbasic) = (op \<times> auxfn) *)
-abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
-  where "inst a \<equiv> fst (tag a)"
-
-abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
-  where "aux a \<equiv> snd (tag a)"
-
-text \<open>A basic is well-formed if its behaviour agrees with the behaviour
-      of its instruction and auxiliary composed.\<close>
-(* beh \<beta> = snd (snd \<beta>) *)
-definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
-  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
-
-(* to give a type falls over as the parameter list does not match *)
-
-fun wfbookkeep_list where                  (*:: "('v,'g,'r,'a) bookkeeping \<Rightarrow> bool list"*) 
-  "wfbookkeep_list [] = []" |
-  "wfbookkeep_list (Scope # r) = wfbookkeep_list r" |
-  "wfbookkeep_list ((Reorder \<alpha>' _ _) # r) = (wfbasic \<alpha>') # (wfbookkeep_list r)"
-
-definition wfbookkeep                      (*:: "('v,'g,'r,'a) opbookkeeping \<Rightarrow> bool" *)
-  where "wfbookkeep r \<equiv> fold HOL.eq (wfbookkeep_list r) True"
-
-definition wfcom
-  where "wfcom c \<equiv> \<forall>\<beta> \<in> obs c. wfbasic \<beta>"
-
-lemma wfcomI [intro]:
-  "wfcom (lift\<^sub>c c)"
-proof (induct c)
-  case Skip
-  then show ?case using obs_nil wfcom_def by force
-next
-  case (Op x1 x2 x3) 
-  then show ?case by (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
-next
-  case (Seq c1 c2)
-  then show ?case apply (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
-    sorry
-next
-  case (If x1 c1 c2)
-  then show ?case sorry
-next
-  case (While x1 x2 c)
-  then show ?case sorry
-next
-  case (DoWhile x1 c x3)
-  then show ?case sorry
-qed
-  
-(*  by (induct c) (auto simp: wfcom_def wfbasic_def liftg_def liftl_def)
-*)
-
-
-lemma opbasicE:
-  obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
-          (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
-          (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
-          (nop) f v b where "(basic ) = ((nop,f), v, b)" |
-          (leak) e f v b where "(basic ) = ((leak e,f), v, b)" 
-  by (cases basic, case_tac a, case_tac aa; clarsimp) 
-
-lemma [simp]:
-  "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"
-  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-
-lemma [simp]:
-  "barriers (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = barriers (inst \<alpha>)"
-  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-
-lemma [simp]:
-  "rd (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = (if wr (inst \<beta>) \<inter> rd (inst \<alpha>) \<noteq> {} then rd (inst \<alpha>) - wr (inst \<beta>) \<union> rd (inst \<beta>) else rd (inst \<alpha>))"
-  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto)
-
-lemma vc_fwd\<^sub>s[simp]:
-  "vc (fwd\<^sub>s \<alpha> \<beta>) = vc \<alpha>"
-  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
-
-lemma beh_fwd\<^sub>s [simp]:
-  "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (aux \<alpha>)) )"
-  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits)
-
-lemma aux_fwd\<^sub>s [simp]:
-  "aux (fwd\<^sub>s \<alpha> \<beta>) = aux \<alpha>"
-  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
-
-lemma inst_fwd\<^sub>s [simp]:
-  "inst (fwd\<^sub>s \<alpha> (assign x e, f)) = subst\<^sub>i (inst \<alpha>) x e"
-  by (cases \<alpha> rule: opbasicE; auto simp: Let_def split: if_splits)
 
 lemma fwdE:
   assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
@@ -444,18 +415,10 @@ fun sim :: "('a,'b) com \<Rightarrow> bool"
     "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
     "sim (c loopStar) = (sim c)" |
     "sim _ = True"
-*)
-
-
 
 text \<open>The language is always thread-local\<close>
 lemma sim_lift [intro]:
   "sim (lift\<^sub>c c)"
   apply (induct c) apply auto sorry
-
-text \<open>The language is always thread-local\<close>
-lemma local_lift [intro]:
-  "local (lift\<^sub>c c)"
-  by (induct c) auto
-
-end
+*)
+*)

@@ -73,6 +73,24 @@ lemma trace_rule_nil:
 lemma trace_rule: 
   assumes "c \<mapsto>\<^sup>*[g] c'"
   assumes "R,G \<turnstile> P {c} Q"
+  assumes "P \<noteq> {}"
+  shows "\<exists>\<alpha> M. \<alpha> \<in> obs c \<and> 
+              g = beh \<alpha> \<and> P \<subseteq> wp v g M \<and> guar v g  G \<and> R,G \<turnstile> M {c'} Q"
+  using assms 
+proof (induct c "[g]" c' arbitrary: P) 
+  case (sil c\<^sub>1 c\<^sub>2 c\<^sub>3)
+  then show ?case using obs_sil rewrite_ruleI 
+    by (meson subsetD)
+next
+  case (gex c\<^sub>1 c\<^sub>2 c\<^sub>3)
+  then show ?case using  trace_rule_nil[of c\<^sub>2 c\<^sub>3 R G M Q]  gexecute_ruleI[OF gex(3,1,4)] 
+    sorry
+  qed
+(*
+lemma trace_rule:
+  assumes "c \<mapsto>\<^sup>*[g] c'"
+  assumes "R,G \<turnstile> P {c} Q"
+  assumes "P \<noteq> {}"
   shows "\<exists>\<alpha> M. \<alpha> \<in> obs c \<and> 
               g = beh \<alpha> \<and> P \<subseteq> wp\<^sub>\<alpha> \<alpha> M \<and> guar\<^sub>\<alpha> \<alpha>  G \<and> R,G \<turnstile> M {c'} Q"
   using assms 
@@ -82,10 +100,10 @@ proof (induct c "[g]" c' arbitrary: P)
     by (meson subsetD)
 next
   case (gex c\<^sub>1 c\<^sub>2 c\<^sub>3)
-  then show ?case using  trace_rule_nil gexecute_ruleI[OF gex(3,1)]  
-    
-    by fast
+  then show ?case using  trace_rule_nil[of c\<^sub>1 c\<^sub>2 R G P Q] gexecute_ruleI[OF gex(3,1)] 
+    sorry
   qed
+*)
 
 lemma trace_obs:
   assumes "c\<^sub>1  \<mapsto>\<^sup>*t c\<^sub>2"
@@ -111,7 +129,7 @@ proof safe
     case (2 m\<^sub>1 m\<^sub>1' g t m\<^sub>1'')
     then obtain c' where itm1: "c \<mapsto>\<^sup>*[g] c'" "c' \<mapsto>\<^sup>*t c\<^sub>1" by auto
     then obtain P' \<alpha>  where itm2: "R,G \<turnstile> P' {c'} Q" "\<alpha> \<in> obs c" 
-      "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> P'"  using trace_rule[OF itm1(1) 2(5)] by blast
+      "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> P'"  using trace_rule[OF itm1(1) 2(5)] sorry (* by blast *)
     hence itm6: "m\<^sub>1' \<in> P'" using 2(1,8) unfolding wp_def by blast                       
     then obtain m\<^sub>2' where itm3: "(m\<^sub>2,m\<^sub>2') \<in> g" "(m\<^sub>1',m\<^sub>2') \<in> S" using 2(1,4,6,8) itm2(2,3,4) 
       unfolding sec_pres_def wp_def by blast

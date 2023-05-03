@@ -91,8 +91,6 @@ definition st_upd :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow
 definition aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> ('v,'r,'a) state_rec_scheme"
   where "aux_upd m f \<equiv> m\<lparr>state_rec.more := f m\<rparr>"
 
-definition base_upd :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) state"
-  where "base_upd m a b = st_upd m a b"
 
 nonterminal updbinds and updbind
 
@@ -107,7 +105,7 @@ syntax
 translations
   "_Update f (_updbinds b bs)" \<rightleftharpoons> "_Update (_Update f b) bs"
   "m(x :=\<^sub>s y)" \<rightleftharpoons> "CONST st_upd m x y"
-  "m(x :=\<^sub>b y)" \<rightleftharpoons> "CONST base_upd m x y"
+  "m(x :=\<^sub>b y)" \<rightleftharpoons> "CONST st_upd m x y"              (* this is just syntactic sugar for leaks *)
   "m(aux: y)" \<rightleftharpoons> "CONST aux_upd m y"
 
 fun lookupSome :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
@@ -164,19 +162,16 @@ lemma stUpd_twist:
 
 lemma [simp]:
   "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
-  using st_upd_def rg_def apply simp sorry
-(*   by (auto simp: st_upd_def rg_def) *)
+   by (auto simp: st_upd_def rg_def) 
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e)) = glb m"
-  sorry
-(*   by (auto simp: glb_def st_upd_def) *)
+   by (auto simp: glb_def st_upd_def) 
 
 lemma [simp]:
   "glb (m(Reg r :=\<^sub>s e, aux: f)) = glb (m(aux: \<lambda>m. f(m(Reg r :=\<^sub>s e))))"
   using aux_def glb_def stUpd_twist 
-  sorry
-  (* by (auto simp: aux_def glb_def) *)
+ by (auto simp: aux_def glb_def) 
 
 lemma [simp]:
   "st m (Reg x) = rg m x"

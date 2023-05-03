@@ -60,7 +60,7 @@ next
   case (prg s s' t)
   then obtain g where \<alpha>: "c \<mapsto>[g] (fst s')" "(snd s,snd s') \<in> g" by auto
   then obtain M v where p: "P \<subseteq> wp v g M" "guar v g G" "R,G \<turnstile> M {fst s'} Q"
-    using gexecute_ruleI[OF prg(5) \<alpha>(1)] by metis
+    using gexecute_ruleI[OF prg(5) \<alpha>(1)] using prg.prems(3) by auto
   hence "rely R (s' # t)" "pre M (s' # t)" "(snd s, snd s') \<in> G\<^sup>="
     using prg \<alpha>(2) by (auto simp: wp_def guar_def)
   thus ?case using prg p(3) by auto
