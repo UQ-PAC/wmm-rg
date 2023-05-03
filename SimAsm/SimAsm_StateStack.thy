@@ -29,7 +29,7 @@ record ('var,'val) frame =
 type_synonym ('var,'val) stack = "('var, 'val) frame list" 
 
 abbreviation Pred_tstack :: "('var,'val) stack \<Rightarrow> bool" where 
-  "Pred_tstack t \<equiv> t \<noteq> [] \<and> (\<forall>v. frame_st (last t) v \<noteq> None) \<and> frame_cap (last t) = UNIV"
+  "Pred_tstack t \<equiv> t \<noteq> [] \<and> frame_cap (last t) = UNIV \<and> (\<forall>v. frame_st (last t) v \<noteq> None)"
 
 typedef ('var,'val) tstack = "{t :: ('var,'val) stack. Pred_tstack t}"
 proof (standard, clarify, intro conjI allI)
@@ -58,7 +58,10 @@ fun update :: "('var,'val) stack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightar
 definition tlookup :: "('var,'val) tstack \<Rightarrow> 'var \<Rightarrow> 'val" where 
   "tlookup fs v = lookup (Rep_tstack fs) v"
 
-lemma Pred_tstack_Cons: "Pred_tstack xs \<Longrightarrow> Pred_tstack (x#xs)" 
+lemma Pred_tstack_ConsI [intro]: "Pred_tstack xs \<Longrightarrow> Pred_tstack (x#xs)" 
+  by auto
+
+lemma Pred_tstack_ConsE [intro]: "xs \<noteq> [] \<Longrightarrow> Pred_tstack (x#xs) \<Longrightarrow> Pred_tstack xs" 
   by auto
   
 definition tupdate :: "('var,'val) tstack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val) tstack" where 
@@ -79,28 +82,28 @@ proof (goal_cases)
 qed
 
 find_theorems lookup
-thm lookup.simps
+thm ext
 
 lemma lookup_fun_upd: 
   assumes "Pred_tstack s"
   shows "lookup (update (s) var val) = (lookup s)(var := val)" 
 using assms
-proof (induct s)
+proof (intro ext; induct s)
+  case Nil
+  then show ?case by simp
+next
   case (Cons a s)
-  then show ?case 
+  then show ?case
   proof (cases "var \<in> frame_cap a")
     case False
-    then show ?thesis 
-    apply (simp only: update.simps)
-    apply standard
-    apply auto
-    apply (case_tac "frame_st a x")
-    apply auto
-    apply (metis Cons.hyps Cons.prems fun_upd_other last.simps)
-    apply (metis Cons.hyps Cons.prems fun_upd_same iso_tuple_UNIV_I last.simps)
-    by (metis Cons.hyps Cons.prems UNIV_I fun_upd_other last.simps) (* TODO: clean cases *)
+    have "s \<noteq> []"
+      using False Cons.prems by auto
+    hence "Pred_tstack s" 
+      using Pred_tstack_ConsE Cons.prems by (cases s) auto
+    thus ?thesis
+      using Cons by (cases "frame_st a x") auto
   qed auto
-qed auto
+qed
 
 lemma lookup_update2:
   assumes "Pred_tstack s"
