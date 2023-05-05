@@ -32,16 +32,21 @@ definition Is_tstack :: "('var,'val,'a) stack \<Rightarrow> bool" where
   "Is_tstack t \<equiv> t \<noteq> [] \<and> frame_cap (last t) = UNIV \<and> (\<forall>v. frame_st (last t) v \<noteq> None)"
 
 lemma Is_tstack_ConsI [intro]: "Is_tstack xs \<Longrightarrow> Is_tstack (x#xs)" 
-  unfolding Is_tstack_def  
-  by auto
+unfolding Is_tstack_def  
+by auto
 
 lemma Is_tstack_ConsE [intro]: "xs \<noteq> [] \<Longrightarrow> Is_tstack (x#xs) \<Longrightarrow> Is_tstack xs" 
-  unfolding Is_tstack_def  
-  by auto                           
+unfolding Is_tstack_def  
+by auto                          
+
+lemma Is_tstack_snocE [intro]: "Is_tstack (xs @ [x]) \<Longrightarrow> Is_tstack [x]"
+unfolding Is_tstack_def  
+by auto                          
+
 
 lemma Is_tstack_NilE [elim!,dest!]: "Is_tstack [] \<Longrightarrow> False" 
-  unfolding Is_tstack_def
-  by auto  
+unfolding Is_tstack_def
+by auto  
 
 lemma Is_tstackE [elim,dest]:
   assumes "Is_tstack s"  
@@ -116,6 +121,12 @@ proof (induct s)
     thus ?case using Abs_tstack by auto
   qed auto
 qed 
+
+lemma Is_tstack_snoc: "Is_tstack xs \<Longrightarrow> Is_tstack (butlast xs @ [last xs])"
+unfolding Is_tstack_def by simp
+
+lemma Is_tstack_snoc_moreupd: "Is_tstack xs \<Longrightarrow> Is_tstack (butlast xs @ [last xs\<lparr> more := any \<rparr>])"
+unfolding Is_tstack_def by simp
 
 
 fun lookup :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> 'val" where 
@@ -224,12 +235,11 @@ proof (induct s)
   qed auto
 qed auto
 
-lemma auxupd_Cons [simp]:
-  "Is_tstack xs \<Longrightarrow> auxupd (x#xs) f = x # auxupd xs f"
+lemma auxupd_Cons:
+  "xs \<noteq> [] \<Longrightarrow> auxupd (x#xs) f = x # auxupd xs (\<lambda>xs. f (x#xs))"
 unfolding auxupd_def 
-apply auto 
-sledgehammr
-(* OH NO DOES NOT WORK WITH CONS DUE TO PARAM OF F*)
+by auto
+
 
 
 lemma tauxupd_id [simp]: 
@@ -251,6 +261,35 @@ next
   then show ?case
   using aux_update by fastforce
 qed  
+
+lemma tlookup_tauxupd [simp]:
+  "tlookup (tauxupd s f) v = tlookup s v" 
+unfolding tlookup_def tauxupd_def
+proof (induct s arbitrary: f v rule: tstack_induct)
+  case (Base x)
+  then show ?case unfolding auxupd_def by (simp add: Is_tstack_def)
+next
+  case (Frame x xs)
+  hence "xs \<noteq> []" by auto
+  with Frame have 1: "Is_tstack (x#xs)" by auto
+  with Frame have 2: "Is_tstack (auxupd (xs) (\<lambda>x. f (Abs_tstack x)))" by auto
+  with 1 have 3: "Is_tstack (auxupd (x # xs) (\<lambda>x. f (Abs_tstack x)))" by auto
+  note Is_tstack = \<open>Is_tstack xs\<close> 1 2 3
+  
+  have "lookup (auxupd xs (\<lambda>xx. f (Abs_tstack (x#RepAbs_tstack xx)))) v = lookup xs v"
+    using Is_tstack Frame(1)[of "\<lambda>y. f (Abs_tstack (x#(Rep_tstack y)))"]
+    by (simp add: Is_tstack_auxupd)
+  hence "lookup ( (auxupd xs (\<lambda>xx. f (Abs_tstack (x#xx))))) v = lookup ( xs) v"
+    by (simp add: Is_tstack(1) auxupd_def)
+
+  hence "lookup (x # auxupd xs (\<lambda>y. f (Abs_tstack (x#y)))) v = lookup (x # xs) v" 
+    by (cases "frame_st x v") auto
+  hence "lookup (auxupd (x # xs) (\<lambda>x. f (Abs_tstack x))) v = lookup (x # xs) v"
+    using \<open>xs \<noteq> []\<close> auxupd_Cons by (simp add: auxupd_def)
+  then show ?case using Is_tstack by simp
+qed
+
+  
 
 
 interpretation stack: state
@@ -278,11 +317,7 @@ next
     ultimately show ?case 
       unfolding taux_def tupdate_def using Base 
       by auto
-  next
-    case (Frame x xs)
-    then show ?case
-    by (metis Abs_tstack_inverse CollectI Is_tstack_ConsI Is_tstack_update aux_update id_apply taux_def tupdate_def)
-  qed
+  qed simp
 next
   case (3 s f)
   then show ?case 
@@ -302,42 +337,9 @@ next
   qed
 next
   case (4 s f v)
-  then show ?case 
-  proof (induct s rule: tstack_induct)
-    case (Base x)
-    moreover hence "Is_tstack (auxupd [x] (\<lambda>x. f (Abs_tstack x)))" by auto
-    ultimately show ?case 
-    proof (cases "frame_st x v")
-      case None
-      hence False using Base by blast
-      then show ?thesis by simp 
-    next
-      case (Some a)
-      then show ?thesis 
-        unfolding tlookup_def tauxupd_def 
-        using Base Is_tstack_auxupd 
-        by (auto simp add: Is_tstack_def auxupd_def)
-    qed
-  next
-    case (Frame x xs)
-    moreover hence 1: "Is_tstack (x#xs)" by auto  
-    moreover hence 2: "Is_tstack (auxupd (x # xs) (\<lambda>x. f (Abs_tstack x)))" by auto
-    moreover have 3: "lookup ( (auxupd ( xs) (\<lambda>x. f (Abs_tstack x)))) v = lookup ( xs) v"
-      using 1 2 Frame unfolding tlookup_def tauxupd_def
-      by (simp add: Is_tstack_auxupd)
-    moreover hence " lookup ( (auxupd ( (x # xs)) (\<lambda>x. f (Abs_tstack x)))) v = lookup ( (x # xs)) v" 
-    apply (cases "frame_st x v")
-    apply auto
-    apply auto
-    using Frame(1) 1 2
-    
-    
-    
-
-  qed 
+  then show ?case by simp
 qed 
 
-thm list.induct
 
 end
 
