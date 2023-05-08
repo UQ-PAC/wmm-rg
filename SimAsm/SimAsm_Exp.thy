@@ -39,8 +39,7 @@ proof (induct e)
     then show ?thesis by simp
   next
     case False
-    then show ?thesis using st_upd_def fun_upd_def ev\<^sub>E.simps(1) apply simp 
-      by (smt (verit) select_convs(3) st_upd_def surjective update_convs(1))
+    then show ?thesis using st_upd_def fun_upd_def ev\<^sub>E.simps(1) by simp 
   qed
 next
   case (Val x)
@@ -64,8 +63,7 @@ proof (induct e)
     then show ?thesis using st_upd_def Var by simp
   next
     case False
-    then show ?thesis using st_upd_def fun_upd_def ev\<^sub>E.simps(1) apply simp 
-      by (smt (verit) select_convs(3) st_upd_def surjective update_convs(1))
+    then show ?thesis using st_upd_def fun_upd_def ev\<^sub>E.simps(1) by simp 
   qed
 next
   case (Val x)
@@ -88,7 +86,7 @@ proof (induct e)
     have a0:"deps\<^sub>E (Var x) ={x}" by simp
     then have a1:"st m x = st m' x" using Var by simp
     then have a2:"lookupSome m x = lookupSome m' x" using Var lookupSome.simps[of m x] 
-           lookupSome.simps[of m' x] sorry
+           lookupSome.simps[of m' x] by simp
     then show ?thesis       using st_ev\<^sub>E.simps deps\<^sub>E.simps(1) ev\<^sub>E.simps(1) Var by simp
   qed
 next
@@ -128,8 +126,7 @@ lemma st_ev_aux\<^sub>E [simp]:
   "st_ev\<^sub>E (m(aux: f)) g = st_ev\<^sub>E m g"
 proof (induct g)
   case (Var x)
-  then show ?case apply simp 
-    by (metis aux_upd_def select_convs(3) surjective update_convs(4))
+  then show ?case by simp 
 next
   case (Val x)
   then show ?case by simp 
@@ -146,8 +143,10 @@ lemma st_ev_subst\<^sub>B [simp]:
 proof (induct b)
   case (Exp\<^sub>B fn rs)
   have [simp]: "map (st_ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r e)) rs = map (st_ev\<^sub>E (m(r :=\<^sub>s st_ev\<^sub>E m e))) rs"
-    using fun_upd_def apply simp sorry    
-  show ?case sorry
+    using fun_upd_def by auto     
+  then show ?case 
+    using ev_subst\<^sub>B lookupSome.simps st_ev\<^sub>B.elims(1) st_ev\<^sub>E.elims st_ev\<^sub>B.simps st_ev\<^sub>E.simps st_upd_map 
+    sorry
 qed simp
 
 
@@ -158,7 +157,8 @@ proof (induct b)
   case (Exp\<^sub>B fn rs)
   hence [simp]: "map (st_ev\<^sub>E (m(r :=\<^sub>s f))) rs = map (st_ev\<^sub>E m) rs"
     using st_ev_nop\<^sub>E[of r _ m f] by (auto simp: fun_upd_def) 
-  show ?case sorry
+  then show ?case 
+    by (metis ev\<^sub>B.simps(2) map_cong st_ev\<^sub>B.elims(2) st_ev\<^sub>B.elims(3) st_ev\<^sub>E.simps)
 qed simp
 
 
@@ -166,8 +166,9 @@ lemma deps_st_ev\<^sub>B [intro]:
   "\<forall>x \<in> deps\<^sub>B e. st m x = st m' x \<Longrightarrow> st_ev\<^sub>B m e = st_ev\<^sub>B m' e"
 proof (induct e)
   case (Exp\<^sub>B fn rs)
-  hence [simp]: "map (st_ev\<^sub>E m) rs = map (st_ev\<^sub>E m') rs" sorry (* by (induct rs) auto *)
-  show ?case sorry
+  hence [simp]: "map (st_ev\<^sub>E m) rs = map (st_ev\<^sub>E m') rs" by (induct rs) auto 
+  then show ?case 
+    by (metis (mono_tags, lifting) ev\<^sub>B.simps(2) map_eq_conv st_ev\<^sub>B.elims(1) st_ev\<^sub>E.simps)
 qed auto
 
 
@@ -178,14 +179,14 @@ proof (induct g)
   then show ?case by simp
 next
   case (Exp\<^sub>B x1a x2)
-  then show ?case using st_ev\<^sub>B.simps st_ev_aux\<^sub>E map_eq_conv sorry
+  then show ?case by (metis aux_st deps_st_ev\<^sub>B)
 qed
 
 
 subsection \<open>Update lemmas\<close>
 
 definition upd                   (* use if f is a total fun: 'a \<Rightarrow> 'v *)
-  where "upd S f m \<equiv> m\<lparr>st := \<lambda>x. if x \<in> S then Some (f x) else st m x\<rparr>"
+  where "upd S f m \<equiv> m\<lparr>st := \<lambda>x. if x \<in> S then (f x) else st m x\<rparr>"
 
 definition upd_part       (* use if f is a partial fun: 'a \<Rightarrow> 'v option *)
   where "upd_part S f m \<equiv> m\<lparr>st := \<lambda>x. if x \<in> S then (f x) else st m x\<rparr>"
@@ -208,7 +209,7 @@ lemma upd_rep' [simp]:
   by (auto simp: upd_def intro!: state_rec.equality)
 
 lemma upd_st [simp]:
-  "st (upd S f m) x = (if x \<in> S then Some (f x) else st m x)"
+  "st (upd S f m) x = (if x \<in> S then (f x) else st m x)"
   by (auto simp: upd_def)
 
 lemma upd_more [simp]:
@@ -255,15 +256,16 @@ lemma eq_comm:
 
 
 lemma beh_substi [simp]:
-  "st_beh\<^sub>i (subst\<^sub>i \<alpha> x e) = {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s st_ev\<^sub>E m\<^sub>1 e),m) \<in> st_beh\<^sub>i \<alpha>}"
+  "st_beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
+                     {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s st_ev\<^sub>E m\<^sub>1 e),m) \<in> st_beh\<^sub>i \<alpha>}"
   sorry
 
 lemma [simp]:
-  "st (m(x :=\<^sub>s e)) = (st m)(x := Some e)"
-  by (auto simp: st_upd_def)
+  "st (m(x :=\<^sub>s e)) = (st m)(x := e)"
+  by (auto simp: st_upd_def st_upd_map)
 
 lemma [simp]:
-  "Base (st (m(x :=\<^sub>s e))) = Base ((st m)(x := Some e))"
+  "Base (st (m(x :=\<^sub>s e))) = Base ((st m)(x := e))"
   by (auto simp: st_upd_def)
 
 (*end*) (* of context expression *)

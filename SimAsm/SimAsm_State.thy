@@ -19,7 +19,7 @@ text \<open> A state record is a partial mapping from vars to values, st
          of a branch which should not take effect on actual (core) mem but should reside
          within its "local" frame; 
        \<close>
-record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v option"
+record ('v,'a) state_rec = st :: "'a \<Rightarrow> 'v"
                            cap :: "'a set"
                            initState :: "'a \<Rightarrow> 'v"
 
@@ -60,10 +60,10 @@ type_synonym ('v,'g,'r,'a) rtrans = "('v,'g,'r,'a) trel \<Rightarrow> ('v,'g,'r,
 type_synonym ('v,'g,'r,'a) auxfn = "('v,('g,'r) var,'a) state_rec_scheme \<Rightarrow> 'a"
 
 (* obtains the state of global variables that are not \<Gamma> *)
-definition glb :: "('v,'g,'r,'a) state \<Rightarrow> ('g \<Rightarrow> 'v option)"
+definition glb :: "('v,'g,'r,'a) state \<Rightarrow> ('g \<Rightarrow> 'v)"
   where "glb m \<equiv> (\<lambda>v. st m (Glb v))"
 
-definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v option)"
+definition rg :: "('v,'g,'r,'a) state \<Rightarrow> ('r \<Rightarrow> 'v)"
   where "rg m \<equiv> \<lambda>v. st m (Reg v)"
 
 definition aux :: "('v,'g,'r,'a) state \<Rightarrow> 'a"
@@ -86,7 +86,7 @@ definition st_upd :: "('v,'a,'b) state_rec_scheme \<Rightarrow> 'a \<Rightarrow>
   where "st_upd m a b = m \<lparr> st := ((st m) (a := Some b)) \<rparr>"
 *)
 definition st_upd :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v  \<Rightarrow> ('v,'g,'r,'a) state"
-  where "st_upd m a b = m \<lparr> st := ((st m) (a := Some b)) \<rparr>"
+  where "st_upd m a b = m \<lparr> st := ((st m) (a := b)) \<rparr>"
 
 definition aux_upd :: "('v,'r,'a) state_rec_scheme \<Rightarrow> (('v,'r,'a) state_rec_scheme \<Rightarrow> 'a) \<Rightarrow> ('v,'r,'a) state_rec_scheme"
   where "aux_upd m f \<equiv> m\<lparr>state_rec.more := f m\<rparr>"
@@ -108,10 +108,13 @@ translations
   "m(x :=\<^sub>b y)" \<rightleftharpoons> "CONST st_upd m x y"              (* this is just syntactic sugar for leaks *)
   "m(aux: y)" \<rightleftharpoons> "CONST aux_upd m y"
 
+(*
 fun lookupSome :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
   "lookupSome s var = (case (st s var) of Some v \<Rightarrow> v | 
                                                    _ \<Rightarrow> (initState s var))"
-
+*)
+fun lookupSome :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'v" where
+  "lookupSome s var = st s var"
 
 interpretation  expression
   st
@@ -131,11 +134,11 @@ interpretation  expression
 section \<open>Simp Lemmas\<close>
 
 lemma [simp]:
-  "st (m(r :=\<^sub>s e)) q = (if r = q then Some e else st m q)"
+  "st (m(r :=\<^sub>s e)) q = (if r = q then e else st m q)"
   by (auto simp: st_upd_def)
 
 lemma [simp]:
-  "st (m(v :=\<^sub>s e)) = (st m)(v := Some e)"
+  "st (m(v :=\<^sub>s e)) = (st m)(v := e)"
   by (auto simp: st_upd_def)
 
 lemma [simp]:
@@ -161,7 +164,7 @@ lemma stUpd_twist:
   by (simp add: map_upd_twist)
 
 lemma [simp]:
-  "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := Some e)"
+  "rg (m(Reg x :=\<^sub>s e)) = (rg m)(x := e)"
    by (auto simp: st_upd_def rg_def) 
 
 lemma [simp]:

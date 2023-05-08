@@ -212,7 +212,9 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
 (* without speculation:  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
                                  then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
                                  else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | *)
-    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" |
+    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | 
+(*    "lift\<^sub>c (While b I c c\<^sub>3) = lift\<^sub>c (If b (Seq c (While b I c c\<^sub>3)) Skip c\<^sub>3)" | *)
+(*    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | *)
     "lift\<^sub>c (DoWhile I c b) = ((lift\<^sub>c c) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; (lift\<^sub>c c) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
 
@@ -236,8 +238,8 @@ interpretation rules  (* No type arity state_rec_ext :: pstate  when "someAuxOp"
   done
 
 term obs 
-term lift\<^sub>c 
 term lexecute
+term lift\<^sub>c 
 print_locale rules
 
 
@@ -250,15 +252,15 @@ abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
 abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
   where "aux a \<equiv> snd (tag a)"
 
-text \<open>A basic is well-formed if its behaviour agrees with the behaviour
-      of its instruction and auxiliary composed.\<close>
+text \<open>A basic is well-formed if its behaviour (i.e., its abstract semantics) agrees with the behaviour
+      of its instruction and auxiliary composed (i.e., the concrete semantics of the instantiation).\<close>
 (* beh \<beta> = snd (snd \<beta>) *)
 definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
   where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
 
 
 lemma opbasicE:
-  obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
+    obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
           (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
           (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
           (nop) f v b where "(basic ) = ((nop,f), v, b)" |
