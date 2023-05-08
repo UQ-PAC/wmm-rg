@@ -1,14 +1,15 @@
 theory SimAsm_Exp
-  imports SimAsm_State
+  imports SimAsm_State Var_map
 begin
 
-
+context expression
+begin
 
 section \<open>Expression Language based on states \<close>
 
 text \<open>Evaluate an expression given a state\<close>
-fun st_ev\<^sub>E :: "('v,'g,'r,'a) state \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
-  where "st_ev\<^sub>E m r = ev\<^sub>E (lookupSome m) r" 
+fun st_ev\<^sub>E 
+  where "st_ev\<^sub>E m r = ev\<^sub>E (st m) r" 
 
 
 text \<open>Evaluate a boolean expression given a state\<close>
@@ -49,7 +50,7 @@ next
   case (Exp fn rs)
   hence [simp]: "map (st_ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (st_ev\<^sub>E (m(r :=\<^sub>s st_ev\<^sub>E m f))) rs" by auto
   then show ?case  using ev\<^sub>E.simps(3) map_map subst\<^sub>E.simps(2) 
-    by (metis (no_types, lifting) st_ev\<^sub>E.simps map_eq_conv)
+  by (metis (no_types, lifting) map_eq_conv st_ev\<^sub>E.simps)
 qed                          
 
 
@@ -77,7 +78,7 @@ next
     by (metis (mono_tags, lifting) map_eq_conv)
 qed 
 
-
+term st
 
 lemma deps_st_ev\<^sub>E [intro]:
   "(\<forall>x \<in> deps\<^sub>E e. st m x = st m' x) \<Longrightarrow> st_ev\<^sub>E m e = st_ev\<^sub>E m' e"
@@ -266,6 +267,5 @@ lemma [simp]:
   "Base (st (m(x :=\<^sub>s e))) = Base ((st m)(x := Some e))"
   by (auto simp: st_upd_def)
 
-(*end*) (* of context expression *)
-
+end (* of context expression *)
 end

@@ -6,52 +6,63 @@ begin
 
 (* variable: either a register or a global, where registers equal local vars *)
 datatype 'r Reg = reg 'r | tmp 'r
-datatype ('g,'r) var = Reg 'r | Glb 'g
+(* datatype 'v = Reg 'r | Glb 'g *)
 
 (* first value in Exp is a function used to combine the values from its
 subexpressions into one value. *)
 
-datatype ('v,'g,'r) exp =
-  Var "('g,'r) var" | 
-  Val 'v | 
-  Exp "'v list \<Rightarrow> 'v" "('v,'g,'r) exp list" (* some fct over a list of subexpr *) 
+datatype ('var,'val) exp =
+  Var "'var" | 
+  Val 'val | 
+  Exp "'val list \<Rightarrow> 'val" "('var,'val) exp list" (* some fct over a list of subexpr *) 
+
+  
+datatype ('var,'val) bexp = 
+  Neg "('var,'val) bexp" | 
+  Exp\<^sub>B "'val list \<Rightarrow> bool" "('var,'val) exp list"
+  
+
+type_synonym ('var,'val) varmap = "'var \<Rightarrow> 'val"
+
+(* locale expression = state  *)
+  (* st st_upd aux aux_upd aux_extract *)
+  (* for st :: "'s \<Rightarrow> 'v \<Rightarrow> 'val"  *)
+  (* and st_upd and aux and aux_upd and aux_extract *)
+    
+
+(* context expression *)
+(* begin *)
 
 
-locale expression = state 
+(* definition glb' :: "('v \<Rightarrow> 'v) \<Rightarrow> ('g \<Rightarrow> 'v)" *)
+  (* where "glb' m v \<equiv> m (Glb v)" *)
 
-context expression
-begin
-
-
-definition glb' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('g \<Rightarrow> 'v)"
-  where "glb' m v \<equiv> m (Glb v)"
-
-definition rg' :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('r \<Rightarrow> 'v)"
-  where "rg' m v \<equiv> m (Reg v)"
+(* definition rg' :: "('v \<Rightarrow> 'v) \<Rightarrow> ('r \<Rightarrow> 'v)" *)
+  (* where "rg' m v \<equiv> m (Reg v)" *)
 
 text \<open>Domain of register variables\<close>
 
 (* Tmp registers are also local? *)
-abbreviation locals
-  where "locals \<equiv> Reg ` UNIV"
+(* abbreviation locals *)
+  (* where "locals \<equiv> Reg ` UNIV" *)
 
-text \<open>Domain of register variables\<close>
-abbreviation globals
-  where "globals \<equiv> Glb ` UNIV"
+(* text \<open>Domain of register variables\<close> *)
+(* abbreviation globals *)
+  (* where "globals \<equiv> Glb ` UNIV" *)
 
 section \<open>Expression Language based on a generic mapping of variables to values \<close>
 
 
 text \<open>Evaluate an expression given a state\<close>
 
-fun ev\<^sub>E :: "(('g,'r) var \<Rightarrow> 'v) \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> 'v"
+fun ev\<^sub>E :: "('r,'v) varmap \<Rightarrow> ('r,'v) exp \<Rightarrow> 'v"
   where 
     "ev\<^sub>E m (Var r) =  m r" |
     "ev\<^sub>E _ (Val v) = v" |
     "ev\<^sub>E m (Exp f rs) = f (map (ev\<^sub>E m) rs)"  (* eg, Exp(+ a1 a2 a3) = (ev a1) + (ev a2) + (ev a3) *)
 
 text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
+fun deps\<^sub>E :: "('r,_) exp \<Rightarrow> 'r set"
   where 
     "deps\<^sub>E (Var r) = {r}" |
     "deps\<^sub>E (Exp _ rs) = \<Union>(deps\<^sub>E ` set rs)" |
@@ -59,30 +70,26 @@ fun deps\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var set"
 
 
 text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>E :: "('v,'g,'r) exp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) exp"
+fun subst\<^sub>E :: "('r,'v) exp \<Rightarrow> 'r \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r,'v) exp"
   where
     "subst\<^sub>E (Var r) r' e = (if r = r' then e else Var r)" |
     "subst\<^sub>E (Exp f rs) r e = (Exp f (map (\<lambda>x. subst\<^sub>E x r e) rs))" |
     "subst\<^sub>E e _ _ = e"
 
-datatype ('v,'g,'r) bexp = 
-  Neg "('v,'g,'r) bexp" | 
-  Exp\<^sub>B "'v list \<Rightarrow> bool" "('v,'g,'r) exp list"
-
 text \<open>Evaluate an expression given a state \<close>
-fun ev\<^sub>B :: "(('g,'r) var\<Rightarrow> 'v) \<Rightarrow> ('v,'g,'r) bexp \<Rightarrow> bool"
+fun ev\<^sub>B :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v) bexp \<Rightarrow> bool"
   where 
     "ev\<^sub>B m (Neg e) = (\<not> (ev\<^sub>B m e))" |
     "ev\<^sub>B m (Exp\<^sub>B f rs) = f (map (ev\<^sub>E m) rs)"
 
 text \<open>The syntactic dependencies of an expression\<close>
-fun deps\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var set"
+fun deps\<^sub>B :: "('r,'v) bexp \<Rightarrow> 'r set"
   where 
     "deps\<^sub>B (Neg e) = deps\<^sub>B e" |
     "deps\<^sub>B (Exp\<^sub>B _ rs) = \<Union>(deps\<^sub>E ` set rs)"
 
 text \<open>Substitute a variable for an expression\<close>
-fun subst\<^sub>B :: "('v,'g,'r) bexp \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) bexp"
+fun subst\<^sub>B :: "('r,'v) bexp \<Rightarrow> 'r \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r,'v) bexp"
   where
     "subst\<^sub>B (Neg b) r e = Neg (subst\<^sub>B b r e)" |
     "subst\<^sub>B (Exp\<^sub>B f rs) r e = (Exp\<^sub>B f (map (\<lambda>x. subst\<^sub>E x r e) rs))"
@@ -92,15 +99,15 @@ section \<open>Operations\<close>
 
 (* the leak operation corresponds to Cache+=x in the Refine2019 paper
     here the op also specifies where the leak goes, e.g., Cache*)
-datatype ('v,'g,'r) op =
-    assign "('g,'r) var" "('v,'g,'r) exp"
-  | cmp "('v,'g,'r) bexp"
+datatype ('r,'v) op =
+    assign "'r" "('r,'v) exp"
+  | cmp "('r,'v) bexp"
   | full_fence
   | nop
-  | leak "('g,'r) var" "('v,'g,'r) exp"      
+  | leak "'r" "('r,'v) exp"      
 
 text \<open>Variables written by an operation\<close>
-fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
+fun wr :: "('r,'v) op \<Rightarrow> 'r set"
   where 
     "wr (assign y _) = {y}" |
     "wr (leak c _) = {}" |         (* for the sake of fwd we assume no var is written  *)
@@ -108,7 +115,7 @@ fun wr :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
     "wr _ = {}"
 
 text \<open>Variables read by an operation\<close>
-fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
+fun rd :: "('r,'v) op \<Rightarrow> 'r set"
   where
     "rd (assign _ e) = deps\<^sub>E e" |
     "rd (cmp b) = deps\<^sub>B b" |
@@ -116,23 +123,26 @@ fun rd :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var set"
     "rd _ = {}"
 
 text \<open>Test if an instruction is a memory barrier\<close>
-fun barriers :: "('v,'g,'r) op \<Rightarrow> bool"
+fun barriers :: "('r,'v) op \<Rightarrow> bool"
   where "barriers full_fence = True" | "barriers _ = False"
 
 text \<open>Operation Substitution\<close>
-fun subst\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('g,'r) var \<Rightarrow> ('v,'g,'r) exp \<Rightarrow> ('v,'g,'r) op"
+fun subst\<^sub>i :: "('r,'v) op \<Rightarrow> 'r \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r,'v) op"
   where
     "subst\<^sub>i (assign x e) y f = assign x (subst\<^sub>E e y f)" |
     "subst\<^sub>i (cmp b) y f = cmp (subst\<^sub>B b y f)" |
     "subst\<^sub>i (leak c e) y f = leak c (subst\<^sub>E e y f)" |
     "subst\<^sub>i \<alpha> _ _ = \<alpha>"
 
+text \<open>Replaces a variable r with the corresponding value from the map V.\<close>
 definition smap1
-  where "smap1 V x \<alpha> \<equiv> if x \<in> dom V then subst\<^sub>i \<alpha> x (Val (the (V x))) else \<alpha>"
+  where "smap1 V r \<alpha> \<equiv> case V r of None \<Rightarrow> \<alpha> | Some x' \<Rightarrow> subst\<^sub>i \<alpha> r (Val x')"
 
+text \<open>Replaces all variables in V that are read by \<alpha>.\<close>
 definition smap 
   where "smap \<alpha> V \<equiv> Finite_Set.fold (smap1 V) \<alpha> (rd \<alpha>)"
 
+text \<open>Given \<alpha>, chaos all variables within the given set V.\<close>
 definition forall
   where "forall V \<alpha> \<equiv> {smap \<alpha> M | M. dom M = V}"
 
@@ -144,34 +154,34 @@ lemma [simp]:
   "(m (r := e)) q = (if r = q then e else m q)"
   by (auto simp: fun_upd_def)
 
-lemma [simp]:
-  "rg' (m(Reg x := e)) = (rg' m)(x := e)"
-  by (auto simp: fun_upd_def rg'_def)
+(* lemma [simp]: *)
+  (* "rg' (m(Reg x := e)) = (rg' m)(x := e)" *)
+  (* by (auto simp: fun_upd_def rg'_def) *)
 
 
 lemma map_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a := b))(c := d) = (m(c := d))(a := b)"
   unfolding fun_upd_twist  by auto
 
-lemma [simp]:
-  "rg' m x = m (Reg x)"
-  by (auto simp: rg'_def)
+(* lemma [simp]: *)
+  (* "rg' m x = m (Reg x)" *)
+  (* by (auto simp: rg'_def) *)
 
-lemma [simp]:
-  "glb' m x = m (Glb x)"
-  by (auto simp: glb'_def)
+(* lemma [simp]: *)
+  (* "glb' m x = m (Glb x)" *)
+  (* by (auto simp: glb'_def) *)
 
-lemma [simp]:
-  "rg' (m((Glb x)\<mapsto>  e)) = rg' m"
-  (* unfolding rg'_def (*fun_upd_def var.distinct(1)*) *)
-  by auto
+(* lemma [simp]: *)
+  (* "rg' (m((Glb x)\<mapsto>  e)) = rg' m" *)
+  (* (* unfolding rg'_def (*fun_upd_def var.distinct(1)*) *) *)
+  (* by auto *)
 
-lemma [dest]:
-  "rg' m = rg' m' \<Longrightarrow> m (Reg x) = m'(Reg x)" 
-  by (metis rg'_def)
+(* lemma [dest]: *)
+  (* "rg' m = rg' m' \<Longrightarrow> m (Reg x) = m'(Reg x)"  *)
+  (* by (metis rg'_def) *)
 
-lemma [simp]:
-  "glb' (m(Reg r := e)) = glb' m"
-  by auto
+(* lemma [simp]: *)
+  (* "glb' (m(Reg r := e)) = glb' m" *)
+  (* by auto *)
 
 lemma [simp]:
   "P O {(m, m'). m' = m} = P"
@@ -264,10 +274,14 @@ lemma finite_deps\<^sub>E [intro]:
   "finite (deps\<^sub>E e)"
   by (induct e) auto
 
+lemma finite_deps\<^sub>B [intro]:
+  "finite (deps\<^sub>B e)"
+  by (induct e) auto
 
-lemma local_ev\<^sub>E [intro]:
-  "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e"
-  by auto
+
+(* lemma local_ev\<^sub>E [intro]: *)
+  (* "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e" *)
+  (* by auto *)
 
 subsection \<open>Operations\<close>
 
@@ -293,10 +307,7 @@ lemma subst_nop [simp]:
 
 lemma finite_rd [intro]:
   "finite (rd \<alpha>)"  
-proof  (cases \<alpha>)
-  case (cmp x2)
-  then show ?thesis sorry
-qed auto  
+by (cases \<alpha>) auto
 
 abbreviation ncmp
   where "ncmp b \<equiv> cmp (Neg b)"
@@ -305,38 +316,43 @@ abbreviation ncmp
 subsection \<open>smap1 Theories\<close>
 
 lemma smap1_flip [simp]:
-  "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)" sorry
-(*  by (cases \<alpha>; cases "x = y"; auto simp: smap1_def)*)
+  "smap1 V y (smap1 V x \<alpha>) = smap1 V x (smap1 V y \<alpha>)"
+unfolding smap1_def
+proof (induct \<alpha>; cases "x = y"; cases "V x"; cases "V y"; simp; goal_cases)
+  case (1 bexp a aa)
+  then show ?case by (induct bexp) auto
+qed
+
 
 lemma smap1_rep [simp]:
   "smap1 V x (smap1 V x \<alpha>) = smap1 V x \<alpha>"
-  by (cases \<alpha>; auto simp: smap1_def)
+unfolding smap1_def by (cases "V x") auto
 
 interpretation cfi: comp_fun_idem "smap1 V"  by standard auto
 
 lemma smap1_rd [simp]:
   "rd (smap1 M x \<beta>) = rd \<beta> - ({x} \<inter> dom M)"
-  unfolding smap1_def by (auto split: if_splits)
+unfolding smap1_def by (cases "M x") auto
 
 lemma smap1_wr [simp]:
   "wr (smap1 M x \<beta>) = wr \<beta>"
-  unfolding smap1_def by (auto split: if_splits)
+unfolding smap1_def by (cases "M x") auto
 
 lemma smap1_barriers [simp]:
   "barriers (smap1 M x \<beta>) = barriers \<beta>"
-  unfolding smap1_def by (auto split: if_splits)
+unfolding smap1_def by (cases "M x") auto
 
 lemma smap1_nop [simp]:
   "x \<notin> rd \<beta> \<Longrightarrow> smap1 M x \<beta> = \<beta>"
-  unfolding smap1_def by (auto split: if_splits)
+unfolding smap1_def by (cases "M x") auto
 
 lemma smap1_nop2 [simp]:
   "M x = None \<Longrightarrow> smap1 M x \<beta> = \<beta>"
-  unfolding smap1_def by (auto split: if_splits)
+unfolding smap1_def by (cases "M x") auto
 
 lemma smap1_empty [simp]:
   "smap1 Map.empty x \<beta> = \<beta>"
-  unfolding smap1_def by (auto split: if_splits)
+unfolding smap1_def by (auto split: if_splits)
 
 lemma smap1_fold_rd [simp]:
   assumes "finite F"
@@ -348,7 +364,7 @@ proof (induct)
 next
   case (insert x F)
   hence "Finite_Set.fold (smap1 M) \<beta> (insert x F) = smap1 M x (Finite_Set.fold (smap1 M) \<beta> F)"
-    using cfi.fold_insert_idem by blast
+    using cfi.fold_insert_idem by auto
   then show ?case by (auto simp: insert(3))
 qed
 
@@ -362,7 +378,7 @@ proof (induct)
 next
   case (insert x F)
   hence "Finite_Set.fold (smap1 M) \<beta> (insert x F) = smap1 M x (Finite_Set.fold (smap1 M) \<beta> F)"
-    using cfi.fold_insert_idem by blast
+    using cfi.fold_insert_idem by auto
   then show ?case by (auto simp: insert(3))
 qed
 
@@ -376,7 +392,7 @@ proof (induct)
 next
   case (insert x F)
   hence "Finite_Set.fold (smap1 M) \<beta> (insert x F) = smap1 M x (Finite_Set.fold (smap1 M) \<beta> F)"
-    using cfi.fold_insert_idem by blast
+    using cfi.fold_insert_idem by auto
   then show ?case by (auto simp: insert(3))
 qed
 
@@ -391,7 +407,7 @@ next
   case (insert x F)
   hence "Finite_Set.fold (smap1 Map.empty) \<alpha> (insert x F) = 
          smap1 Map.empty x (Finite_Set.fold (smap1 Map.empty) \<alpha> F)"
-    using cfi.fold_insert_idem by blast
+    using cfi.fold_insert_idem by auto
   also have "... = Finite_Set.fold (smap1 Map.empty) \<alpha> F" by auto
   also have "... = \<alpha>" using insert(3) by blast
   finally show ?case .
@@ -433,7 +449,7 @@ proof (cases "x \<in> rd \<beta>")
   case True
   have "Finite_Set.fold (smap1 M) \<beta> (insert x (rd \<beta>)) =
         smap1 M x (Finite_Set.fold (smap1 M) \<beta> (rd \<beta>))"
-    using cfi.fold_insert_idem by blast
+    using cfi.fold_insert_idem by (simp add: finite_rd)
   moreover have "insert x (rd \<beta>) = rd \<beta>" using True by auto
   ultimately show ?thesis unfolding smap_def by auto
 next
@@ -477,20 +493,19 @@ lemma
 lemma
   "comp_fun_commute_on (rd \<alpha>) (smap1 (\<lambda>y. if x = y then None else M y))"
   by (rule Finite_Set.comp_fun_commute_on.intro) auto
-  
+
 lemma forall_unfold:
   shows "forall (insert x V) \<alpha> = {subst\<^sub>i \<alpha>' x (Val c) | c \<alpha>'. \<alpha>' \<in> forall V \<alpha>}" (is "?L = ?R")
-  sorry
-(*
+proof -
   have "?L \<subseteq> ?R"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M assume d: "dom (M :: ('g, 'h) var \<Rightarrow> 'f option) = insert x V" "x \<in> V"
+    fix M :: "'a \<Rightarrow> 'b option" assume d: "dom M = insert x V" "x \<in> V"
     hence "smap \<alpha> M = subst\<^sub>i (smap \<alpha> M) x (Val (the (M x)))" by simp
     moreover have "dom M = V" using d by auto
     ultimately show "\<exists>c \<alpha>'. smap \<alpha> M = subst\<^sub>i \<alpha>' x (Val c) \<and> (\<exists>M. \<alpha>' = smap \<alpha> M \<and> dom M = V)"
       by blast
   next
-    fix M assume d: "dom (M :: ('g, 'h) var \<Rightarrow> 'f option) = insert x V" "x \<notin> V"
+    fix M :: "'a \<Rightarrow> 'b option" assume d: "dom M = insert x V" "x \<notin> V"
     let ?M = "\<lambda>y. if x = y then None else M y"
     have "smap \<alpha> M = subst\<^sub>i (smap \<alpha> ?M) x (Val (the (M x)))"
     proof -
@@ -512,7 +527,7 @@ lemma forall_unfold:
           by (rule cfi.fold_insert_remove) blast
         also have "... = Finite_Set.fold (smap1 ?M) \<alpha> (rd \<alpha> - {x})" by auto
         finally show ?thesis using fx mx unfolding smap_def apply simp
-          unfolding smap1_def using d(1) by (auto split: if_splits)
+          unfolding smap1_def using d(1) by (cases "M x") auto
       next
         case False
         hence [simp]: "rd \<alpha> - {x} = rd \<alpha>" by auto
@@ -527,13 +542,13 @@ lemma forall_unfold:
 
   moreover have "?R \<subseteq> ?L"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M c assume d: "V = dom (M :: ('g, 'h) var \<Rightarrow> 'f option)" "x \<in> V" 
+    fix M :: "'a \<Rightarrow> 'b option" and c assume d: "V = dom M" "x \<in> V" 
     have "dom M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> M" using d by simp
     ultimately show "\<exists>Ma. subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> Ma \<and> dom Ma = insert x (dom M)"
       by blast
   next
-    fix M c assume d: "V = dom (M :: ('g, 'h) var \<Rightarrow> 'f option)" "x \<notin> V" 
+    fix M :: "'a \<Rightarrow> 'b option" and c assume d: "V = dom M" "x \<notin> V" 
     let ?M = "\<lambda>y. if y = x then Some c else M y"
     have "dom ?M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> ?M"
@@ -570,7 +585,6 @@ lemma forall_unfold:
 
   ultimately show ?thesis by blast
 qed
-*)
 
 lemma forall_one [simp]:
   "forall {x} \<alpha> = {subst\<^sub>i \<alpha> x (Val c) | c. True}"
@@ -585,7 +599,7 @@ lemma forallI [intro]:
   "smap \<alpha> M \<in> forall (dom M) \<alpha>"
   by (auto simp: forall_def)
 
-end (*of locale *)
+(* end (*of locale *) *)
 
 (*
 lemma local_ev\<^sub>E' [intro]:

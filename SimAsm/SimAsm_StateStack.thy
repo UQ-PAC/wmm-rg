@@ -147,11 +147,11 @@ definition tupdate :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'v
 definition taux :: "('var,'val,'a) tstack \<Rightarrow> 'a" where 
   "taux s = more (last (Rep_tstack s))"
 
-definition auxupd where 
+definition auxupd :: "('var,'val,'a) stack \<Rightarrow> (('var,'val,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) stack" where 
   "auxupd s f = butlast s @ [(last s)\<lparr> more := f s \<rparr>]"
   
 definition tauxupd :: "('var,'val,'a) tstack \<Rightarrow> (('var,'val,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) tstack" where 
-  "tauxupd s f = Abs_tstack (auxupd (Rep_tstack s) (\<lambda>x. f (Abs_tstack x)))"
+  "tauxupd s f = Abs_tstack (auxupd (Rep_tstack s) (\<lambda>tstack. f (Abs_tstack tstack)))"
 
 lemma [intro!, simp]: "Is_tstack (Rep_tstack s)" 
 using Rep_tstack by auto
