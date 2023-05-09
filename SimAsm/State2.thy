@@ -4,7 +4,7 @@ begin
 
 locale state = 
   fixes st :: "'s \<Rightarrow> 'var \<Rightarrow> 'val"
-  fixes st_upd :: "'s \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> 's" ("_'((2_/ :=\<^sub>u/ _)')" [900,0,0] 901)
+  fixes st_upd :: "'s \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> 's" ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901)
   fixes aux :: "'sub \<Rightarrow> 'a"
   fixes aux_upd :: "'s \<Rightarrow> ('sub \<Rightarrow> 'a) \<Rightarrow> 's" ("_'((2aux:/ _)')" [900,0] 901)
   fixes aux_extract :: "'s \<Rightarrow> 'sub"

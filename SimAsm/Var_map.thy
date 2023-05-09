@@ -1,6 +1,5 @@
 theory Var_map
   imports Main State2
-
 begin
 
 
@@ -24,21 +23,28 @@ datatype ('var,'val) bexp =
 
 type_synonym ('var,'val) varmap = "'var \<Rightarrow> 'val"
 
-(* locale expression = state  *)
-  (* st st_upd aux aux_upd aux_extract *)
-  (* for st :: "'s \<Rightarrow> 'v \<Rightarrow> 'val"  *)
-  (* and st_upd and aux and aux_upd and aux_extract *)
+(* the leak operation corresponds to Cache+=x in the Refine2019 paper
+    here the op also specifies where the leak goes, e.g., Cache*)
+datatype ('r,'v) op =
+    assign "'r" "('r,'v) exp"
+  | cmp "('r,'v) bexp"
+  | full_fence
+  | nop
+  | leak "'r" "('r,'v) exp"
+
+locale expression = state st st_upd aux aux_upd id
+  for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v" 
+  and st_upd ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901) and aux and aux_upd ("_'((2aux:/ _)')" [900,0] 901)
+  and locals :: "'r set" 
     
 
-(* context expression *)
-(* begin *)
+context expression
+begin
 
+definition rg :: "'s \<Rightarrow> 'r \<Rightarrow> 'v option"
+  where "rg m v \<equiv> (if v \<in> locals then Some (st m v) else None)"
 
-(* definition glb' :: "('v \<Rightarrow> 'v) \<Rightarrow> ('g \<Rightarrow> 'v)" *)
-  (* where "glb' m v \<equiv> m (Glb v)" *)
-
-(* definition rg' :: "('v \<Rightarrow> 'v) \<Rightarrow> ('r \<Rightarrow> 'v)" *)
-  (* where "rg' m v \<equiv> m (Reg v)" *)
+term restrict
 
 text \<open>Domain of register variables\<close>
 
@@ -97,14 +103,7 @@ fun subst\<^sub>B :: "('r,'v) bexp \<Rightarrow> 'r \<Rightarrow> ('r,'v) exp \<
 
 section \<open>Operations\<close>
 
-(* the leak operation corresponds to Cache+=x in the Refine2019 paper
-    here the op also specifies where the leak goes, e.g., Cache*)
-datatype ('r,'v) op =
-    assign "'r" "('r,'v) exp"
-  | cmp "('r,'v) bexp"
-  | full_fence
-  | nop
-  | leak "'r" "('r,'v) exp"      
+      
 
 text \<open>Variables written by an operation\<close>
 fun wr :: "('r,'v) op \<Rightarrow> 'r set"
@@ -170,18 +169,17 @@ lemma map_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a := b))(c := d) = (m(c 
   (* "glb' m x = m (Glb x)" *)
   (* by (auto simp: glb'_def) *)
 
-(* lemma [simp]: *)
-  (* "rg' (m((Glb x)\<mapsto>  e)) = rg' m" *)
-  (* (* unfolding rg'_def (*fun_upd_def var.distinct(1)*) *) *)
-  (* by auto *)
+lemma [simp]:
+  "g \<notin> locals \<Longrightarrow> rg (m(g :=\<^sub>u x)) = rg m"
+  unfolding rg_def by auto
 
-(* lemma [dest]: *)
-  (* "rg' m = rg' m' \<Longrightarrow> m (Reg x) = m'(Reg x)"  *)
-  (* by (metis rg'_def) *)
+lemma [dest]:
+  "rg m = rg m' \<Longrightarrow> x \<in> locals \<Longrightarrow> st m x = st m' x"
+  unfolding rg_def by (meson option.inject)
 
-(* lemma [simp]: *)
-  (* "glb' (m(Reg r := e)) = glb' m" *)
-  (* by auto *)
+lemma [intro]:
+  "(\<And>x. x \<in> locals \<Longrightarrow> st m x = st m' x) \<Longrightarrow> rg m = rg m'"
+  unfolding rg_def by auto
 
 lemma [simp]:
   "P O {(m, m'). m' = m} = P"
@@ -499,13 +497,13 @@ lemma forall_unfold:
 proof -
   have "?L \<subseteq> ?R"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M :: "'a \<Rightarrow> 'b option" assume d: "dom M = insert x V" "x \<in> V"
+    fix M :: "'r \<Rightarrow> 'v option" assume d: "dom M = insert x V" "x \<in> V"
     hence "smap \<alpha> M = subst\<^sub>i (smap \<alpha> M) x (Val (the (M x)))" by simp
     moreover have "dom M = V" using d by auto
     ultimately show "\<exists>c \<alpha>'. smap \<alpha> M = subst\<^sub>i \<alpha>' x (Val c) \<and> (\<exists>M. \<alpha>' = smap \<alpha> M \<and> dom M = V)"
       by blast
   next
-    fix M :: "'a \<Rightarrow> 'b option" assume d: "dom M = insert x V" "x \<notin> V"
+    fix M :: "'r \<Rightarrow> 'v option" assume d: "dom M = insert x V" "x \<notin> V"
     let ?M = "\<lambda>y. if x = y then None else M y"
     have "smap \<alpha> M = subst\<^sub>i (smap \<alpha> ?M) x (Val (the (M x)))"
     proof -
@@ -542,13 +540,13 @@ proof -
 
   moreover have "?R \<subseteq> ?L"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M :: "'a \<Rightarrow> 'b option" and c assume d: "V = dom M" "x \<in> V" 
+    fix M :: "'r \<Rightarrow> 'v option" and c assume d: "V = dom M" "x \<in> V" 
     have "dom M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> M" using d by simp
     ultimately show "\<exists>Ma. subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> Ma \<and> dom Ma = insert x (dom M)"
       by blast
   next
-    fix M :: "'a \<Rightarrow> 'b option" and c assume d: "V = dom M" "x \<notin> V" 
+    fix M :: "'r \<Rightarrow> 'v option" and c assume d: "V = dom M" "x \<notin> V" 
     let ?M = "\<lambda>y. if y = x then Some c else M y"
     have "dom ?M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> ?M"
@@ -599,7 +597,7 @@ lemma forallI [intro]:
   "smap \<alpha> M \<in> forall (dom M) \<alpha>"
   by (auto simp: forall_def)
 
-(* end (*of locale *) *)
+end (*of locale *)
 
 (*
 lemma local_ev\<^sub>E' [intro]:
