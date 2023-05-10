@@ -2,32 +2,52 @@ theory SimAsm_WP
   imports SimAsm
 begin
 
+locale wp = expression st st_upd aux aux_upd locals
+  for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v" 
+  and st_upd ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901) and aux and aux_upd ("_'((2aux:/ _)')" [900,0] 901)
+  and locals :: "'r set" 
+  and rg :: "'s \<Rightarrow> 'l"
+  and glb :: "'s \<Rightarrow> 'g"
+text \<open>The added rg and glb are projections onto the local and global states.\<close>
+
+datatype 'g label = Un 'g | Gl 'g
+type_synonym 'a pred = "'a set" 
+type_synonym 'a trans = "'a pred \<Rightarrow> 'a pred"
+type_synonym 'a rtrans = "'a rel \<Rightarrow> 'a rel"
+
+
+context wp
+begin 
+
 text \<open> Reasoning is performed on "simple" predicates, not on stateTrees, which are 
         later (in the soundness proof) matched to the stateTrees on which the semantics operates \<close>
 
 section \<open>Wellformedness\<close>
 
+text \<open>stabilize R P is effectively the weakest (i.e. largest) precondition
+that is guaranteed to arrive at P after R steps. 
+This is something like the weakest precondition of the environment steps.\<close>
 definition stabilize
-  where "stabilize R P \<equiv> {m. \<forall>m'. (glbSt m,glbSt m') \<in> R \<longrightarrow> rg m = rg m' \<longrightarrow> m' \<in> P}"
+  where "stabilize R P \<equiv> {m. \<forall>m'. (glb m,glb m') \<in> R \<longrightarrow> rg m = rg m' \<longrightarrow> m' \<in> P}"
 
 definition reflexive
-  where "reflexive R \<equiv> \<forall>m. (m,m) \<in> R"
+  where "reflexive R \<equiv> (\<forall>m. (m,m) \<in> R)"
 
 definition transitive
-  where "transitive R \<equiv> \<forall>m m' m''. (m,m') \<in> R \<longrightarrow> (m',m'') \<in> R \<longrightarrow> (m,m'') \<in> R"
+  where "transitive R \<equiv> (\<forall>m m' m''. (m,m') \<in> R \<longrightarrow> (m',m'') \<in> R \<longrightarrow> (m,m'') \<in> R)"
 
 definition assert
   where "assert b \<equiv> {m. b}"
 
 
 text \<open>Lift a relational predicate\<close>
-definition step\<^sub>t :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
-  where "step\<^sub>t R \<equiv> {(m,m'). (glbSt m, glbSt m') \<in> R \<and> rg m = rg m'}"
+definition step\<^sub>t :: "'g rel \<Rightarrow> 's rel"
+  where "step\<^sub>t R \<equiv> {(m,m'). (glb m, glb m') \<in> R \<and> rg m = rg m'}"
 
 
 text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) trel"
-  where "step R \<equiv> {(t,t'). (glbSt t, glbSt t') \<in> R}"
+definition step :: "'g rel \<Rightarrow> 's rel"
+  where "step R \<equiv> {(t,t'). (glb t, glb t') \<in> R}"
 
 
 text \<open>Define stability in terms of a relational predicate that preserves the thread state\<close>
@@ -35,7 +55,7 @@ abbreviation stable\<^sub>t
   where "stable\<^sub>t R P \<equiv> stable (step\<^sub>t R) P"
 
 text \<open>Couple all wellformedness conditions into a single definition\<close>
-abbreviation wellformed :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'a) grel \<Rightarrow> bool"
+abbreviation wellformed :: "'g rel \<Rightarrow> 'g rel \<Rightarrow> bool"
   where "wellformed R G \<equiv> reflexive R \<and> transitive R \<and> reflexive G" 
 
 text \<open>Show that a stabilized predicate is stable\<close>
@@ -45,9 +65,10 @@ lemma stabilize_stable [intro]:
   unfolding stable_def step\<^sub>t_def
 proof (clarsimp)
   fix m m'
-  assume a: "m \<in> stabilize R Q" "(glbSt m, glbSt m') \<in> R" "rg m = rg m'"
-  have "\<forall>g''. (glbSt m',g'') \<in> R \<longrightarrow> (glbSt m,g'') \<in> R"
-    using assms a(2) unfolding transitive_def by blast
+  assume a: "m \<in> stabilize R Q" "(glb m, glb m') \<in> R" "rg m = rg m'"
+  have "\<forall>g''. (glb m',g'') \<in> R \<longrightarrow> (glb m,g'') \<in> R"
+    using assms a(2) unfolding transitive_def
+    using trans_def by fast
   thus "m' \<in> stabilize R Q" using a(1,3) by (auto simp: stabilize_def)
 qed
 
@@ -62,10 +83,10 @@ lemma stabilizeE:
   assumes "m \<in> stabilize R P"
   assumes "reflexive R"
   obtains "m \<in> P"
-proof -
-  have "\<forall>g. (glbSt m, glbSt g) \<in> R \<longrightarrow> rg m = rg g \<longrightarrow> g \<in> P" 
-       "(glbSt m, glbSt m) \<in>  R"
-    using assms by (auto simp: reflexive_def stabilize_def)
+proof - 
+  have "\<forall>g. (glb m, glb g) \<in> R \<longrightarrow> rg m = rg g \<longrightarrow> g \<in> P" 
+       "(glb m, glb m) \<in>  R"
+    using assms by (simp_all add: stabilize_def reflexive_def)
   thus ?thesis using that by auto
 qed
 
@@ -84,32 +105,28 @@ section \<open>Predicate Transformations\<close>
 (* define (spec c) = \<triangle>(Capture s c)? No, only in the semantics (i.e., the abstract logic) *)
 
 text \<open>Transform a predicate based on an sub-operation\<close>
-fun wp\<^sub>i :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred" 
+fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> 's set \<Rightarrow> 's set" 
   where 
-    "wp\<^sub>i (assign r e) Q = {s. (st_upd s r (st_ev\<^sub>E s e)) \<in>Q}" |
+    "wp\<^sub>i (assign r e) Q = {s. s (r :=\<^sub>u st_ev\<^sub>E s e) \<in> Q}" |
     "wp\<^sub>i (cmp b) Q =  {s. (st_ev\<^sub>B s b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s (c :=\<^sub>s st_ev\<^sub>E s e)) \<in> Q}" |
+    "wp\<^sub>i (leak c e) Q = {s. (s (c :=\<^sub>u st_ev\<^sub>E s e)) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "('v,'g,'r,'a) auxfn \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
+fun wp\<^sub>a :: "('s,'a) auxfn \<Rightarrow> 's set \<Rightarrow> 's set"
   where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}"
 
 
-datatype 'g label = Un 'g | Gl 'g
-
-
-
 text \<open> Transform a predicate over a speculation \<close>
-fun wp\<^sub>i\<^sub>s :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"          (* wp_spec on ops *)
+fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> 's set \<Rightarrow> 's set"          (* wp_spec on ops *)
   where 
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
 
 
-fun po :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred"
+fun po :: "('r,'v) op \<Rightarrow> 's set"
   where
     "po (assign r e) = undefined" |
     "po (cmp v) = undefined" |
@@ -117,7 +134,7 @@ fun po :: "('v,'g,'r) op \<Rightarrow> ('v,'g,'r,'a) pred"
     "po nop = undefined" |
     "po (leak v va) = undefined"
 
-fun wp\<^sub>s :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"     (* wp_spec transformer on lang *)
+fun wp\<^sub>s :: "('r,'v,'s,'a) lang \<Rightarrow> 's set \<Rightarrow> 's set"     (* wp_spec transformer on lang *)
   where 
     "wp\<^sub>s Skip Q = Q" |
     "wp\<^sub>s (Op v a f) Q = (v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
@@ -128,11 +145,11 @@ fun wp\<^sub>s :: "('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightar
 
 
 
-fun merge :: "('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
+fun merge :: "'s set \<Rightarrow> 's set \<Rightarrow> 's set"
   where "merge Q\<^sub>1 Q\<^sub>2 = undefined"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g,'r,'a) pred \<Rightarrow> ('v,'g,'r,'a) pred"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,'s,'a) lang \<Rightarrow> 's set \<Rightarrow> 's set"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
@@ -147,7 +164,7 @@ fun wp :: "('v,'g,'a) grel \<Rightarrow> ('v,'g,'r,'a) lang \<Rightarrow> ('v,'g
 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
-definition wp\<^sub>r :: "('v,'g,'r,'a) trans \<Rightarrow> ('v,'g,'r,'a) rtrans"
+definition wp\<^sub>r :: "'s trans \<Rightarrow> 's rtrans"
   where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {s'. (s,s') \<in> G}}"
 
 
@@ -179,7 +196,7 @@ definition w
 
 text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
 
-definition sc :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+definition sc :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
   where "sc \<alpha>' \<beta> \<alpha>  \<equiv> \<not>(re\<^sub>s \<beta> \<alpha>)"
 
 abbreviation Seqsc (infixr "." 80)                      (* i.e., Seq c sc c' *)
@@ -189,7 +206,7 @@ abbreviation Itersc ("_**" [90] 90)                       (* i.e., Loop c sc *)
   where "Itersc c \<equiv> com.Loop c sc"
 
 
-definition reorder_inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) opbasic \<Rightarrow> bool"
+definition reorder_inst :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
   where "reorder_inst \<alpha>' \<beta> \<alpha>  \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
 
 abbreviation Seqw (infixr ";;" 80)                      (* i.e., Seq c w c' *)
@@ -201,7 +218,7 @@ abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
-fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,'g,'r,'a) state) com" 
+fun lift\<^sub>c :: "('r,'v,'s,'a) lang \<Rightarrow> (('r,'v,'s,'a) auxop, 's) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
@@ -227,7 +244,7 @@ fun lift\<^sub>c :: "('v,'g,'r,'a) lang \<Rightarrow> (('v,'g,'r,'a) auxop, ('v,
     and help to instantiate the types of auxop and state*)
 
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
-abbreviation "someState ::('v,'g,'r,'a) state \<equiv> undefined" (* add a push instance *)
+abbreviation "someState ::'s \<equiv> undefined" (* add a push instance *)
 
 print_locale rules 
 print_locale semantics
@@ -244,17 +261,17 @@ print_locale rules
 
 text \<open>Extract the instruction from an abstract operation \<close>
 (* tag (opbasic) = (op \<times> auxfn) *)
-abbreviation inst :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r) op"
+abbreviation inst :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v) op"
   where "inst a \<equiv> fst (tag a)"
 
-abbreviation aux :: "('v,'g,'r,'a) opbasic \<Rightarrow> ('v,'g,'r,'a) auxfn"
-  where "aux a \<equiv> snd (tag a)"
+abbreviation auxbasic :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('s,'a) auxfn"
+  where "auxbasic a \<equiv> snd (tag a)"
 
 text \<open>A basic is well-formed if its behaviour agrees with the behaviour
       of its instruction and auxiliary composed.\<close>
 (* beh \<beta> = snd (snd \<beta>) *)
-definition wfbasic :: "('v,'g,'r,'a) opbasic \<Rightarrow> bool"
-  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, aux \<beta>)"
+definition wfbasic :: "('r,'v,'s,'a) opbasic \<Rightarrow> bool"
+  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, auxbasic \<beta>)"
 
 
 lemma opbasicE:
@@ -283,11 +300,11 @@ lemma vc_fwd\<^sub>s[simp]:
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
 
 lemma beh_fwd\<^sub>s [simp]:
-  "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (aux \<alpha>)) )"
+  "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (auxbasic \<alpha>)) )"
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits) 
 
 lemma aux_fwd\<^sub>s [simp]:
-  "aux (fwd\<^sub>s \<alpha> \<beta>) = aux \<alpha>"
+  "auxbasic (fwd\<^sub>s \<alpha> \<beta>) = auxbasic \<alpha>"
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
 
 lemma inst_fwd\<^sub>s [simp]:
@@ -299,6 +316,8 @@ text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:
   "local (lift\<^sub>c c)"
   by (induct c) auto
+
+end (* of context *)
 
 end
 
