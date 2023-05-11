@@ -41,8 +41,8 @@ locale expression = state st st_upd aux aux_upd id
 context expression
 begin
 
-definition rg :: "'s \<Rightarrow> 'r \<Rightarrow> 'v option"
-  where "rg m v \<equiv> (if v \<in> locals then Some (st m v) else None)"
+(* definition rg :: "'s \<Rightarrow> 'r \<Rightarrow> 'v option" *)
+  (* where "rg m v \<equiv> (if v \<in> locals then Some (st m v) else None)" *)
 
 term restrict
 
@@ -169,17 +169,17 @@ lemma map_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a := b))(c := d) = (m(c 
   (* "glb' m x = m (Glb x)" *)
   (* by (auto simp: glb'_def) *)
 
-lemma [simp]:
-  "g \<notin> locals \<Longrightarrow> rg (m(g :=\<^sub>u x)) = rg m"
-  unfolding rg_def by auto
+(* lemma [simp]: *)
+  (* "g \<notin> locals \<Longrightarrow> rg (m(g :=\<^sub>u x)) = rg m" *)
+  (* unfolding rg_def by auto *)
 
-lemma [dest]:
-  "rg m = rg m' \<Longrightarrow> x \<in> locals \<Longrightarrow> st m x = st m' x"
-  unfolding rg_def by (meson option.inject)
+(* lemma [dest]: *)
+  (* "rg m = rg m' \<Longrightarrow> x \<in> locals \<Longrightarrow> st m x = st m' x" *)
+  (* unfolding rg_def by (meson option.inject) *)
 
-lemma [intro]:
-  "(\<And>x. x \<in> locals \<Longrightarrow> st m x = st m' x) \<Longrightarrow> rg m = rg m'"
-  unfolding rg_def by auto
+(* lemma [intro]: *)
+  (* "(\<And>x. x \<in> locals \<Longrightarrow> st m x = st m' x) \<Longrightarrow> rg m = rg m'" *)
+  (* unfolding rg_def by auto *)
 
 lemma [simp]:
   "P O {(m, m'). m' = m} = P"

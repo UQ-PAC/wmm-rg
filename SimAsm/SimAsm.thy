@@ -19,10 +19,10 @@ datatype ('r,'v,'s,'a) lang =
   Skip
   | Op "('r,'v,'s,'a) pred" "('r,'v) op" "('s,'a) auxfn"
   | Seq "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"
-  | If "('v,'r) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"  
+  | If "('r,'v) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"  
 (*  | If "('v,'g,'r) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang" *)
-  | While "('v,'r) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
-  | DoWhile "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang" "('v,'r) bexp"
+  | While "('r,'v) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
+  | DoWhile "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang" "('r,'v) bexp"
 
 
 context expression
