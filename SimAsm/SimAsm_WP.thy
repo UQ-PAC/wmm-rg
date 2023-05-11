@@ -274,8 +274,9 @@ fun lift\<^sub>c :: "('r,'v,'s,'a) lang \<Rightarrow> (('r,'v,'s,'a) auxop, 's) 
 (* without speculation:  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
                                  then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
                                  else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | *)
-    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | 
-(*    "lift\<^sub>c (While b I c c\<^sub>3) = lift\<^sub>c (If b (Seq c (While b I c c\<^sub>3)) Skip c\<^sub>3)" | *)
+    "lift\<^sub>c (While b I c c\<^sub>3) = (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
+                    then Interrupt (\<forall>\<^sub>c (lift\<^sub>c c\<^sub>3)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c)) 
+                    else Interrupt (\<forall>\<^sub>c (lift\<^sub>c c)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>3))))" |
 (*    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | *)
     "lift\<^sub>c (DoWhile I c b) = ((lift\<^sub>c c) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; (lift\<^sub>c c) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
