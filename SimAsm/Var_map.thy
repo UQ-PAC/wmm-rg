@@ -38,8 +38,8 @@ locale expression = state st st_upd aux aux_upd id
   and locals :: "'r set" 
     
 
-context expression
-begin
+(* context expression *)
+(* begin *)
 
 (* definition rg :: "'s \<Rightarrow> 'r \<Rightarrow> 'v option" *)
   (* where "rg m v \<equiv> (if v \<in> locals then Some (st m v) else None)" *)
@@ -497,13 +497,13 @@ lemma forall_unfold:
 proof -
   have "?L \<subseteq> ?R"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M :: "'r \<Rightarrow> 'v option" assume d: "dom M = insert x V" "x \<in> V"
+    fix M :: "'a \<Rightarrow> 'b option" assume d: "dom M = insert x V" "x \<in> V"
     hence "smap \<alpha> M = subst\<^sub>i (smap \<alpha> M) x (Val (the (M x)))" by simp
     moreover have "dom M = V" using d by auto
     ultimately show "\<exists>c \<alpha>'. smap \<alpha> M = subst\<^sub>i \<alpha>' x (Val c) \<and> (\<exists>M. \<alpha>' = smap \<alpha> M \<and> dom M = V)"
       by blast
   next
-    fix M :: "'r \<Rightarrow> 'v option" assume d: "dom M = insert x V" "x \<notin> V"
+    fix M :: "'a \<Rightarrow> 'b option" assume d: "dom M = insert x V" "x \<notin> V"
     let ?M = "\<lambda>y. if x = y then None else M y"
     have "smap \<alpha> M = subst\<^sub>i (smap \<alpha> ?M) x (Val (the (M x)))"
     proof -
@@ -540,13 +540,13 @@ proof -
 
   moreover have "?R \<subseteq> ?L"
   proof (clarsimp simp: forall_def, cases "x \<in> V")
-    fix M :: "'r \<Rightarrow> 'v option" and c assume d: "V = dom M" "x \<in> V" 
+    fix M :: "'a \<Rightarrow> 'b option" and c assume d: "V = dom M" "x \<in> V" 
     have "dom M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> M" using d by simp
     ultimately show "\<exists>Ma. subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> Ma \<and> dom Ma = insert x (dom M)"
       by blast
   next
-    fix M :: "'r \<Rightarrow> 'v option" and c assume d: "V = dom M" "x \<notin> V" 
+    fix M :: "'a \<Rightarrow> 'b option" and c assume d: "V = dom M" "x \<notin> V" 
     let ?M = "\<lambda>y. if y = x then Some c else M y"
     have "dom ?M = insert x (dom M)" using d by auto
     moreover have "subst\<^sub>i (smap \<alpha> M) x (Val c) = smap \<alpha> ?M"
@@ -597,7 +597,7 @@ lemma forallI [intro]:
   "smap \<alpha> M \<in> forall (dom M) \<alpha>"
   by (auto simp: forall_def)
 
-end (*of locale *)
+(* end (*of locale *) *)
 
 (*
 lemma local_ev\<^sub>E' [intro]:

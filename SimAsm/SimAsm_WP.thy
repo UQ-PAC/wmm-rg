@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm
+  imports SimAsm Var_map
 begin
 
 locale wp = expression st st_upd aux aux_upd locals
@@ -15,15 +15,17 @@ type_synonym 'a pred = "'a set"
 type_synonym 'a trans = "'a pred \<Rightarrow> 'a pred"
 type_synonym 'a rtrans = "'a rel \<Rightarrow> 'a rel"
 
+record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
+type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
 
-context wp
-begin 
+(* context wp *)
+(* begin  *)
 
 text \<open> Reasoning is performed on "simple" predicates, not on stateTrees, which are 
         later (in the soundness proof) matched to the stateTrees on which the semantics operates \<close>
 
 section \<open>Wellformedness\<close>
-
+(*
 text \<open>stabilize R P is effectively the weakest (i.e. largest) precondition
 that is guaranteed to arrive at P after R steps. 
 This is something like the weakest precondition of the environment steps.\<close>
@@ -98,35 +100,38 @@ lemma stabilize_entail :
   shows "t \<in> stabilize R Q"
   using assms by (auto simp: stabilize_def)
 
-
+*)
 
 section \<open>Predicate Transformations\<close>
 
 (* define (spec c) = \<triangle>(Capture s c)? No, only in the semantics (i.e., the abstract logic) *)
 
+
+
 text \<open>Transform a predicate based on an sub-operation\<close>
-fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> 's set \<Rightarrow> 's set" 
+fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set" 
   where 
-    "wp\<^sub>i (assign r e) Q = {s. s (r :=\<^sub>u st_ev\<^sub>E s e) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {s. (st_ev\<^sub>B s b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s (c :=\<^sub>u st_ev\<^sub>E s e)) \<in> Q}" |
+    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "('s,'a) auxfn \<Rightarrow> 's set \<Rightarrow> 's set"
-  where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}"
+fun wp\<^sub>a :: "('s,'a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+  (* where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}" *)
+  where "wp\<^sub>a a Q = {t. t \<in> Q}"
 
 
 text \<open> Transform a predicate over a speculation \<close>
-fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> 's set \<Rightarrow> 's set"          (* wp_spec on ops *)
+fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"          (* wp_spec on ops *)
   where 
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
 
 
-fun po :: "('r,'v) op \<Rightarrow> 's set"
+fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "po (assign r e) = undefined" |
     "po (cmp v) = undefined" |
@@ -134,10 +139,13 @@ fun po :: "('r,'v) op \<Rightarrow> 's set"
     "po nop = undefined" |
     "po (leak v va) = undefined"
 
-fun wp\<^sub>s :: "('r,'v,'s,'a) lang \<Rightarrow> 's set \<Rightarrow> 's set"     (* wp_spec transformer on lang *)
+fun project :: "'s \<Rightarrow> ('r,'v,'a) varmap'" where 
+  "project x = undefined"
+
+fun wp\<^sub>s :: "('r,'v,'s,'a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"     (* wp_spec transformer on lang *)
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
+    "wp\<^sub>s (Op v a f) Q = (project ` v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = (wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter> (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q))" |
     "wp\<^sub>s (While v va vb) b = undefined" | 
@@ -319,7 +327,7 @@ lemma local_lift [intro]:
   "local (lift\<^sub>c c)"
   by (induct c) auto
 
-end (* of context *)
+(* end (* of context *) *)
 
 end
 
