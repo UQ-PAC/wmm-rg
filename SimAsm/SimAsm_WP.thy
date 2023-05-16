@@ -2,30 +2,35 @@ theory SimAsm_WP
   imports SimAsm Var_map
 begin
 
-locale wp = expression st st_upd aux aux_upd locals
-  for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v" 
-  and st_upd ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901) and aux and aux_upd ("_'((2aux:/ _)')" [900,0] 901)
-  and locals :: "'r set" 
-  and rg :: "'s \<Rightarrow> 'l"
-  and glb :: "'s \<Rightarrow> 'g"
+record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
+type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
+
+locale wp = 
+  fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
+  fixes rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
+  fixes glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 text \<open>The added rg and glb are projections onto the local and global states.\<close>
+
+text \<open>
+Further, note that the ('r,'v,'a) varmap' type is a varmap with added auxiliary state.
+This takes the place of the "state" type in previous theories.
+
+'r is the variable name type (r for register), 'v is the value type, and 'a is auxiliary.
+\<close>
 
 datatype 'g label = Un 'g | Gl 'g
 type_synonym 'a pred = "'a set" 
 type_synonym 'a trans = "'a pred \<Rightarrow> 'a pred"
 type_synonym 'a rtrans = "'a rel \<Rightarrow> 'a rel"
 
-record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
-type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
-
-(* context wp *)
-(* begin  *)
+context wp
+begin
 
 text \<open> Reasoning is performed on "simple" predicates, not on stateTrees, which are 
         later (in the soundness proof) matched to the stateTrees on which the semantics operates \<close>
 
 section \<open>Wellformedness\<close>
-(*
+
 text \<open>stabilize R P is effectively the weakest (i.e. largest) precondition
 that is guaranteed to arrive at P after R steps. 
 This is something like the weakest precondition of the environment steps.\<close>
@@ -43,12 +48,12 @@ definition assert
 
 
 text \<open>Lift a relational predicate\<close>
-definition step\<^sub>t :: "'g rel \<Rightarrow> 's rel"
+definition step\<^sub>t :: "'g rel \<Rightarrow> ('r,'v,'a) varmap' rel"
   where "step\<^sub>t R \<equiv> {(m,m'). (glb m, glb m') \<in> R \<and> rg m = rg m'}"
 
 
 text \<open>Lift a relational predicate and assume it preserves the thread state\<close>
-definition step :: "'g rel \<Rightarrow> 's rel"
+definition step :: "'g rel \<Rightarrow> ('r,'v,'a) varmap' rel"
   where "step R \<equiv> {(t,t'). (glb t, glb t') \<in> R}"
 
 
@@ -100,7 +105,7 @@ lemma stabilize_entail :
   shows "t \<in> stabilize R Q"
   using assms by (auto simp: stabilize_def)
 
-*)
+
 
 section \<open>Predicate Transformations\<close>
 
@@ -119,9 +124,9 @@ fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow>
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "('s,'a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   (* where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}" *)
-  where "wp\<^sub>a a Q = {t. t \<in> Q}"
+  where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}"
 
 
 text \<open> Transform a predicate over a speculation \<close>
@@ -139,25 +144,22 @@ fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
     "po nop = undefined" |
     "po (leak v va) = undefined"
 
-fun project :: "'s \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "project x = undefined"
-
-fun wp\<^sub>s :: "('r,'v,'s,'a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"     (* wp_spec transformer on lang *)
+fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"     (* wp_spec transformer on lang *)
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (project ` v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
+    "wp\<^sub>s (Op v a f) Q = (v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = (wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter> (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q))" |
     "wp\<^sub>s (While v va vb) b = undefined" | 
     "wp\<^sub>s (DoWhile v va vb) b = undefined"
 
-
-
-fun merge :: "'s set \<Rightarrow> 's set \<Rightarrow> 's set"
+text \<open>Merge function to merge sequential and speculative predicates into a single weakest precondition. \<close>
+fun merge :: "('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where "merge Q\<^sub>1 Q\<^sub>2 = undefined"
+(* this may require changing the 'r type to be the Ul | Gl datatype. *)
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,'s,'a) lang \<Rightarrow> 's set \<Rightarrow> 's set"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
@@ -172,7 +174,7 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,'s,'a) lang \<Rightarrow> 's set \<Righta
 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
-definition wp\<^sub>r :: "'s trans \<Rightarrow> 's rtrans"
+definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
   where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {s'. (s,s') \<in> G}}"
 
 
@@ -254,7 +256,7 @@ fun lift\<^sub>c :: "('r,'v,'s,'a) lang \<Rightarrow> (('r,'v,'s,'a) auxop, 's) 
     and help to instantiate the types of auxop and state*)
 
 abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
-abbreviation "someState ::'s \<equiv> undefined" (* add a push instance *)
+abbreviation "someState ::('r \<Rightarrow> 'v) \<equiv> undefined" (* add a push instance *)
 
 print_locale rules 
 print_locale semantics
@@ -327,12 +329,12 @@ lemma local_lift [intro]:
   "local (lift\<^sub>c c)"
   by (induct c) auto
 
-(* end (* of context *) *)
+end (* of context *)
 
 end
 
 
-(* old stuff, not needed for Nick's new soundness proof:
+(* old stuff, not needed for Nick('r \<Rightarrow> 'v) new soundness proof:
 
 
 
