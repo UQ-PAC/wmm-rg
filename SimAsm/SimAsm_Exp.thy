@@ -43,7 +43,7 @@ next
   case (Exp fn rs)
   hence [simp]: "map (st_ev\<^sub>E m \<circ> (\<lambda>x. subst\<^sub>E x r f)) rs = map (st_ev\<^sub>E (m(r :=\<^sub>u st_ev\<^sub>E m f))) rs" by auto
   then show ?case  using ev\<^sub>E.simps(3) map_map subst\<^sub>E.simps(2) 
-  by (smt (verit, best) expression.ev_subst\<^sub>E' expression.st_ev\<^sub>E.simps expression_axioms state.st_upd_map state_axioms)
+  by (smt (verit, best) ev_subst\<^sub>E' expression.st_ev\<^sub>E.simps expression_axioms state.st_upd_map state_axioms)
 qed                          
 
 
