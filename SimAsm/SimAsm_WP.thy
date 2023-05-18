@@ -184,14 +184,27 @@ fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) l
     "wp\<^sub>s Skip Q = Q" |
     "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (po a)\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = (wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter> (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q))" |
+    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
+    "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
     "wp\<^sub>s (While v va vb) b = undefined" | 
-    "wp\<^sub>s (DoWhile v va vb) b = undefined"
+    "wp\<^sub>s (DoWhile I c b) Q = undefined"
 
 text \<open>Merge function to merge sequential and speculative predicates into a single weakest precondition. \<close>
 fun merge :: "('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where "merge Q\<^sub>1 Q\<^sub>2 = undefined"
 (* this may require changing the 'r type to be the Ul | Gl datatype. *)
+
+
+text \<open> this predicate transformer needs to relate (wp r Q) and (wp_s  r Q) without knowing r \<close>
+(* todo: something like (spec Q) = Q \<inter> \<And>x \<in> wr(r). (\<L>(x) \<inter> \<And>y \<in> ctrl(x). \<L>(y)) 
+                                       "minus" stability conditions 
+   or maybe just add in the context of the non-speculated behaviour: (spec b Q) = Q \<inter> {s. (st_ev\<^sub>B s b)}
+   or maybe, wp c Q \<subseteq> (spec c Q)  where c is the speculated command, which in case c=r
+   means we can set (spec r Q) = Q  
+*)
+fun spec :: "'s set \<Rightarrow> 's set"
+  where "(spec Q) = Q"
+
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
@@ -199,12 +212,21 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
+               (merge (wp\<^sub>s c\<^sub>2  (spec Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
+               \<inter> (merge (wp\<^sub>s c\<^sub>1  (spec Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
+(* here (wp\<^sub>s r true) is simplified to Q *)
+    "wp R (While b Imix Ispec c) Q =
+          (stabilize R Imix \<inter>  
+               assert (Imix \<subseteq> (merge Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
+                               \<inter>  (merge (wp\<^sub>s c Ispec) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" |
+(*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
                (merge (wp\<^sub>s c\<^sub>2  (wp\<^sub>s c\<^sub>3 Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1  (wp R c\<^sub>3 Q)))))
                \<inter> (merge (wp\<^sub>s c\<^sub>1  (wp\<^sub>s c\<^sub>3 Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2  (wp R c\<^sub>3 Q)))))" |
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
-    "wp R (DoWhile I c b) Q = 
+*)
+    "wp R (DoWhile I c b) Q =
       (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
 
@@ -225,8 +247,8 @@ fun guar\<^sub>c
     "guar\<^sub>c Skip G = True" |
     "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2 c\<^sub>3) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G \<and> guar\<^sub>c c\<^sub>3 G)" |
-    "guar\<^sub>c (While _ _ c) G = (guar\<^sub>c c G)" |
+    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G \<and> guar\<^sub>c c\<^sub>3 G)" |
+    "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
     "guar\<^sub>c (DoWhile _ c _) G = (guar\<^sub>c c G)"
 
 

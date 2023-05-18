@@ -21,9 +21,8 @@ datatype ('r,'v,'s,'a) lang =
   Skip
   | Op "('r,'v,'s,'a) pred" "('r,'v) op" "('s,'a) auxfn"
   | Seq "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"
-  | If "('r,'v) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"  
-(*  | If "('v,'g,'r) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang" *)
-  | While "('r,'v) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
+  | If "('r,'v) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"  
+  | While "('r,'v) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
   | DoWhile "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang" "('r,'v) bexp"
 
 
