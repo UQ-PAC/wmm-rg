@@ -32,7 +32,7 @@ datatype ('r,'v) op =
   | nop
   | leak "'r" "('r,'v) exp"
 
-locale expression = state st st_upd aux aux_upd id
+locale expression = state st st_upd aux aux_upd 
   for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v" 
   and st_upd ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901) and aux and aux_upd ("_'((2aux:/ _)')" [900,0] 901)
   and locals :: "'r set" 
