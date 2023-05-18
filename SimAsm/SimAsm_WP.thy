@@ -2,8 +2,13 @@ theory SimAsm_WP
   imports SimAsm Var_map
 begin
 
+datatype 'g label = Ul 'g | Gl 'g
+fun unlabel where 
+  "unlabel (Ul x) = x" | "unlabel (Gl x) = x"
+
 record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
 type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
+type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
 
 locale wp = 
   fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
@@ -18,13 +23,18 @@ This takes the place of the "state" type in previous theories.
 'r is the variable name type (r for register), 'v is the value type, and 'a is auxiliary.
 \<close>
 
-datatype 'g label = Un 'g | Gl 'g
 type_synonym 'a pred = "'a set" 
 type_synonym 'a trans = "'a pred \<Rightarrow> 'a pred"
 type_synonym 'a rtrans = "'a rel \<Rightarrow> 'a rel"
 
 context wp
 begin
+
+(* interpretation varmap:  *)
+  (* expression *)
+  (* "undefined :: ('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v" *)
+  (* "\<lambda>f.  *)
+  
 
 text \<open> Reasoning is performed on "simple" predicates, not on stateTrees, which are 
         later (in the soundness proof) matched to the stateTrees on which the semantics operates \<close>
@@ -111,14 +121,22 @@ section \<open>Predicate Transformations\<close>
 
 (* define (spec c) = \<triangle>(Capture s c)? No, only in the semantics (i.e., the abstract logic) *)
 
+fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
+  "map\<^sub>E f g (Var v) = Var (f v)" |
+  "map\<^sub>E f g (Exp eval es) = Exp (\<lambda>vs. g (eval(_  vs))) (map (map\<^sub>E f g) es)" |
+  "map\<^sub>E f g (Val v) = Val (g v)"
+
+fun ul\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
+  "ul\<^sub>E e = map\<^sub>E Ul e"
+
 
 
 text \<open>Transform a predicate based on an sub-operation\<close>
-fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set" 
+fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set" 
   where 
-    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Ul r := ev\<^sub>E (varmap_st s) (Ul e))\<rparr>) \<in> Q}" |
     "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Gl c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
 
@@ -130,7 +148,7 @@ fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap
 
 
 text \<open> Transform a predicate over a speculation \<close>
-fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"          (* wp_spec on ops *)
+fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
   where 
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c Q"
@@ -144,17 +162,34 @@ fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
     "po nop = undefined" |
     "po (leak v va) = undefined"
 
-fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"     (* wp_spec transformer on lang *)
+text \<open>Restricts the given predicate to its unlabelled part.\<close>
+fun ul_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
+  "ul_restrict s = \<lparr> varmap_st = \<lambda>v. varmap_st s (Ul v), \<dots> = more s \<rparr>"
+
+text \<open>Restricts the given predicate to its globally labelled part.\<close>
+fun gl_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
+  "gl_restrict s = \<lparr> varmap_st = \<lambda>v. varmap_st s (Gl v), \<dots> = more s \<rparr>"
+
+text \<open>Lifts a predicate into a labelled predicate, treating the state as Global and without constraining Unlabelled.\<close>
+fun gl_label :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>G" [901] 900) where
+  "gl_label Q = {s. gl_restrict s \<in> Q }"
+
+text \<open>Lifts a predicate into a labelled predicate, treating the state as Unlabelled and without constraining Global.\<close>
+fun ul_label :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>L" [901] 900) where
+  "ul_label Q = {s. ul_restrict s \<in> Q }"
+
+text \<open>wp_spec transformer on lang.\<close>
+fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"   
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v \<inter> (po a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
+    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (po a)\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = (wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter> (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q))" |
     "wp\<^sub>s (While v va vb) b = undefined" | 
     "wp\<^sub>s (DoWhile v va vb) b = undefined"
 
 text \<open>Merge function to merge sequential and speculative predicates into a single weakest precondition. \<close>
-fun merge :: "('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+fun merge :: "('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where "merge Q\<^sub>1 Q\<^sub>2 = undefined"
 (* this may require changing the 'r type to be the Ul | Gl datatype. *)
 
