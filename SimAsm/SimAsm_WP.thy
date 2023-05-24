@@ -121,29 +121,32 @@ section \<open>Predicate Transformations\<close>
 
 (* define (spec c) = \<triangle>(Capture s c)? No, only in the semantics (i.e., the abstract logic) *)
 
-fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
-  "map\<^sub>E f g (Var v) = Var (f v)" |
-  "map\<^sub>E f g (Exp eval es) = Exp (\<lambda>vs. g (eval(_  vs))) (map (map\<^sub>E f g) es)" |
-  "map\<^sub>E f g (Val v) = Val (g v)"
+fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('v2 \<Rightarrow> 'v) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
+  "map\<^sub>E f g h (Var v) = Var (f v)" |
+  "map\<^sub>E f g h (Exp eval es) = Exp (\<lambda>vs. g (eval (map h vs))) (map (map\<^sub>E f g h) es)" |
+  "map\<^sub>E f g h (Val v) = Val (g v)"
 
 fun ul\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
-  "ul\<^sub>E e = map\<^sub>E Ul e"
+  "ul\<^sub>E e = map\<^sub>E Ul id id e"
 
+fun gl\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
+  "gl\<^sub>E e = map\<^sub>E Gl id id e"
 
+fun ul\<^sub>s :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where
+  "ul\<^sub>s e = undefined"
 
 text \<open>Transform a predicate based on an sub-operation\<close>
 fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set" 
   where 
-    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Ul r := ev\<^sub>E (varmap_st s) (Ul e))\<rparr>) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Gl c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Ul r := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
+    "wp\<^sub>i (cmp b) Q =  {s. ev\<^sub>B (\<lambda>v. varmap_st s (Ul v)) b \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Gl c := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
-  (* where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}" *)
   where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}"
 
 
