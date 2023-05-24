@@ -19,9 +19,16 @@ This takes the place of the "state" type in previous theories.
     the old st mapping that provides the mapping from var to val  *)
 record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
 type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
+
+text \<open>Labelled state (record) in which every variable appears in its Gl and UL variation \<close>
 type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
 
+type_synonym ('r,'v,'a) lopbasic = "('r label,'v,('r,'v,'a) lvarmap','a) opbasic" 
+type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
+
 text \<open>The added rg and glb are projections onto the local and global states.\<close>
+
+print_locale expression
 
 locale wp =
   fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
@@ -128,12 +135,6 @@ section \<open>Predicate Transformations\<close>
 
 (* define (spec c) = \<triangle>(Capture s c)? No, only in the semantics (i.e., the abstract logic) *)
 
-fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('v2 \<Rightarrow> 'v) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
-  "map\<^sub>E f g h (Var v) = Var (f v)" |
-  "map\<^sub>E f g h (Exp eval es) = Exp (\<lambda>vs. g (eval (map h vs))) (map (map\<^sub>E f g h) es)" |
-  "map\<^sub>E f g h (Val v) = Val (g v)"
-
-
 text \<open> Transform a predicate based on an sub-operation, simple wp \<close>
 (* this is the normal wp transformer on ops *)
 fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set" 
@@ -161,6 +162,30 @@ fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap
   where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}"
 
 
+
+fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('v2 \<Rightarrow> 'v) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
+  "map\<^sub>E f g h (Var v) = Var (f v)" |
+  "map\<^sub>E f g h (Exp eval es) = Exp (\<lambda>vs. g (eval (map h vs))) (map (map\<^sub>E f g h) es)" |
+  "map\<^sub>E f g h (Val v) = Val (g v)"
+
+fun ul\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
+  "ul\<^sub>E e = map\<^sub>E Ul id id e"
+
+fun map\<^sub>B :: "('r \<Rightarrow> 'r2) \<Rightarrow> (bool \<Rightarrow> 'bool) \<Rightarrow> ('v \<Rightarrow> 'v) \<Rightarrow> ('r,'v) bexp \<Rightarrow> ('r2,'v2) bexp" where
+  "map\<^sub>B f g h (Neg b) =  Neg (map\<^sub>B f g h b) " |
+  "map\<^sub>B f g h (Exp\<^sub>B eval es) = Exp\<^sub>B (\<lambda>vs. g (eval (map h vs))) (map (map\<^sub>B f g h) es)" |
+  "map\<^sub>B f g h (Val v) = Val (g v)"
+
+fun ul\<^sub>B :: "('r,'v) bexp \<Rightarrow> ('r label,'v) bexp" ("(2_)\<^sup>u" [901] 900) where
+  "ul\<^sub>B b = map\<^sub>B Ul id id b"
+
+fun gl\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
+  "gl\<^sub>E e = map\<^sub>E Gl id id e"
+
+fun ul\<^sub>s :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where
+  "ul\<^sub>s e = undefined"
+
+
 text \<open>Additional proof obligations to check information flow security, see CSF'2021 paper\<close>
 fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
   where
@@ -172,22 +197,7 @@ fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
 
 
 
-fun ul\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
-  "ul\<^sub>E e = map\<^sub>E Ul id id e"
-
-fun gl\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
-  "gl\<^sub>E e = map\<^sub>E Gl id id e"
-
-fun ul\<^sub>s :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where
-  "ul\<^sub>s e = undefined"
-
-
-text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
-fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
-  where 
-    "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
-    "wp\<^sub>i\<^sub>s c Q = wp\<^sub>i c (Q)"
-
+text \<open> Producing a labelled predicate from an unlabelled predicate \<close>
 
 text \<open>Restricts the given predicate to its unlabelled part.\<close>
 fun ul_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
@@ -199,33 +209,58 @@ fun gl_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Global 
                                             and without constraining Unlabelled.\<close>
-fun gl_lift :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>G" [901] 900) where
-  "gl_lift Q = {s. gl_restrict s \<in> Q }"
+fun gl_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>G" [901] 900) where
+  "gl_lift_pred Q = {s. gl_restrict s \<in> Q }"
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Unlabelled 
                                                     and without constraining Global.\<close>
-fun ul_lift :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>L" [901] 900) where
-  "ul_lift Q = {s. ul_restrict s \<in> Q }"
+fun ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(_\<^sup>L)" [1000] 1000) where
+  "ul_lift_pred Q = {s. ul_restrict s \<in> Q }"
+
+
+text \<open> Other direction: Producing an unlabelled predicate from a labelled predicate \<close>
+
+text \<open>Lifts the given unlabelled state to its Ul labelled counterpart.\<close>
+fun ul_lift :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where 
+  "ul_lift s = \<lparr> varmap_st = \<lambda>v. (varmap_st s (unlabel v)), \<dots> = more s \<rparr>"
+
+text \<open>Lifts the given unlabelled state to its Gl labelled counterpart.\<close>
+fun gl_lift :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where 
+  "gl_lift s = \<lparr> varmap_st = \<lambda>v. varmap_st s (unlabel v), \<dots> = more s \<rparr>"
+
+text \<open>Restricts a labelled predicate into an unlabelled predicate, 
+            constraining both, global and unlabelled predicates.\<close>
+fun restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
+  "restrict_pred Q = {s. gl_lift s \<in> Q \<and> ul_lift s \<in> Q}"
+
+
+text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
+fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
+  where 
+    "wp\<^sub>i\<^sub>s (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Ul r) := (ev\<^sub>E (varmap_st s) (ul\<^sub>E e)))\<rparr>) \<in> Q}" |
+    "wp\<^sub>i\<^sub>s (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) (ul\<^sub>E b)) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i\<^sub>s (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Gl c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
+    "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  
+
 
 text \<open>wp_spec transformer on lang.\<close>
-fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"   
+fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (po a)\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a f (ul_restrict Q)\<^sup>L))" |
+    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (po a)\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
-    "wp\<^sub>s (While v va vb) b = undefined" | 
     "wp\<^sub>s (DoWhile I c b) Q = undefined"
 
 text \<open>Merge function to merge sequential and speculative predicates into a single weakest precondition. \<close>
-fun merge :: "('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
-  where "merge Q\<^sub>1 Q\<^sub>2 = undefined"
-(* this may require changing the 'r type to be the Ul | Gl datatype. *)
+fun merge :: "'g rel \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+  where "merge R Q\<^sub>1 Q\<^sub>2 = Q\<^sub>1\<^sup>U \<inter> (stabilize R  Q\<^sub>1\<^sup>U)  \<inter> Q\<^sub>2"
 
+text \<open>  \<close>
+(* wp over speculation needs to relate (wp r Q) and (wp_s  r Q) without knowing r
 
-text \<open> this predicate transformer needs to relate (wp r Q) and (wp_s  r Q) without knowing r \<close>
-(* todo: something like (spec Q) = Q \<inter> \<And>x \<in> wr(r). (\<L>(x) \<inter> \<And>y \<in> ctrl(x). \<L>(y)) 
+  todo: something like (spec Q) = Q \<inter> \<And>x \<in> wr(r). (\<L>(x) \<inter> \<And>y \<in> ctrl(x). \<L>(y))
                                        "minus" stability conditions 
    or maybe just add in the context of the non-speculated behaviour: (spec b Q) = Q \<inter> {s. (st_ev\<^sub>B s b)}
    or maybe, wp c Q \<subseteq> (spec c Q)  where c is the speculated command, which in case c=r
@@ -244,21 +279,21 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
     "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
-               (merge (wp\<^sub>s c\<^sub>2  (spec Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
-               \<inter> (merge (wp\<^sub>s c\<^sub>1  (spec Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
+               (merge R (wp\<^sub>s c\<^sub>2  (spec Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
+               \<inter> (merge R (wp\<^sub>s c\<^sub>1  (spec Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
 (* here (wp\<^sub>s r true) is simplified to Q *)
     "wp R (While b Imix Ispec c) Q =
           (stabilize R Imix \<inter>  
-               assert (Imix \<subseteq> (merge Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
-                               \<inter>  (merge (wp\<^sub>s c Ispec) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" |
-(*    "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
+               assert (Imix \<subseteq> (merge R (ul_lift_pred Q) (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
+                               \<inter>  (merge R (wp\<^sub>s c (spec Ispec)) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" |
+    "wp R (DoWhile I c b) Q =
+      (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
+(* old: "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
                (merge (wp\<^sub>s c\<^sub>2  (wp\<^sub>s c\<^sub>3 Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1  (wp R c\<^sub>3 Q)))))
                \<inter> (merge (wp\<^sub>s c\<^sub>1  (wp\<^sub>s c\<^sub>3 Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2  (wp R c\<^sub>3 Q)))))" |
     "wp R (While b I c) Q = 
       (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
 *)
-    "wp R (DoWhile I c b) Q =
-      (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
@@ -278,7 +313,7 @@ fun guar\<^sub>c
     "guar\<^sub>c Skip G = True" |
     "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G \<and> guar\<^sub>c c\<^sub>3 G)" |
+    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
     "guar\<^sub>c (DoWhile _ c _) G = (guar\<^sub>c c G)"
 
@@ -286,15 +321,25 @@ fun guar\<^sub>c
 
 section \<open>Locale Interpretation\<close>
 
+interpretation expression
+  "varmap_st"
+  "\<lambda>s v x. s\<lparr> varmap_st := (varmap_st s)(v := x)\<rparr>"
+  more
+  "\<lambda>s f. s\<lparr> more := f s\<rparr>"
+  "{x | x y. x = Ul y }"
+by unfold_locales auto
+
+print_locale expression
 
 (*
 definition w
   where "w \<alpha>' \<beta> \<alpha> \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
 *)
 
+
 text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
 
-definition sc :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
+definition sc :: "('r,'v,'a) lopbasic \<Rightarrow> ('r,'v,'a) lopbasic \<Rightarrow> ('r,'v,'a) lopbasic \<Rightarrow> bool" 
   where "sc \<alpha>' \<beta> \<alpha>  \<equiv> \<not>(re\<^sub>s \<beta> \<alpha>)"
 
 abbreviation Seqsc (infixr "." 80)                      (* i.e., Seq c sc c' *)
@@ -304,7 +349,7 @@ abbreviation Itersc ("_**" [90] 90)                       (* i.e., Loop c sc *)
   where "Itersc c \<equiv> com.Loop c sc"
 
 
-definition reorder_inst :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
+definition reorder_inst :: "('r,'v,'a) lopbasic \<Rightarrow> ('r,'v,'a) lopbasic \<Rightarrow> ('r,'v,'a) lopbasic \<Rightarrow> bool"
   where "reorder_inst \<alpha>' \<beta> \<alpha>  \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
 
 abbreviation Seqw (infixr ";;" 80)                      (* i.e., Seq c w c' *)
@@ -316,10 +361,11 @@ abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
-fun lift\<^sub>c :: "('r,'v,'s,'a) lang \<Rightarrow> (('r,'v,'s,'a) auxop, 's) com" 
+fun lift\<^sub>c :: "('r,'v,'s,'a) lang \<Rightarrow> (('r,'v,'a) lauxop, 's) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
-    "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |
+(*    "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | *)
+    "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |  
     "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>2)" |  
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) =  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
                     then Interrupt (\<forall>\<^sub>c((lift\<^sub>c c\<^sub>2) ;; (lift\<^sub>c c\<^sub>3))) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
