@@ -5,15 +5,11 @@ begin
 type_synonym ('s,'a) auxfn = "'s \<Rightarrow> 'a"
 type_synonym ('r,'v,'s,'a) auxop = "('r,'v) op \<times> ('s,'a) auxfn"
 
+(* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
 type_synonym ('r,'v,'s,'a) opbasic = "(('r,'v,'s,'a) auxop, 's) basic"
 
 type_synonym ('r,'v,'s,'a) pred = "'s set"
 
-
-
-(* predicates are no longer sets of states but sets of trees, ie., of type predTree *)
-(* IF has another sub-command c\<^sub>3 to model the program after the If -- for the semantics of 
-         the speculation; even though for wp reasoning we make use of the wp(c\<^sub>3, Q) instead *)
 
 section \<open>Language Definition\<close>
 
@@ -71,7 +67,6 @@ section \<open>Instruction Specification Language\<close>
 text \<open>
 To instantiate the abstract theory, we must couple each sub-operation with its precondition
 and behaviour in a tuple\<close>
-(* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
 
 fun re\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
   where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
