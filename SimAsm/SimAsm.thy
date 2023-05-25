@@ -1,5 +1,5 @@
 theory SimAsm
-  imports  "../Security"  SimAsm_Exp
+  imports "../Security"  SimAsm_Exp
 begin
 
 type_synonym ('s,'a) auxfn = "'s \<Rightarrow> 'a"
