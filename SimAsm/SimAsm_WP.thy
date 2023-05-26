@@ -30,8 +30,6 @@ type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
 text \<open>The added rg and glb are projections onto the local and global states.\<close>
 
-print_locale expression
-
 locale wp =
   fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
   fixes rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
@@ -45,12 +43,6 @@ type_synonym 'a rtrans = "'a rel \<Rightarrow> 'a rel"
 
 context wp
 begin
-
-(* interpretation varmap:  *)
-  (* expression *)
-  (* "undefined :: ('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v" *)
-  (* "\<lambda>f.  *)
-  
 
 text \<open> Reasoning is performed on "simple" predicates, not on stateTrees, which are 
         later (in the soundness proof) matched to the stateTrees on which the semantics operates \<close>
@@ -147,17 +139,6 @@ fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow>
     "wp\<^sub>i _ Q = Q"
 
 
-(*
-text \<open>Transform a predicate based on an sub-operation\<close>
-fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set" 
-  where 
-    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Ul r := ev\<^sub>E (varmap_st s) (Ul e))\<rparr>) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(Gl c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
-    "wp\<^sub>i _ Q = Q"
-*)
-
-
 text \<open>Transform a predicate based on an auxiliary state update\<close>
 fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   (* where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}" *)
@@ -174,6 +155,68 @@ fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
     "po nop = undefined" 
  
 
+text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
+definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
+  where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {s'. (s,s') \<in> G}}"
+
+
+subsection \<open>Guarantee Checks\<close>
+
+text \<open>Convert a predicate transformer into a guarantee check\<close>
+abbreviation guar
+  where "guar f G \<equiv> {t. (t,t) \<in> (wp\<^sub>r f G)}"
+
+text \<open>Ensure all global operations in a thread conform to its guarantee\<close>
+fun guar\<^sub>c
+  where 
+    "guar\<^sub>c Skip G = True" |
+    "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
+    "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
+    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
+    "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
+    "guar\<^sub>c (DoWhile _ _ c _) G = (guar\<^sub>c c G)"
+
+end  (* of locale wp *)
+
+(*---------------------------------------------------------------------------------------*)
+text \<open> Locale for reasoning without speculation in mind  \<close>
+
+locale wp_WOspec = wp project rg glb
+  for project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
+  and rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
+  and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
+
+context wp_WOspec
+begin
+
+
+(* create an annotation type for loops that can be just one pred for wp_WOspec, or two pred for wp_spec *)
+
+text \<open>Transform a predicate based on a program c within an environment R\<close>
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+  where
+    "wp R Skip Q = Q" |
+    "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+     "wp R (While b I _ c) Q = 
+      (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
+    "wp R (DoWhile I _ c b) Q =
+      (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
+
+end (* end of locale wp_WOspec *)
+
+(*---------------------------------------------------------------------------------------*)
+text \<open> Locale for reasoning with speculation in mind  \<close>
+
+locale wp_spec = wp project rg glb
+  for project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
+  and rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
+  and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
+
+
+context wp_spec
+begin
 
 fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('v2 \<Rightarrow> 'v) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
   "map\<^sub>E f g h (Var v) = Var (f v)" |
@@ -243,9 +286,6 @@ fun po\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set"
     "po\<^sub>s (leak v va) = undefined" 
 
 
-
-
-
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
   where 
@@ -264,7 +304,7 @@ fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) l
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
-    "wp\<^sub>s (DoWhile I c b) Q = undefined"
+    "wp\<^sub>s (DoWhile Imix Ispec c b) Q = undefined"
 
 text \<open>Merge function to merge sequential and speculative predicates into a single weakest precondition. \<close>
 fun merge :: "'g rel \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
@@ -285,8 +325,6 @@ fun spec :: "('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"
   where "(spec Q) = (Q)\<^sup>L"
 
 
-
-
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
@@ -301,204 +339,19 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
           (stabilize R Imix \<inter>  
                assert (Imix \<subseteq> (merge R (ul_lift_pred Q) (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
                                \<inter>  (merge R (wp\<^sub>s c (spec Ispec)) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" |
-    "wp R (DoWhile I c b) Q =
-      (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
-(* old: "wp R (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) Q = 
-               (merge (wp\<^sub>s c\<^sub>2  (wp\<^sub>s c\<^sub>3 Q)) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1  (wp R c\<^sub>3 Q)))))
-               \<inter> (merge (wp\<^sub>s c\<^sub>1  (wp\<^sub>s c\<^sub>3 Q))   (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2  (wp R c\<^sub>3 Q)))))" |
-    "wp R (While b I c) Q = 
-      (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
-*)
+    "wp R (DoWhile Imix Ispec c b) Q =
+          wp R c 
+            (stabilize R Imix \<inter>  
+               assert (Imix \<subseteq> (merge R (ul_lift_pred Q) (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
+                               \<inter>  (merge R (wp\<^sub>s c (spec Ispec)) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" 
 
+end (* end of locale wp_spec *)
 
-text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
-definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
-  where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {s'. (s,s') \<in> G}}"
-
-
-subsection \<open>Guarantee Checks\<close>
-
-text \<open>Convert a predicate transformer into a guarantee check\<close>
-abbreviation guar
-  where "guar f G \<equiv> {t. (t,t) \<in> (wp\<^sub>r f G)}"
-
-text \<open>Ensure all global operations in a thread conform to its guarantee\<close>
-fun guar\<^sub>c
-  where 
-    "guar\<^sub>c Skip G = True" |
-    "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
-    "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
-    "guar\<^sub>c (DoWhile _ c _) G = (guar\<^sub>c c G)"
-
-
-
-section \<open>Locale Interpretation\<close>
-
-(* We are using unlablled states from here onwards; labelling only occurs in some parts of the
-    wp reasoning *)
-
-interpretation expression
-  "varmap_st"
-  "\<lambda>s v x. s\<lparr> varmap_st := (varmap_st s)(v := x)\<rparr>"
-  more
-  "\<lambda>s f. s\<lparr> more := f s\<rparr>"
-  "{x | x y. x = y }"     (*  Ul labelling makes all states labelled types *)
-by unfold_locales auto
-
-print_locale expression
-
-(*
-definition w
-  where "w \<alpha>' \<beta> \<alpha> \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
-*)
-
-
-text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
-
-definition sc :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> bool" 
-  where "sc \<alpha>' \<beta> \<alpha>  \<equiv> \<not>(re\<^sub>s \<beta> \<alpha>)"
-
-abbreviation Seqsc (infixr "." 80)                      (* i.e., Seq c sc c' *)
-  where "Seqsc c c' \<equiv> com.Seq c sc c'"
-
-abbreviation Itersc ("_**" [90] 90)                       (* i.e., Loop c sc *)
-  where "Itersc c \<equiv> com.Loop c sc"
-
-
-definition reorder_inst :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> bool"
-  where "reorder_inst \<alpha>' \<beta> \<alpha>  \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
-
-abbreviation Seqw (infixr ";;" 80)                      (* i.e., Seq c w c' *)
-  where "Seqw c c' \<equiv> com.Seq c reorder_inst c'"
-
-abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
-  where "Iterw c \<equiv> com.Loop c reorder_inst"
-
-
-text \<open>Convert the language into the abstract language expected by the underlying logic
-      this relates the syntax to its semantics \<close> 
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> (('r,'v,'a) auxop', ('r,'v,'a) varmap') com" 
-  where
-    "lift\<^sub>c Skip = com.Nil" |
-    "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | 
-    "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>2)" |  
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) =  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                    then Interrupt (\<forall>\<^sub>c(lift\<^sub>c c\<^sub>2)) . (Basic (liftl (cmp b)) ;; (lift\<^sub>c c\<^sub>1)) 
-                    else Interrupt (\<forall>\<^sub>c(lift\<^sub>c c\<^sub>1)) . (Basic (liftl (ncmp b)) ;; (lift\<^sub>c c\<^sub>2))))" |
-    "lift\<^sub>c (While b Imix Ispec c) = (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                    then (Basic (liftl (cmp b)) ;; (lift\<^sub>c c)) 
-                    else Interrupt (\<forall>\<^sub>c (lift\<^sub>c c)) . (Basic (liftl (ncmp b)))))" |
-    "lift\<^sub>c (DoWhile I c b) = ((lift\<^sub>c c) ;; Basic (liftl (cmp b)))* ;; (lift\<^sub>c c) ;; Basic (liftl (ncmp b))" 
-(* parsing problems with liftg syntax!
-      "lift\<^sub>c (Op v a f) = Basic (\<lfloor>v,a,f\<rfloor>)" |  *)
-(*    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2 c\<^sub>3) =  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                    then Interrupt (\<forall>\<^sub>c((lift\<^sub>c c\<^sub>2) ;; (lift\<^sub>c c\<^sub>3))) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
-                    else Interrupt (\<forall>\<^sub>c((lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>3))) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" |
-
-(* without speculation:  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                                 then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
-                                 else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | *)
-    "lift\<^sub>c (While b I c c\<^sub>3) = (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                    then Interrupt (\<forall>\<^sub>c (lift\<^sub>c c\<^sub>3)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c)) 
-                    else Interrupt (\<forall>\<^sub>c (lift\<^sub>c c)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>3))))" |
-    "lift\<^sub>c (DoWhile I c b) = ((lift\<^sub>c c) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; (lift\<^sub>c c) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
-*)
-(*    "lift\<^sub>c (While b I c) = (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | *)
-
-
-(* TODO:
-  in lift\<^sub>c we have to model how lang maps to its semantics;
-  to model speculative execution, we have to match
-      lift\<^sub>c (While b I c) = ...
-      lift\<^sub>c (DoWhile I c b) = 
-*)
-
-(* these two dummy parameters used in the interpretation of locale rules, locale semantics resp.,
-    and help to instantiate the types of auxop and state*)
-
-abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
-abbreviation "someState ::('r \<Rightarrow> 'v) \<equiv> undefined" (* add a push instance *)
-
-print_locale rules 
-
-interpretation rules  (* No type arity state_rec_ext :: pstate  when "someAuxOp" "someState" *)
-  done
-
-term obs 
-term lexecute
-term lift\<^sub>c 
-print_locale rules
-
-
-
-text \<open>Extract the instruction from an abstract operation \<close>
-(* tag (opbasic) = (op \<times> auxfn) *)
-abbreviation inst :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v) op"
-  where "inst a \<equiv> fst (tag a)"
-
-abbreviation auxbasic :: "('r,'v,('r,'v,'a) varmap','a) opbasic \<Rightarrow> (('r,'v,'a) varmap','a) auxfn"
-  where "auxbasic a \<equiv> snd (tag a)"
-
-text \<open>A basic is well-formed if its behaviour (i.e., its abstract semantics) agrees with the behaviour
-      of its instruction and auxiliary composed (i.e., the concrete semantics of the instantiation).\<close>
-(* beh \<beta> = snd (snd \<beta>) *)
-definition wfbasic :: "('r,'v,'a) opbasic' \<Rightarrow> bool"
-  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, auxbasic \<beta>)"
-
-
-lemma opbasicE:
-    obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
-          (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
-          (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
-          (nop) f v b where "(basic ) = ((nop,f), v, b)" |
-          (leak) c e f v b where "(basic ) = ((leak c e,f), v, b)" 
-  by (cases basic, case_tac a, case_tac aa; clarsimp) 
-
-lemma [simp]:
-  "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"
-  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-
-lemma [simp]:
-  "barriers (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = barriers (inst \<alpha>)"
-  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-
-lemma [simp]:
-"rd (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = (if wr (inst \<beta>) \<inter> rd (inst \<alpha>) \<noteq> {} 
-                                  then rd (inst \<alpha>) - wr (inst \<beta>) \<union> rd (inst \<beta>) else rd (inst \<alpha>))"
-  by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto)
-
-lemma vc_fwd\<^sub>s[simp]:
-  "vc (fwd\<^sub>s \<alpha> \<beta>) = vc \<alpha>"
-  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
-
-lemma beh_fwd\<^sub>s [simp]:
-  "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (auxbasic \<alpha>)) )"
-  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits) 
-
-lemma aux_fwd\<^sub>s [simp]:
-  "auxbasic (fwd\<^sub>s \<alpha> \<beta>) = auxbasic \<alpha>"
-  by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
-
-lemma inst_fwd\<^sub>s [simp]:
-  "inst (fwd\<^sub>s \<alpha> (assign x e, f)) = subst\<^sub>i (inst \<alpha>) x e"
-  by (cases \<alpha> rule: opbasicE; auto simp: Let_def split: if_splits)
-
-
-text \<open>The language is always thread-local\<close>
-lemma local_lift [intro]:
-  "local (lift\<^sub>c c)"
-  by (induct c) auto
-
-end (* of context wp *)
 
 end
 
 
 (* old stuff, not needed for Nick's new soundness proof:
-
-
 
 (* TODO: try using local_trace (from semantics.thy) instead of obs_trace *)
 

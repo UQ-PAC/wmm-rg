@@ -16,7 +16,7 @@ end
 context wp
 begin
 
-print_locale wp
+print_locale wp 
 
 (* ??? *)
 interpretation expression

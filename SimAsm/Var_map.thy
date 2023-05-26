@@ -32,10 +32,14 @@ datatype ('r,'v) op =
   | full_fence
   | nop
 
+print_locale state
+
 locale expression = state st st_upd aux aux_upd 
   for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v" 
-  and st_upd ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901) and aux and aux_upd ("_'((2aux:/ _)')" [900,0] 901)
-(*  and locals :: "'r set"    Do we need local variables? *)
+  and st_upd ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901) 
+  and aux 
+  and aux_upd ("_'((2aux:/ _)')" [900,0] 901)
+  and locals :: "'r set"                          (* added *)
     
 
 (* context expression *)
