@@ -28,7 +28,11 @@ type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
 type_synonym ('r,'v,'a) lopbasic = "('r label,'v,('r,'v,'a) lvarmap','a) opbasic" 
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
-text \<open>The added rg and glb are projections onto the local and global states.\<close>
+
+(*-----------------------------------------------------------------------------------*)
+
+text \<open> General WP reasoning
+       the added rg and glb are projections onto the local and global states.\<close>
 
 locale wp =
   fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
@@ -186,6 +190,7 @@ locale wp_WOspec = wp project rg glb
   and rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 
+
 context wp_WOspec
 begin
 
@@ -198,11 +203,12 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
-     "wp R (While b I _ c) Q = 
-      (stabilize R I \<inter> assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
-    "wp R (DoWhile I _ c b) Q =
-      (stabilize R I \<inter> assert (I \<subseteq> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (po (cmp b)) \<inter> 
+                           stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+     "wp R (While b I _ c) Q = (stabilize R I \<inter> 
+       assert (I \<subseteq> (po (cmp b)) \<inter> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
+    "wp R (DoWhile I _ c b) Q = (stabilize R I \<inter> 
+       assert (I \<subseteq> (po (cmp b)) \<inter> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
 end (* end of locale wp_WOspec *)
 
@@ -295,17 +301,7 @@ fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Ri
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s nop Q = Q"  
 
-(*
-text \<open>wp_spec transformer on lang.\<close>
-fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
-  where 
-    "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (po\<^sub>s a) \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
-    "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
-    "wp\<^sub>s (DoWhile Imix Ispec c b) Q = undefined"
-*)
+
 text \<open>wp_spec transformer on lang.\<close>
 fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
   where 
@@ -348,15 +344,25 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
          \<inter> (merge R  (stabilize R (wp\<^sub>s c\<^sub>1  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
 (* here (wp\<^sub>s r true) is simplified to Q *)
     "wp R (While b Imix Ispec c) Q =
-          (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
-                    \<inter>  (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" |
+      (stabilize R Imix \<inter>  
+        assert (Imix \<subseteq> (po (cmp b)) \<inter>
+                        (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix)))) \<inter>
+                        (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))" |
     "wp R (DoWhile Imix Ispec c b) Q =
-          wp R c 
-            (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix))))
-                     \<inter>  (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (stabilize R (wp\<^sub>i (ncmp b) Q)))))" 
-
+      (stabilize R Imix \<inter>  
+        assert (Imix \<subseteq> (po (cmp b)) \<inter>
+                        (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
+                                  (wp R c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
+                                           (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" 
+(* before simplifying it to the above form:
+   "wp R (DoWhile Imix Ispec c b) Q =
+      (stabilize R Imix \<inter>  
+        assert (Imix \<subseteq> (po (cmp b)) \<inter>
+                        (merge R (stabilize R (wp\<^sub>s c Q\<^sup>L)\<^sup>U)  
+                                               (wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))))) \<inter>
+                        (merge R (stabilize R ((wp\<^sub>s c (spec Ispec))\<^sup>U \<inter> (wp\<^sub>s c Q\<^sup>L)\<^sup>U)) 
+                                               (wp R c (stabilize R (wp\<^sub>i (ncmp b) Q))))))" 
+*)
 end (* end of locale wp_spec *)
 
 
