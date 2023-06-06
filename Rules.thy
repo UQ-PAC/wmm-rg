@@ -14,7 +14,7 @@ begin
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
-inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> ('a,'b) com \<Rightarrow> 'b set \<Rightarrow> bool" 
+inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> ('a,'b,'c) com \<Rightarrow> 'b set \<Rightarrow> bool" 
   ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
   where
   basic[intro]:   "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
@@ -42,13 +42,13 @@ lemma nilE [elim!]:
   assumes "R,G \<turnstile> P {Nil} Q"
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
   using assms 
-  by (induct R G P "Nil :: ('a,'b) com" Q) blast+
+  by (induct R G P "Nil :: ('a,'b,'c) com" Q) blast+
 
 lemma nilE2:
   assumes "R,G \<turnstile> P {Nil} Q"
   shows "stabilise R P \<subseteq> Q"
   using assms 
-proof (induct R G P "Nil :: ('a,'b) com" Q)
+proof (induct R G P "Nil :: ('a,'b,'c) com" Q)
   case (nil R P G)
   then show ?case 
     by (simp add: stabilise_stable) 
@@ -68,7 +68,7 @@ lemma basicE [elim!]:
   assumes "R,G \<turnstile> P {Basic \<beta>} Q"
   obtains Q' where "R,G \<turnstile>\<^sub>A stabilise R P {\<beta>} Q'" "Q' \<subseteq> Q"
   using assms 
-proof (induct R G P "Basic \<beta> :: ('a,'b) com" Q arbitrary: \<beta>)
+proof (induct R G P "Basic \<beta> :: ('a,'b,'c) com" Q arbitrary: \<beta>)
   case (basic R G P \<alpha> Q)
   then show ?case using stabilise_atomic by fast
 next
@@ -217,18 +217,21 @@ text \<open> Combining choice with capture to provide the choice over some var t
 
 (* here s is a variable set, e.g., the set of variables that are updated in c *)
 
+(*
 abbreviation univ_capture  ("\<forall>\<^sub>c _")
   where "univ_capture c \<equiv> \<Sqinter>s. Capture s c"  
+*)
 
 (* \<forall>\<^sub>c here chooses some pushed s without knowing it, hence wp (\<Sqinter>s. Capture s c) Q 
    is the wp to reach Q for all elems which might be topmost on the mem-stack *)
 
 text \<open>Universal quantification of top-most stack frame\<close>
+(*
 lemma univ_captureI:
   assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
   shows "R,G \<turnstile> P {univ_capture c} Q"
   using assms by (intro choice allI capture) simp
-
+*)
 
 text \<open> to derive guar predicate from judgement \<close>
 
@@ -289,7 +292,7 @@ next
   then show ?case 
   proof -
     obtain Q' where i0: "R,G \<turnstile> P {c} Q'" using interrE inter1(3)
-      by (smt (verit, del_insts) dual_order.refl rules.rules.conseq)
+      by (smt (verit) conseq equalityD2)
     have i1:"guar\<^sub>\<alpha> \<alpha>' G" using i0 inter1(2) by auto
     then show ?thesis using guar_sub i0 by auto
   qed

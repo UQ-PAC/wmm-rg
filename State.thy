@@ -274,4 +274,19 @@ proof (clarsimp, goal_cases)
   thus ?case using a(1) 1(2) by auto
 qed
 
+text \<open>
+Image through transitive closure + reflexive on set is the original set.
+Used for stabilise proofs. Also note similarities with the linked lemma
+which applies to the builtin rtrancl.
+\<close>
+
+lemma Image_closed_trancl': 
+  assumes "R `` P \<subseteq> P"
+  shows "P \<union> R\<^sup>+ `` P = P"
+proof -
+  have "m' \<in> P" if "(m, m') \<in> R\<^sup>+" "m \<in> P" for m m'
+    using that assms by induct auto
+  thus ?thesis by auto
+qed
+
 end

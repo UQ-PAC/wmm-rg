@@ -16,8 +16,8 @@ It is intended that this is used to support notions of capturing and
 scoped state.
 \<close>
 
-class pstate =
-  fixes push :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"   
+locale pstate =
+  fixes push :: "'a \<Rightarrow> 'c \<Rightarrow> 'a"   
   assumes push_inj: "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')"
 
 context pstate
@@ -41,13 +41,13 @@ lemma push_pop: "\<exists> s. push (pop m) s = m"
 oops
 
 
-definition pushpred :: "'a \<Rightarrow> 'a set \<Rightarrow> 'a set" where
+definition pushpred :: "'c \<Rightarrow> 'a set \<Rightarrow> 'a set" where
 "pushpred s P = {push m s |m. m \<in> P}"
 
 definition poppred :: "'a set \<Rightarrow> 'a set" where
 "poppred P = {pop m |m. m \<in> P}"
 
-definition poppred' :: "'a \<Rightarrow> 'a set \<Rightarrow> 'a set" where
+definition poppred' :: "'c \<Rightarrow> 'a set \<Rightarrow> 'a set" where
 "poppred' s P = {m |m. push m s \<in> P}"
 
 (* rarely used except in specific proof steps which require
@@ -59,10 +59,10 @@ definition pushpredAll :: "'a set \<Rightarrow> 'a set" where
 definition poprel :: "'a rel \<Rightarrow> 'a rel" where
 "poprel b = {(pop m,pop m') |m m'. (m,m') \<in> b}" 
 
-definition poprel' :: "'a \<Rightarrow> 'a \<Rightarrow> 'a rel \<Rightarrow> 'a rel" where
+definition poprel' :: "'c \<Rightarrow> 'c \<Rightarrow> 'a rel \<Rightarrow> 'a rel" where
 "poprel' s s' R = {(m,m') |m m'. (push m s,push m' s') \<in> R}" 
 
-definition pushrel :: "'a \<Rightarrow> 'a \<Rightarrow> 'a rel \<Rightarrow> 'a rel" where
+definition pushrel :: "'c \<Rightarrow> 'c \<Rightarrow> 'a rel \<Rightarrow> 'a rel" where
 "pushrel s s' b = {(push m s,push m' s') |m m'. (m,m') \<in> b}" 
 
 definition pushrelSame :: "'a rel \<Rightarrow> 'a rel" where
@@ -72,13 +72,13 @@ definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
 "pushrelAll G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
 
 (* allows one to match top-most stack-elem to s *)
-abbreviation poppable :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
+abbreviation poppable :: "'c \<Rightarrow> 'a set \<Rightarrow> bool" where
 "poppable s P \<equiv> (P = pushpred s (poppred P))"
 
 lemma poppable_push_poppred': "poppable s P \<Longrightarrow> pushpred s (poppred' s P) = P"
 unfolding poppred'_def pushpred_def by auto
 
-abbreviation poppable_rel :: "'a \<Rightarrow> 'a \<Rightarrow> 'a rel \<Rightarrow> bool" where
+abbreviation poppable_rel :: "'c \<Rightarrow> 'c \<Rightarrow> 'a rel \<Rightarrow> bool" where
 "poppable_rel s s' R \<equiv> (R = pushrel s s' (poprel' s s' R))" 
 
 
@@ -377,7 +377,7 @@ unfolding pushrel_def pushpred_def
 by auto
 
 
-end
+
 
 text \<open>
 Image through transitive closure + reflexive on set is the original set.
@@ -494,5 +494,6 @@ abbreviation (input) uncapPred where
 abbreviation (input) capRely where
 "capRely R \<equiv> pushrelSame R"
 
+end
 
 end

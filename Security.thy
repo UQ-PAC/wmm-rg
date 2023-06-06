@@ -11,8 +11,8 @@ begin
 
 (* parameter S equals low equivalence: to be instantiated once I have L, \<Gamma> *)
 
-inductive_set trace :: "(('a,'b) com \<times> ('a,'b) Trace \<times> ('a,'b) com) set"
-  and trace_abv :: "('a,'b) com \<Rightarrow> ('a,'b) Trace \<Rightarrow> ('a,'b) com \<Rightarrow> bool" ("_ \<mapsto>\<^sup>*_ _" [50,40,40] 70)
+inductive_set trace :: "(('a,'b,'c) com \<times> ('a,'b) Trace \<times> ('a,'b,'c) com) set"
+  and trace_abv :: "('a,'b,'c) com \<Rightarrow> ('a,'b) Trace \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool" ("_ \<mapsto>\<^sup>*_ _" [50,40,40] 70)
   where
   "trace_abv P t P' \<equiv> (P, t, P') \<in> trace"
   | none[intro]: "c \<mapsto>\<^sup>*[] c" 
@@ -24,13 +24,13 @@ inductive trace_mem :: "'m \<Rightarrow> 'm rel list  \<Rightarrow> 'm \<Rightar
     [intro]: "trace_mem m [] m" |
     [intro]: "(m'', m) \<in> g \<Longrightarrow> trace_mem m t m' \<Longrightarrow> trace_mem m'' (g#t) m'"
 
-definition ev :: "('a,'b) com \<Rightarrow> 'b \<Rightarrow> ('a,'b) Trace \<Rightarrow> ('a,'b) com \<Rightarrow> 'b \<Rightarrow> bool"
+definition ev :: "('a,'b,'c) com \<Rightarrow> 'b \<Rightarrow> ('a,'b) Trace \<Rightarrow> ('a,'b,'c) com \<Rightarrow> 'b \<Rightarrow> bool"
   ("\<langle>_,_\<rangle> \<rightarrow>\<^sup>*_ \<langle>_,_\<rangle>" [50,40,40] 70)
   where "\<langle>c,m\<rangle> \<rightarrow>\<^sup>*t \<langle>c',m'\<rangle> \<equiv> trace_mem m t m' \<and> c \<mapsto>\<^sup>*t c'"
 
 text \<open> Noninterference over all basic commands \<close>
 
-definition sec_pres :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> bool"
+definition sec_pres :: "('a,'b,'c) com \<Rightarrow> 'b rel \<Rightarrow> bool"
   where 
   "sec_pres c S \<equiv> \<forall>\<alpha> m\<^sub>1 m\<^sub>2 m\<^sub>1'. 
      \<alpha> \<in> (obs c) \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> 
@@ -38,7 +38,7 @@ definition sec_pres :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> bool"
 
 text \<open> Noninterference over all traces \<close>
 
-definition secure :: "('a,'b) com \<Rightarrow> 'b set \<Rightarrow> 'b rel \<Rightarrow> bool"
+definition secure :: "('a,'b,'c) com \<Rightarrow> 'b set \<Rightarrow> 'b rel \<Rightarrow> bool"
   where "secure c P S \<equiv> \<forall>m\<^sub>1 m\<^sub>2 c\<^sub>1 t m\<^sub>1'. 
         m\<^sub>1 \<in> P \<longrightarrow> \<langle>c,m\<^sub>1\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>1,m\<^sub>1'\<rangle> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow>
         (\<exists>m\<^sub>2' c\<^sub>2. \<langle>c,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2,m\<^sub>2'\<rangle> \<and> (m\<^sub>1',m\<^sub>2') \<in> S)"  
@@ -129,7 +129,8 @@ proof safe
     case (2 m\<^sub>1 m\<^sub>1' g t m\<^sub>1'')
     then obtain c' where itm1: "c \<mapsto>\<^sup>*[g] c'" "c' \<mapsto>\<^sup>*t c\<^sub>1" by auto
     then obtain P' \<alpha>  where itm2: "R,G \<turnstile> P' {c'} Q" "\<alpha> \<in> obs c" 
-      "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> P'"  using trace_rule[OF itm1(1) 2(5)] sorry (* by blast *)
+      "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> P'"  using trace_rule[OF itm1(1) 2(5)] 2(8) 
+      by (metis empty_iff)
     hence itm6: "m\<^sub>1' \<in> P'" using 2(1,8) unfolding wp_def by blast                       
     then obtain m\<^sub>2' where itm3: "(m\<^sub>2,m\<^sub>2') \<in> g" "(m\<^sub>1',m\<^sub>2') \<in> S" using 2(1,4,6,8) itm2(2,3,4) 
       unfolding sec_pres_def wp_def by blast
@@ -139,7 +140,7 @@ proof safe
       using 2(3)[OF itm4 itm2(1) itm3(2) itm1(2) itm6] by blast
     then show ?case using "2.prems"(4) itm3(1) by blast
    qed
-   thus ?thesis using that by (meson security.ev_def)
+   thus ?thesis using that by (meson ev_def)
  qed
 
 theorem secure_bisim:

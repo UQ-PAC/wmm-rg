@@ -10,36 +10,36 @@ begin
 section \<open>Soundness Definition\<close>
 
 text \<open>All traces that start with a program c\<close>
-fun cp :: "('a,'b) com \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun cp :: "('a,'b,'c) com \<Rightarrow> ('a,'b,'c) config list \<Rightarrow> bool"
   where "cp c t = (t \<in> transitions \<and> fst (t ! 0) = c)"
 
 text \<open>All traces that satisfy a precondition in their first state\<close>
-fun pre :: "'b pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun pre :: "'b pred \<Rightarrow> ('a,'b,'c) config list \<Rightarrow> bool"
   where 
     "pre P (s#t) = (snd s \<in> P)" | 
     "pre P [] = True"
 
 text \<open>All traces that satisfy a postcondition in their final state given termination\<close>
-fun post :: "'b pred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun post :: "'b pred \<Rightarrow> ('a,'b,'c) config list \<Rightarrow> bool"
   where 
     "post Q [s] = (fst s = Nil \<longrightarrow> snd s \<in> Q)" | 
     "post Q (s#t) = post Q t" | 
     "post Q [] = True"
 
 text \<open>All traces where program steps satisfy a guarantee\<close>
-fun gurn :: "'b rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun gurn :: "'b rpred \<Rightarrow> ('a,'b,'c) config list \<Rightarrow> bool"
   where
     "gurn G (s#s'#t) = (gurn G (s'#t) \<and> (s -c\<rightarrow> s' \<longrightarrow> (snd s,snd s') \<in> G\<^sup>=))" |
     "gurn G _ = True"
 
 text \<open>All traces where environment steps satisfy a rely\<close>
-fun rely :: "'b rpred \<Rightarrow> ('a,'b) config list \<Rightarrow> bool"
+fun rely :: "'b rpred \<Rightarrow> ('a,'b,'c) config list \<Rightarrow> bool"
   where
     "rely R (s#s'#t) = (rely R (s'#t) \<and> (s -e\<rightarrow> s' \<longrightarrow> (snd s, snd s') \<in> R))" |
     "rely R _ = True"
 
 text \<open>Validity of the rely/guarantee judgements\<close>
-definition validity :: "('a,'b) com \<Rightarrow> 'b set \<Rightarrow> ('b) rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> bool" 
+definition validity :: "('a,'b,'c) com \<Rightarrow> 'b set \<Rightarrow> ('b) rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Rightarrow> bool" 
   ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0,0] 45) 
   where "\<Turnstile> c SAT [P, R, G, Q] \<equiv> \<forall>t. cp c t \<and> pre P t \<and> rely R t \<longrightarrow> post Q t \<and> gurn G t"
 

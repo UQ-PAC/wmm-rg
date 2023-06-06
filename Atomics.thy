@@ -149,9 +149,6 @@ by (metis inf.orderE stabilise_inter_R2)
 lemma stabilise_mono_RP: "R \<subseteq> R' \<Longrightarrow> P \<subseteq> P' \<Longrightarrow> stabilise R P \<subseteq> stabilise R' P'"
 by (metis stabilise_mono stabilise_mono_R subset_trans)
 
-lemma stabilise_pushrel: "stabilise (pushrelSame R) (pushpred s P) = pushpred s (stabilise R P)"
-unfolding stabilise_def
-by (simp add: pushpred_relimage pushpred_union pushrelSame_trancl)
 
 lemma stabilise_atomic: "R,G \<turnstile>\<^sub>A P {c} Q \<Longrightarrow> R,G \<turnstile>\<^sub>A stabilise R P {c} Q"
 unfolding atomic_rule_def
@@ -252,7 +249,14 @@ unfolding sp_def wp_def
 by auto
 
 lemma sp_mono: "P \<subseteq> P' \<Longrightarrow> sp \<alpha> P \<subseteq> sp \<alpha> P'"
-unfolding sp_def by auto
+  unfolding sp_def by auto
+
+context pstate
+begin
+
+lemma stabilise_pushrel: "stabilise (pushrelSame R) (pushpred s P) = pushpred s (stabilise R P)"
+unfolding stabilise_def
+by (simp add: pushpred_relimage pushpred_union pushrelSame_trancl)
 
 lemma sp_pushbasic: "sp (pushbasic s s' \<alpha>) (pushpred s P) = pushpred s' (sp \<alpha> P)" 
 unfolding pushpred_def pushrel_def sp_def
@@ -412,7 +416,7 @@ proof -
     using sp_pushbasic by fastforce
     
   finally have "Q' = pushpred s' (stabilise R (sp \<alpha> (poppred P)))"
-    using stabilise_pushrel unfolding Q'_def by fastforce
+    using stabilise_pushrel unfolding Q'_def by simp
   thus "poppable s' Q'" by simp
 qed
 
@@ -501,6 +505,8 @@ next
   case 4
   then show ?case using assms help1 by (auto simp: atomic_rule_def)
 qed
+
+end
 
 
 end

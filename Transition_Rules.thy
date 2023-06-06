@@ -96,7 +96,7 @@ next
     "P \<subseteq> I" "stable R I" "stable G' I"  "R,G' \<turnstile> P {c\<^sub>1} Q'" "G' \<subseteq> G" "I \<subseteq> Q"
       using inter1(3) by (rule interrE)
     obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c\<^sub>2} Q'" 
-      using  g(4) inter1.prems(2) inter1.hyps(2) sorry
+      using  g(4) inter1.prems(2) inter1.hyps(2)[OF g(4)] sorry
     have m0:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
     have g2:"G' \<subseteq> (G' \<union> R)" by auto
     have g3:"stable (G' \<union> R) I" using g(2,3) by (meson State.stable_def Un_iff)
@@ -155,7 +155,7 @@ next
     hence t: "stabilise (capRely R) (capPred s P) \<subseteq> pushpredAll Q"
       using nilE2 by simp
     have "R,G \<turnstile> stabilise R P {Nil} stabilise R P"
-      by (simp add: rules.rules.nil stable_stabilise)
+      by (simp add: rules.nil stable_stabilise)
     moreover have "P \<subseteq> stabilise R P"
       by (simp add: stabilise_supset)
     moreover have "stabilise R P \<subseteq> Q"

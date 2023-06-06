@@ -20,6 +20,9 @@ abbreviation vc :: "('a,'b) basic \<Rightarrow> 'b set"
 abbreviation beh :: "('a,'b) basic \<Rightarrow> 'b rel"
   where "beh \<alpha> \<equiv> snd (snd \<alpha>)"
 
+context pstate
+begin
+
 abbreviation pushbasic where
   "pushbasic s s' \<alpha> \<equiv> (tag \<alpha>, pushpred s (vc \<alpha>), pushrel s s' (beh \<alpha>))" 
 
@@ -30,6 +33,7 @@ abbreviation popbasic where
 abbreviation poppableBasic where
 "poppableBasic s s' \<alpha> \<equiv> poppable s (vc \<alpha>) \<and> poppable_rel s s' (beh \<alpha>)"
 
+end
 
 text \<open>
 A While language with non-deterministic choice, iteration and parallel composition.
@@ -43,16 +47,16 @@ some set of states (but maybe this is a bad idea).
 
 
 
-datatype ('a,'b) com =
+datatype ('a,'b,'c) com =
   Nil
   | Basic "('a,'b) basic"
-  | Seq "('a,'b) com" "('a,'b) wmm" "('a,'b) com" ("_ ;\<^sub>_ _ " [90,0,90] 80)
-  | Choice "'b \<Rightarrow> ('a,'b) com"                    (binder "\<Sqinter>" 10)
-  | Loop "('a,'b) com" "('a,'b) wmm"              ("_*\<^sub>_" [90,90] 90)
-  | Parallel "('a,'b) com" "('a,'b) com"          (infixr "||" 150)
-  | Thread "('a,'b) com"
-  | Capture 'b "('a,'b) com"
-  | Interrupt "('a,'b) com"                      ("\<triangle> _" 80)          (* as unary *)
+  | Seq "('a,'b,'c) com" "('a,'b) wmm" "('a,'b,'c) com" ("_ ;\<^sub>_ _ " [90,0,90] 80)
+  | Choice "'b \<Rightarrow> ('a,'b,'c) com"                    (binder "\<Sqinter>" 10)
+  | Loop "('a,'b,'c) com" "('a,'b) wmm"              ("_*\<^sub>_" [90,90] 90)
+  | Parallel "('a,'b,'c) com" "('a,'b,'c) com"          (infixr "||" 150)
+  | Thread "('a,'b,'c) com"
+  | Capture 'c "('a,'b,'c) com"
+  | Interrupt "('a,'b,'c) com"                      ("\<triangle> _" 80)          (* as unary *)
 
 abbreviation univ_stack ("\<forall>\<^sub>c _" 100)
   where "univ_stack c \<equiv> \<Sqinter>s. Capture s c"
@@ -63,7 +67,7 @@ text \<open>
 Identify if a command consists of only thread local constructs.
 \<close>
 
-inductive local :: "('a,'b) com \<Rightarrow> bool"
+inductive local :: "('a,'b,'c) com \<Rightarrow> bool"
   where 
     "local Nil" |                
     "local (Basic \<alpha>)" |

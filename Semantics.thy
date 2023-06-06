@@ -11,17 +11,17 @@ Also introduces a notion of configuration, that couples programs and memory stat
 with transitions for the program and the environment.
 \<close>
 
-type_synonym ('a,'b) config = "('a,'b) com \<times> 'b"
+type_synonym ('a,'b,'c) config = "('a,'b,'c) com \<times> 'b"
 
 text \<open>
 To simplify the identification of reordered instructions, we instrument the semantics with
 bookkeeping data structures to track how the reordering relation has been applied.
 \<close>
-datatype ('a,'b) log =
-  Reorder "('a,'b) basic" "('a,'b) wmm" "('a,'b) com" |
+datatype ('a,'b,'c) log =
+  Reorder "('a,'b) basic" "('a,'b) wmm" "('a,'b,'c) com" |
   Scope
 
-type_synonym ('a,'b) bookkeeping = "('a,'b) log list"
+type_synonym ('a,'b,'c) bookkeeping = "('a,'b,'c) log list"
 
 text \<open> Locale semantics fixes the types 'a and 'b state; 
         parameters exists_act and exists_state  are used as dummies to do so \<close>
@@ -31,9 +31,14 @@ locale semantics =
   fixes exists_act_state :: "'a \<times> 'b::state"
 *)
 
-locale semantics =
+locale sem_exists =
   fixes exists_act :: "'a"
-  fixes exists_state :: "'b::pstate"
+  fixes exists_state :: "'b" 
+
+locale semantics = pstate push + sem_exists exists_act exists_state
+  for exists_act :: "'a"
+  and exists_state :: "'b"
+  and push :: "'b \<Rightarrow> 'c \<Rightarrow> 'b"  
 
 context semantics
 begin
@@ -50,7 +55,7 @@ definition wlf
   where  "wlf w \<equiv> \<forall> \<alpha>' \<beta> \<alpha>. w \<alpha>' \<beta> \<alpha> \<longrightarrow> (\<forall> G. guar\<^sub>\<alpha> \<alpha> G \<longrightarrow> guar\<^sub>\<alpha> \<alpha>' G)"
 
 text \<open>Extend a reordering relation recursively over a program\<close>
-fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b) wmm \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
+fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b,'c) com \<Rightarrow> ('a,'b) wmm \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   ("_ < _ <\<^sub>_ _" [100,0,0,100] 100)
   where
     "\<alpha>' < Nil <\<^sub>c \<alpha> = (\<alpha>' = \<alpha>)" |
@@ -62,7 +67,7 @@ fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b) com \<Rightarrow> ('a,'b
 section \<open>Program Transition Definitions\<close>
 
 text \<open>Small step semantics for a local execution step\<close>
-inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive lexecute :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b,'c) bookkeeping \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
   ("_ \<mapsto>[_,_] _" [71,0,0,71] 70)
   where
   act[intro]: "Basic \<alpha> \<mapsto>[\<alpha>,[]] Nil" |
@@ -75,7 +80,7 @@ inductive lexecute :: "('a,'b) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a
                    (*interrupt can terminate c\<^sub>1 at any time (with a silent step, see below) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
-fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow> ('a,'b) basic set"
+fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b,'c) bookkeeping \<Rightarrow> ('a,'b) basic set"
   where
   "beforeReord \<alpha>' [] = {\<alpha>'}" |
   "beforeReord \<alpha>' (Scope#rs) = \<Union>{beforeReord (pushbasic s s' \<alpha>') rs | s s'. True}" |
@@ -83,7 +88,7 @@ fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b) bookkeeping \<Rightarrow
 
 
 text \<open>Small step semantics for a global execution step\<close>
-inductive gexecute :: "('a,'b) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive gexecute :: "('a,'b,'c) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
   where
   thr[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> Thread c \<mapsto>[beh \<alpha>'] Thread c'" |
@@ -93,7 +98,7 @@ inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
 
 
 text \<open>Small step semantics for a silent step\<close>
-inductive silent :: "('a,'b) com \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive silent :: "('a,'b,'c) com \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
   ("_ \<leadsto> _" [71,71] 70)
   where
   seq1[intro]:    "c\<^sub>1 \<leadsto> c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;\<^sub>w c\<^sub>2 \<leadsto> c\<^sub>1' ;\<^sub>w c\<^sub>2" |
@@ -151,23 +156,23 @@ section \<open>Transition Definitions\<close>
 text \<open>These transitions are over configurations of (program,state)\<close>
 
 text \<open>Environment Transition\<close>
-abbreviation env_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -e\<rightarrow> _" [81,81] 80)
+abbreviation env_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Rightarrow> bool" ("_ -e\<rightarrow> _" [81,81] 80)
   where "s -e\<rightarrow> s' \<equiv> fst s = fst s'"
 
 text \<open>Program Execution Transition\<close>
-abbreviation exec_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
+abbreviation exec_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
   where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>g. fst s \<mapsto>[g] (fst s') \<and> (snd s,snd s') \<in> g"
 
 text \<open>Program Silent Transition\<close>
-abbreviation sil_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)
+abbreviation sil_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)
   where "s -s\<rightarrow> s' \<equiv> fst s \<leadsto> fst s' \<and> snd s = snd s'"
 
 text \<open>Program Transition\<close>
-abbreviation com_tran :: "('a,'b) config \<Rightarrow> ('a,'b) config \<Rightarrow> bool" ("_ -c\<rightarrow> _" [81,81] 80)
+abbreviation com_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Rightarrow> bool" ("_ -c\<rightarrow> _" [81,81] 80)
   where "s -c\<rightarrow> s' \<equiv> s -\<alpha>\<rightarrow> s' \<or> s -s\<rightarrow> s'"
 
 text \<open>Collect of all possible transitions\<close>
-inductive_set transitions :: "('a,'b) config list set"
+inductive_set transitions :: "('a,'b,'c) config list set"
   where
     one[intro]: "[s] \<in> transitions" |
     env[intro]: "s -e\<rightarrow> s' \<Longrightarrow> s'#t \<in> transitions \<Longrightarrow> s#s'#t \<in> transitions" |
@@ -183,7 +188,7 @@ section \<open>Observable atomics\<close>
    for global operations (thread, par) obs_traces are collected per thread (w/o interspersing)
    which still allows to determine the overall observed events as union over all obs_traces *)
 
-inductive obs_trace :: "('a,'b) basic list \<Rightarrow> ('a,'b) com \<Rightarrow> bool"
+inductive obs_trace :: "('a,'b) basic list \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
   where
      1:  "obs_trace [] c" |
      2:  "c \<leadsto> c' \<Longrightarrow> obs_trace t c' \<Longrightarrow> obs_trace t c" |
@@ -193,7 +198,7 @@ inductive obs_trace :: "('a,'b) basic list \<Rightarrow> ('a,'b) com \<Rightarro
      6:  "obs_trace t c \<Longrightarrow> obs_trace t (c2 || c)"
 
 
-definition obs :: "('a,'b) com \<Rightarrow> ('a,'b) basic set"
+definition obs :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic set"
   where "obs c \<equiv> {\<alpha>. \<exists>t. \<alpha> \<in> set t \<and> obs_trace t c}"
 
 lemma obs_exec:
@@ -239,13 +244,13 @@ lemma obs_trace_NilE [elim!]:
   assumes "obs_trace t com.Nil"
   obtains "t = []"
   using assms
-  by (induct t "Nil ::  ('a, 'b) com") auto
+  by (induct t "Nil ::  ('a,'b,'c) com") auto
 
 lemma obs_trace_BasicE [elim!]:
   assumes "obs_trace t (Basic \<alpha>)"
   obtains "t = [\<alpha>]" | "t = []"
   using assms
-  by (induct t "Basic \<alpha>") auto
+  by (induct t "Basic \<alpha> ::  ('a,'b,'c) com") auto
 
 lemma obs_basic [simp]:
   "obs (Basic \<alpha>) = {\<alpha>}"
@@ -357,8 +362,8 @@ lemma obs_gex:
     obs_thread obs_par obs_def by (induct) auto 
 
 
-inductive_set local_trace :: "(('a,'b) com \<times> ('a,'b) basic list \<times> ('a,'b) com) set"
-  and local_trace_abv :: "('a,'b) com \<Rightarrow> ('a,'b) basic list \<Rightarrow> ('a,'b) com \<Rightarrow> bool" ("_ \<mapsto>\<^sub>l\<^sup>*_ _" [50,40,40] 70)
+inductive_set local_trace :: "(('a,'b,'c) com \<times> ('a,'b) basic list \<times> ('a,'b,'c) com) set"
+  and local_trace_abv :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic list \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool" ("_ \<mapsto>\<^sub>l\<^sup>*_ _" [50,40,40] 70)
   where
   "local_trace_abv c t c' \<equiv> (c, t, c') \<in> local_trace"
   | noStep[intro]: "c \<mapsto>\<^sub>l\<^sup>*[] c" 
