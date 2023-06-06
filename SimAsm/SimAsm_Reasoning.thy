@@ -1,7 +1,10 @@
 theory SimAsm_Reasoning
-  imports SimAsm_WP 
+  imports SimAsm_WP SimAsm_StateStack
 begin
 
+
+type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) stack,'a) auxop"
+type_synonym ('r,'v,'a) opbasicSt = "('r,'v,('r,'v,'a) stack,'a) opbasic" 
 
 section \<open>Locales for reasoning, either with speculation (reasoning_spec) or without (reasoning_WOspec)\<close>
 
@@ -12,10 +15,10 @@ section \<open>Locales for reasoning, either with speculation (reasoning_spec) o
 (*---------------------------------------------------------------------------------------*)
 
 locale reasoning_WOspec = wp_WOspec + expression st st_upd aux aux_upd locals
-  for st :: "('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v"
-  and st_upd :: "('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) varmap'"
-  and aux :: "('r,'v,'a) varmap' \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) varmap' \<Rightarrow> (('r,'v,'a) varmap' \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) varmap'"
+  for st :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v"
+  and st_upd :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) stack"
+  and aux :: "('r,'v,'a) stack \<Rightarrow> 'a"
+  and aux_upd :: "('r,'v,'a) stack \<Rightarrow> (('r,'v,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) stack"
   and locals :: "'r set"
 
 print_locale reasoning_WOspec
@@ -23,7 +26,7 @@ print_locale reasoning_WOspec
 context reasoning_WOspec
 begin
 
-definition reorder_inst :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> bool"
+definition reorder_inst :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> bool"
   where "reorder_inst \<alpha>' \<beta> \<alpha>  \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
 
 abbreviation Seqw (infixr ";;" 80)                      (* i.e., Seq c w c' *)
@@ -34,12 +37,13 @@ abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> (('r,'v,'a) auxop', ('r,'v,'a) varmap') com" 
+(*fun lift\<^sub>c :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> (('r,'v,'a) auxop', ('r,'v,'a) varmap') com" *)
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) stack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) stack, ('r,'v) frame) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | 
     "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>2)" |  
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> s. if (s=0)
                                  then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
                                  else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | 
     "lift\<^sub>c (While b Imix Ispec c) =  (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | 
@@ -56,10 +60,10 @@ end
 (*---------------------------------------------------------------------------------------*)
 
 locale reasoning_spec = wp_spec + expression st st_upd aux aux_upd locals
-  for st :: "('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v"
-  and st_upd :: "('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) varmap'"
-  and aux :: "('r,'v,'a) varmap' \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) varmap' \<Rightarrow> (('r,'v,'a) varmap' \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) varmap'"
+  for st :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v"
+  and st_upd :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) stack"
+  and aux :: "('r,'v,'a) stack \<Rightarrow> 'a"
+  and aux_upd :: "('r,'v,'a) stack \<Rightarrow> (('r,'v,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) stack"
   and locals :: "'r set"
 
 print_locale reasoning_spec
@@ -70,7 +74,7 @@ begin
 
 text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
 
-definition sc :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> bool" 
+definition sc :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> bool" 
   where "sc \<alpha>' \<beta> \<alpha>  \<equiv> \<not>(re\<^sub>s \<beta> \<alpha>)"
 
 abbreviation Seqsc (infixr "." 80)                      (* i.e., Seq c sc c' *)
@@ -80,7 +84,7 @@ abbreviation Itersc ("_**" [90] 90)                       (* i.e., Loop c sc *)
   where "Itersc c \<equiv> com.Loop c sc"
 
 
-definition reorder_inst :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> ('r,'v,'a) opbasic' \<Rightarrow> bool"
+definition reorder_inst :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> bool"
   where "reorder_inst \<alpha>' \<beta> \<alpha>  \<equiv> (re\<^sub>s \<beta> \<alpha> \<and> (\<alpha>'=fwd\<^sub>s \<alpha> (fst \<beta>)))"
 
 abbreviation Seqw (infixr ";;" 80)                      (* i.e., Seq c w c' *)
@@ -100,18 +104,18 @@ text \<open>Convert the language into the abstract language expected by the unde
        differs from rest of c2) \<close> 
 
 
-function lift\<^sub>c :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> (('r,'v,'a) auxop', ('r,'v,'a) varmap') com \<Rightarrow> 
-                                                       (('r,'v,'a) auxop', ('r,'v,'a) varmap') com" 
+function lift\<^sub>c :: "('r,'v,('r,'v,'a) stack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) stack, ('r,'v) frame) com \<Rightarrow> 
+                                                       (('r,'v,'a) auxopSt, ('r,'v,'a) stack, ('r,'v) frame) com" 
   where
     "lift\<^sub>c Skip r = com.Nil" |
     "lift\<^sub>c (Op v a f) r = Basic (\<lfloor>v,a,f\<rfloor>)" | 
     "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) r = (lift\<^sub>c c\<^sub>1 (lift\<^sub>c c\<^sub>2 r)) ;; (lift\<^sub>c c\<^sub>2 r)" |  
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r =  (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                    then Interrupt (\<forall>\<^sub>c((lift\<^sub>c  c\<^sub>2 r) ;; r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r)) 
-                    else Interrupt (\<forall>\<^sub>c((lift\<^sub>c c\<^sub>1 r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r))))" |
-    "lift\<^sub>c (While b Imix Ispec c) r = (Choice (\<lambda> s. if (st_ev\<^sub>B s b)
-                    then Interrupt (\<forall>\<^sub>c(r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r)) 
-                    else Interrupt (\<forall>\<^sub>c((lift\<^sub>c c r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>))))" |
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r =  (Choice (\<lambda> s. if (s = 0)
+                    then Interrupt (Capture emptyFrame ((lift\<^sub>c c\<^sub>2 r) ;; r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r)) 
+                    else Interrupt (Capture emptyFrame ((lift\<^sub>c c\<^sub>1 r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r))))" |
+    "lift\<^sub>c (While b Imix Ispec c) r = (Choice (\<lambda> s. if (s = 0)
+                    then Interrupt (Capture emptyFrame (r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r)) 
+                    else Interrupt (Capture emptyFrame ((lift\<^sub>c c r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>))))" |
     "lift\<^sub>c (DoWhile Imix Ispec c b) r = ((lift\<^sub>c c (Basic (\<lfloor>cmp b\<rfloor>) ;; r)) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; 
                                          (lift\<^sub>c c (Basic (\<lfloor>ncmp b\<rfloor>) ;; r)) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
@@ -140,10 +144,10 @@ locale reasoning = reasoning_spec project rg glb st st_upd aux aux_upd locals
   for project :: "('b \<Rightarrow> 'c) \<Rightarrow> ('b, 'c, 'd) varmap_rec_scheme"
   and rg :: "('b, 'c, 'd) varmap_rec_scheme \<Rightarrow> 'e"
   and glb :: "('b, 'c, 'd) varmap_rec_scheme \<Rightarrow> 'f"
-  and st :: "('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v"
-  and st_upd :: "('r,'v,'a) varmap' \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) varmap'"
-  and aux :: "('r,'v,'a) varmap' \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) varmap' \<Rightarrow> (('r,'v,'a) varmap' \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) varmap'"
+  and st :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v"
+  and st_upd :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) stack"
+  and aux :: "('r,'v,'a) stack \<Rightarrow> 'a"
+  and aux_upd :: "('r,'v,'a) stack \<Rightarrow> (('r,'v,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) stack"
   and locals :: "'r set"
 
 print_locale reasoning
@@ -166,7 +170,7 @@ abbreviation "someState ::('r \<Rightarrow> 'v) \<equiv> undefined" (* add a pus
 
 print_locale rules 
 
-interpretation rules  (* No type arity state_rec_ext :: pstate  when "someAuxOp" "someState" *)
+interpretation rules   (* No type arity state_rec_ext :: pstate  when "someAuxOp" "someState" *)
   done
 
 term obs 

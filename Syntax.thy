@@ -51,7 +51,7 @@ datatype ('a,'b,'c) com =
   Nil
   | Basic "('a,'b) basic"
   | Seq "('a,'b,'c) com" "('a,'b) wmm" "('a,'b,'c) com" ("_ ;\<^sub>_ _ " [90,0,90] 80)
-  | Choice "'b \<Rightarrow> ('a,'b,'c) com"                    (binder "\<Sqinter>" 10)
+  | Choice "nat \<Rightarrow> ('a,'b,'c) com"                    (binder "\<Sqinter>" 10)
   | Loop "('a,'b,'c) com" "('a,'b) wmm"              ("_*\<^sub>_" [90,90] 90)
   | Parallel "('a,'b,'c) com" "('a,'b,'c) com"          (infixr "||" 150)
   | Thread "('a,'b,'c) com"

@@ -30,10 +30,11 @@ such that the early execution of \<alpha> cannot invalidate sequential reasoning
 Define by recursively iterating over the program and capturing the forwarding throughout.\<close>
 fun inter\<^sub>c :: "('a,'b) wmm \<Rightarrow> 'b rpred \<Rightarrow> ('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where 
-    "inter\<^sub>c w R (Basic \<beta>) \<alpha> = (\<forall>\<alpha>'. w \<alpha>' \<beta> \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R \<alpha>' \<beta> \<alpha>)" |
-    "inter\<^sub>c w R (c\<^sub>1 ;\<^sub>_ c\<^sub>2) \<alpha> = (\<forall>\<alpha>'. \<alpha>' < c\<^sub>2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R c\<^sub>1 \<alpha>' \<and> inter\<^sub>c w R c\<^sub>2 \<alpha>))" |
-    "inter\<^sub>c w R (Nil) \<alpha> = True" | 
-    "inter\<^sub>c w R _ \<alpha> = False"
+    "inter\<^sub>c w R  (Basic \<beta>) \<alpha> = (\<forall>\<alpha>'. w \<alpha>' \<beta> \<alpha> \<longrightarrow> inter\<^sub>\<alpha> R  \<alpha>' \<beta> \<alpha>)" |
+    "inter\<^sub>c w R  (c\<^sub>1 ;\<^sub>_ c\<^sub>2) \<alpha> = (\<forall>\<alpha>'. \<alpha>' < c\<^sub>2 <\<^sub>w \<alpha> \<longrightarrow> (inter\<^sub>c w R c\<^sub>1 \<alpha>' \<and> inter\<^sub>c w R c\<^sub>2 \<alpha>))" |
+    "inter\<^sub>c w R  (Nil) \<alpha> = True" | 
+    "inter\<^sub>c w R  _ \<alpha> = False"
+
 
 text \<open>
 Independence implications of the bookkeeping data structure collected 
@@ -50,6 +51,7 @@ inductive reorder_trace
     "reorder_trace [] c" |
     "c \<leadsto> c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace t c" |
     "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> reorder_trace t c' \<Longrightarrow> reorder_trace (r#t) c"
+
 
 text \<open>Ensure all reorderings enforce the necessary interference property\<close>
 definition rif
