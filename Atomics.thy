@@ -29,18 +29,8 @@ definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred
 lemma atomicI [intro]:
   assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" "stable R P" "stable R Q"
   shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-using assms
-by (auto simp add: atomic_rule_def)
-
-(* 
-lemma thr_atomic:
-  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-  shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
-using assms
-unfolding atomic_rule_def thr\<^sub>\<alpha>_def 
-(* by (simp add: thr_stable thr_wp thr_guar) *)
-oops
- *)
+  using assms
+  by (auto simp add: atomic_rule_def)
 
 subsection \<open>Derived Properties\<close>
 

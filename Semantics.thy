@@ -26,18 +26,11 @@ type_synonym ('a,'b,'c) bookkeeping = "('a,'b,'c) log list"
 text \<open> Locale semantics fixes the types 'a and 'b state; 
         parameters exists_act and exists_state  are used as dummies to do so \<close>
 
-(*
-locale semantics =
-  fixes exists_act_state :: "'a \<times> 'b::state"
-*)
-
 locale sem_exists =
   fixes exists_act :: "'a"
-  fixes exists_state :: "'b" 
 
-locale semantics = pstate push + sem_exists exists_act exists_state
+locale semantics = pstate push + sem_exists exists_act
   for exists_act :: "'a"
-  and exists_state :: "'b"
   and push :: "'b \<Rightarrow> 'c \<Rightarrow> 'b"  
 
 context semantics
@@ -80,13 +73,6 @@ inductive lexecute :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> 
                    (*interrupt can terminate c\<^sub>1 at any time (with a silent step, see below) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
-fun beforeReord :: "('a,'b) basic \<Rightarrow> ('a,'b,'c) bookkeeping \<Rightarrow> ('a,'b) basic set"
-  where
-  "beforeReord \<alpha>' [] = {\<alpha>'}" |
-  "beforeReord \<alpha>' (Scope#rs) = \<Union>{beforeReord (pushbasic s s' \<alpha>') rs | s s'. True}" |
-  "beforeReord \<alpha>' ((Reorder \<alpha> w c\<^sub>2)#rs) =  (beforeReord \<alpha> rs)"
-
-
 text \<open>Small step semantics for a global execution step\<close>
 inductive gexecute :: "('a,'b,'c) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
@@ -95,7 +81,6 @@ inductive gexecute :: "('a,'b,'c) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b,
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
-
 
 text \<open>Small step semantics for a silent step\<close>
 inductive silent :: "('a,'b,'c) com \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
