@@ -379,20 +379,7 @@ by auto
 
 
 
-text \<open>
-Image through transitive closure + reflexive on set is the original set.
-Used for stabilise proofs. Also note similarities with the linked lemma
-which applies to the builtin rtrancl.
-\<close>
-thm Transitive_Closure.Image_closed_trancl
-lemma Image_closed_trancl': 
-  assumes "R `` P \<subseteq> P"
-  shows "P \<union> R\<^sup>+ `` P = P"
-proof -
-  have "m' \<in> P" if "(m, m') \<in> R\<^sup>+" "m \<in> P" for m m'
-    using that assms by induct auto
-  thus ?thesis by auto
-qed
+
 
 lemma pushrelSame_trancl: "(pushrelSame R)\<^sup>+ = pushrelSame (R\<^sup>+)"
 proof (intro antisym subrelI, goal_cases)
@@ -493,6 +480,8 @@ abbreviation (input) uncapPred where
 
 abbreviation (input) capRely where
 "capRely R \<equiv> pushrelSame R"
+
+
 
 end
 

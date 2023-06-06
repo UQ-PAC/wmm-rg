@@ -486,6 +486,17 @@ proof (clarify)
     by (auto simp: poppred'_def poprel'_def)
 qed
 
+lemma pushpredAll_mem:
+  assumes "pushpred s P \<subseteq> pushpredAll Q" "x \<in> P" 
+  shows "x \<in> Q"
+proof -
+  have "push x s \<in> pushpred s (P)" using assms by auto
+  hence "push x s \<in> pushpredAll Q" using assms by auto
+  then obtain x' s' where e: "push x s = push x' s'" "x' \<in> Q" unfolding pushpredAll_def by auto
+  hence "x' = x" using push_inj by auto
+  thus ?thesis using e by auto
+qed
+
 text \<open>
 Critical for soundness: atomic judgement with a hidden top-most state fixed to an initial s
 can be lifted to a judgement over its observable behaviour fixed to a final internal state s'\<close>
