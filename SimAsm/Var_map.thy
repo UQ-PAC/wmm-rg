@@ -15,7 +15,17 @@ datatype ('var,'val) exp =
   Val 'val | 
   Exp "'val list \<Rightarrow> 'val" "('var,'val) exp list" (* some fct over a list of subexpr *) 
 
-  
+(*fun vars :: "('var,'val) exp \<Rightarrow> 'var list"    (*gives us finiteness of the list - vs sets*)
+  where "vars (Var v) = {v}" |
+        "vars (Val _)   = {}" |
+        "vars (Exp f eList) = \<Union> (set (map vars eList))"  ?
+*)
+
+fun vars :: "('var,'val) exp \<Rightarrow> 'var set"
+  where "vars (Var v) = {v}" |
+        "vars (Val _)   = {}" |
+        "vars (Exp f eList) = \<Union> (set (map vars eList))"
+
 datatype ('var,'val) bexp = 
   Neg "('var,'val) bexp" | 
   Exp\<^sub>B "'val list \<Rightarrow> bool" "('var,'val) exp list"
