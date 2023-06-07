@@ -24,9 +24,30 @@ type_synonym ('r,'v,'a) opbasic' = "('r,'v,('r,'v,'a) varmap','a) opbasic"
 
 text \<open>Labelled state (record) in which every variable appears in its Gl and UL variation \<close>
 type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
-
 type_synonym ('r,'v,'a) lopbasic = "('r label,'v,('r,'v,'a) lvarmap','a) opbasic" 
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
+
+
+text \<open> The type secvarmap introduces the current security level for each variable,
+        i.e., for each variable var \<mapsto> (val, secLevel) \<close>
+
+type_synonym ('r,'v,'sec,'a) secvarmap = "('r,'v\<times>'sec,'a) varmap'"
+type_synonym ('r,'v,'sec,'a) secauxop = "('r,'v,('r,'v,'sec,'a) secvarmap,'a) auxop"
+type_synonym ('r,'v,'sec,'a) secopbasic = "('r,'v,('r,'v,'sec,'a) secvarmap,'a) opbasic" 
+
+text \<open> (\<Gamma> s v) provides the security level (of the current content of) variable v in state s \<close>
+
+type_synonym sec = bool
+
+abbreviation \<Gamma> :: "('r,'v,sec,'a) secvarmap \<Rightarrow> 'r \<Rightarrow> sec" 
+  where "\<Gamma> s v \<equiv> snd (varmap_st s v)"
+
+definition \<Gamma>\<^sub>E :: "('r,'v,sec,'a) secvarmap \<Rightarrow> ('r, 'v \<times>sec) exp \<Rightarrow> sec"
+  where "\<Gamma>\<^sub>E s e \<equiv> (\<And>v. v \<in> (vars e) \<Longrightarrow> \<Gamma> s v)"
+
+text \<open> secClass provides a type for security classifications for each variable v, \<L>(v) \<close>
+
+type_synonym ('r, 'v, 'a) secClass = "'r \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) pred"
 
 
 (*-----------------------------------------------------------------------------------*)
@@ -150,13 +171,13 @@ fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap
 
 
 text \<open>Additional proof obligations to check information flow security, see CSF'2021 paper\<close>
-fun po :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set"
+fun po :: "('r,'v) op \<Rightarrow> ('r, 'v, 'a) secClass \<Rightarrow> ('r,'v,'a) varmap' set"
   where
-    "po (assign r e) = undefined" |
-    "po (cmp v) = undefined" |
-    "po (leak v va) = undefined"  |
-    "po full_fence = undefined" |
-    "po nop = undefined" 
+    "po (assign r e) \<L> =  {s| s.  s \<in>(\<L> r) \<longrightarrow> s \<in> (\<Gamma>\<^sub>E s e)}" |
+    "po (cmp v) \<L> = undefined" |
+    "po (leak v va) \<L> = undefined"  |
+    "po full_fence \<L> = undefined" |
+    "po nop \<L> = undefined" 
  
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
