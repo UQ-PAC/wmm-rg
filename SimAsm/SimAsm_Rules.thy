@@ -1,40 +1,41 @@
 theory SimAsm_Rules
-  imports SimAsm_StateStack SimAsm_Reasoning 
+  imports SimAsm_StateStack SimAsm_Reasoning
+begin
+
+fun project :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" where 
+  "project x = undefined"
+  
+fun projectrel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" where 
+  "projectrel x = undefined"
+
+context reasoning_spec
 begin
 
 
-instantiation varmap_rec_ext :: (type,type,type) pstate
-begin
+interpretation rules: rules undefined undefined tstack_push
+proof (unfold_locales, standard)
+  fix m s m' s'
+  assume "tstack_push m s = tstack_push m' s'" 
+  hence 1: 
+    "Abs_tstack (\<lparr>frame_st = frame_st s, frame_cap = frame_cap s, \<dots> = undefined\<rparr> # Rep_tstack m) 
+    = Abs_tstack (\<lparr>frame_st = frame_st s', frame_cap = frame_cap s', \<dots> = undefined\<rparr> # Rep_tstack m')"
+    (is "Abs_tstack ?L = Abs_tstack ?R")
+    unfolding tstack_push_def by simp
+  let "?s # Rep_tstack m" = ?L
+  let "?s' # Rep_tstack m'" = ?R
+  from 1 have Is_tstack: "Is_tstack ?L" "Is_tstack ?R" "Is_tstack (Rep_tstack m)" "Is_tstack (Rep_tstack m')" 
+    by auto
+  hence "?s = ?s'" "Rep_tstack m = Rep_tstack m'" using 1 RepAbs_id list.inject by metis+
+  show "s = s'" using \<open>?s = ?s'\<close> using frame.equality frame.ext_inject by (metis (full_types) unit.exhaust)
+  show "m = m'" using \<open>Rep_tstack m = Rep_tstack m'\<close> Rep_tstack_inject by auto
+qed
 
-definition "push_state_rec_ext \<equiv> \<lambda>(l :: ('a, 'b, 'c) varmap_rec_scheme) (r :: ('a, 'b, 'c) varmap_rec_scheme). l"
+term rules
 
-instance (* Need to move some things around at the abstract level to get this through *)
-  apply standard
-  sorry
-end
-
-context wp
-begin
-
-print_locale wp 
-
-(* ??? *)
-interpretation expression
-  "varmap_st"
-  "\<lambda>s v x. s\<lparr> varmap_st := (varmap_st s)(v := x)\<rparr>"
-  more
-  "\<lambda>s f. s\<lparr> more := f s\<rparr>"
-  "{x | x y. x = y }"     (*  Ul labelling makes all states labelled types *)
-by unfold_locales auto
-
-print_locale expression
-
-interpretation rules
-  done
 
 
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
-  where "lifted_abv R G P c Q \<equiv> (step\<^sub>t R),(step G) \<turnstile> P {(lift\<^sub>c c)} Q" 
+  where "lifted_abv R G P c Q \<equiv> rules.rules (projectrel (step\<^sub>t R)) (step G) P (lift\<^sub>c c com.Nil) Q" 
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
  where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c) P (step\<^sub>t R) (step G) Q" 

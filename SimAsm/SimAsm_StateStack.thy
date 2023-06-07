@@ -26,6 +26,9 @@ record ('var,'val) frame =
   frame_st :: "'var \<Rightarrow> 'val option" 
   frame_cap :: "'var set" 
 
+setup_lifting type_definition_frame_ext
+copy_bnf ('a,'b,'c) frame_ext
+  
 type_synonym ('var,'val,'a) stack = "('var, 'val,'a) frame_scheme list" 
 
 definition Is_tstack :: "('var,'val,'a) stack \<Rightarrow> bool" where 
@@ -66,7 +69,7 @@ qed
 lemma Is_tstack_baseNone [intro]: "frame_st s v = None \<Longrightarrow> Is_tstack [s] \<Longrightarrow> False"
   unfolding Is_tstack_def
   by (metis last_ConsL)  
-  
+
 typedef ('var,'val,'a) tstack = "{t :: ('var,'val,'a) stack. Is_tstack t}"
 unfolding Is_tstack_def
 proof (standard, clarify, intro conjI allI)
@@ -80,7 +83,10 @@ proof (standard, clarify, intro conjI allI)
     unfolding last select_convs(2) by simp
 qed
 
+setup_lifting type_definition_tstack    
+
 (* declare Abs_tstack_inverse[intro] *)
+find_theorems Abs_tstack
 
 abbreviation RepAbs_tstack where 
   "RepAbs_tstack s \<equiv> Rep_tstack (Abs_tstack s)"
@@ -138,20 +144,20 @@ fun update :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> 'val \<Righ
   "update [] _ _ = undefined" |
   "update (f#fs) v x = (if (v \<in> frame_cap f) then (f\<lparr>frame_st := (frame_st f)(v \<mapsto> x)\<rparr>)#fs else f#update fs v x)"
 
-definition tlookup :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val" where 
-  "tlookup fs v = lookup (Rep_tstack fs) v"
+lift_definition tlookup :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val" 
+  is "\<lambda>fs v. lookup (Rep_tstack fs) v".
   
-definition tupdate :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val,'a) tstack" where 
-  "tupdate fs v x = Abs_tstack (update (Rep_tstack fs) v x)"
+lift_definition tupdate :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val,'a) tstack"
+  is "\<lambda>fs v x. Abs_tstack (update (Rep_tstack fs) v x)".
 
-definition taux :: "('var,'val,'a) tstack \<Rightarrow> 'a" where 
-  "taux s = more (last (Rep_tstack s))"
+lift_definition taux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is
+  "\<lambda>s. more (last (Rep_tstack s))".
 
 definition auxupd :: "('var,'val,'a) stack \<Rightarrow> (('var,'val,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) stack" where 
   "auxupd s f = butlast s @ [(last s)\<lparr> more := f s \<rparr>]"
   
-definition tauxupd :: "('var,'val,'a) tstack \<Rightarrow> (('var,'val,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) tstack" where 
-  "tauxupd s f = Abs_tstack (auxupd (Rep_tstack s) (\<lambda>tstack. f (Abs_tstack tstack)))"
+lift_definition tauxupd :: "('var,'val,'a) tstack \<Rightarrow> (('var,'val,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) tstack" 
+  is "\<lambda>s f. Abs_tstack (auxupd (Rep_tstack s) (\<lambda>tstack. f (Abs_tstack tstack)))".
 
 lemma [intro!, simp]: "Is_tstack (Rep_tstack s)" 
 using Rep_tstack by auto
@@ -274,7 +280,7 @@ next
   with Frame have 1: "Is_tstack (x#xs)" by auto
   with Frame have 2: "Is_tstack (auxupd (xs) (\<lambda>x. f (Abs_tstack x)))" by auto
   with 1 have 3: "Is_tstack (auxupd (x # xs) (\<lambda>x. f (Abs_tstack x)))" by auto
-  note Is_tstack = \<open>Is_tstack xs\<close> 1 2 3
+  note Is_tstack = \<open>Is_tstack xs\<close> 1 2 3 
   
   have "lookup (auxupd xs (\<lambda>xx. f (Abs_tstack (x#RepAbs_tstack xx)))) v = lookup xs v"
     using Is_tstack Frame(1)[of "\<lambda>y. f (Abs_tstack (x#(Rep_tstack y)))"]
@@ -289,9 +295,18 @@ next
   then show ?case using Is_tstack by simp
 qed
 
+
+lift_definition tstack_push :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v) frame \<Rightarrow> ('r,'v,'a) tstack"
+is
+  "\<lambda>stack frame. Abs_tstack (\<lparr>frame_st = frame_st frame, frame_cap = frame_cap frame, \<dots> = undefined \<rparr> # Rep_tstack stack)"
+  .
+
+lift_definition tstack_top :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) frame_scheme"
+is
+  "\<lambda>stack frame. Abs_tstack (\<lparr>frame_st = frame_st frame, frame_cap = frame_cap frame, \<dots> = undefined \<rparr> # Rep_tstack stack)"
   
 
-
+(*
 interpretation stack: state
   "tlookup"
   tupdate
@@ -339,6 +354,7 @@ next
   case (4 s f v)
   then show ?case by simp
 qed 
+*)
 
 
 end
