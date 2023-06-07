@@ -307,7 +307,7 @@ is
 
 lift_definition tstack_top :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) frame_scheme"
 is
-  "\<lambda>stack frame. Abs_tstack (\<lparr>frame_st = frame_st frame, frame_cap = frame_cap frame, \<dots> = undefined \<rparr> # Rep_tstack stack)"
+  "\<lambda>stack. hd (Rep_tstack stack)".
   
 
 (*
