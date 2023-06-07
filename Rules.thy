@@ -22,7 +22,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
   loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
-  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R G c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
+  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
   par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
@@ -212,27 +212,6 @@ lemma stable_preE:
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
 
-
-text \<open> Combining choice with capture to provide the choice over some var that is "hidden" \<close>
-
-(* here s is a variable set, e.g., the set of variables that are updated in c *)
-
-(*
-abbreviation univ_capture  ("\<forall>\<^sub>c _")
-  where "univ_capture c \<equiv> \<Sqinter>s. Capture s c"  
-*)
-
-(* \<forall>\<^sub>c here chooses some pushed s without knowing it, hence wp (\<Sqinter>s. Capture s c) Q 
-   is the wp to reach Q for all elems which might be topmost on the mem-stack *)
-
-text \<open>Universal quantification of top-most stack frame\<close>
-(*
-lemma univ_captureI:
-  assumes "\<forall>l. pushrelSame R,pushrelAll G \<turnstile> pushpred l P {c} pushpredAll Q"
-  shows "R,G \<turnstile> P {univ_capture c} Q"
-  using assms by (intro choice allI capture) simp
-*)
-
 text \<open> to derive guar predicate from judgement \<close>
 
 lemma wlf_trans:
@@ -252,12 +231,10 @@ next
   then show ?case using a1 a0(2) Seq(1,4,5) by simp
 qed auto
 
-
 lemma guar_com:
   assumes "c \<mapsto>[\<alpha>,r] c'" "R,G \<turnstile> P {c} Q" 
   shows "guar\<^sub>\<alpha> \<alpha> G" using assms
 proof (induct arbitrary: P Q R G)
-  print_cases
   case (act \<alpha>)
   then show ?case 
   proof -

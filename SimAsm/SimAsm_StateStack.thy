@@ -31,6 +31,10 @@ copy_bnf ('a,'b,'c) frame_ext
   
 type_synonym ('var,'val,'a) stack = "('var, 'val,'a) frame_scheme list" 
 
+definition emptyFrame :: "('var,'val) frame" where
+  "emptyFrame \<equiv> \<lparr> frame_st = (\<lambda>v. None),
+                  frame_cap = {} \<rparr>"            (* is cap = emptySet ? *)
+
 definition Is_tstack :: "('var,'val,'a) stack \<Rightarrow> bool" where 
   "Is_tstack t \<equiv> t \<noteq> [] \<and> frame_cap (last t) = UNIV \<and> (\<forall>v. frame_st (last t) v \<noteq> None)"
 
@@ -312,7 +316,7 @@ interpretation stack: state
   tupdate
   "taux" 
   "tauxupd"
-  "id" 
+(*  "id"  *)
 proof (unfold_locales, goal_cases)
   case (1 s var val var2)
   have "lookup (update (Rep_tstack s) var val) var2 = (if var2 = var then val else lookup (Rep_tstack s) var2)" 

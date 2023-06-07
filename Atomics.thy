@@ -29,18 +29,8 @@ definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred
 lemma atomicI [intro]:
   assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" "stable R P" "stable R Q"
   shows "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-using assms
-by (auto simp add: atomic_rule_def)
-
-(* 
-lemma thr_atomic:
-  assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-  shows "thr\<^sub>R op R,thr\<^sub>G op G \<turnstile>\<^sub>A thr\<^sub>P op l P {thr\<^sub>\<alpha> op l l' \<alpha>} thr\<^sub>P op l' Q"
-using assms
-unfolding atomic_rule_def thr\<^sub>\<alpha>_def 
-(* by (simp add: thr_stable thr_wp thr_guar) *)
-oops
- *)
+  using assms
+  by (auto simp add: atomic_rule_def)
 
 subsection \<open>Derived Properties\<close>
 
@@ -484,6 +474,17 @@ proof (clarify)
   thus "x \<in> vc (popbasic s s' \<alpha>) \<inter>
               {m. (\<forall>m'. (m, m') \<in> beh (popbasic s s' \<alpha>) \<longrightarrow> m' \<in> (poppred' s' M))}"
     by (auto simp: poppred'_def poprel'_def)
+qed
+
+lemma pushpredAll_mem:
+  assumes "pushpred s P \<subseteq> pushpredAll Q" "x \<in> P" 
+  shows "x \<in> Q"
+proof -
+  have "push x s \<in> pushpred s (P)" using assms by auto
+  hence "push x s \<in> pushpredAll Q" using assms by auto
+  then obtain x' s' where e: "push x s = push x' s'" "x' \<in> Q" unfolding pushpredAll_def by auto
+  hence "x' = x" using push_inj by auto
+  thus ?thesis using e by auto
 qed
 
 text \<open>

@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm Var_map
+  imports SimAsm Var_map 
 begin
 
 text \<open>Labels on global variables only \<close>
