@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm Var_map 
+  imports SimAsm Var_map HOL.Lattices
 begin
 
 text \<open>Labels on global variables only \<close>
@@ -26,28 +26,6 @@ text \<open>Labelled state (record) in which every variable appears in its Gl an
 type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
 type_synonym ('r,'v,'a) lopbasic = "('r label,'v,('r,'v,'a) lvarmap','a) opbasic" 
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
-
-
-text \<open> The type secvarmap introduces the current security level for each variable,
-        i.e., for each variable var \<mapsto> (val, secLevel) \<close>
-
-type_synonym ('r,'v,'sec,'a) secvarmap = "('r,'v\<times>'sec,'a) varmap'"
-type_synonym ('r,'v,'sec,'a) secauxop = "('r,'v,('r,'v,'sec,'a) secvarmap,'a) auxop"
-type_synonym ('r,'v,'sec,'a) secopbasic = "('r,'v,('r,'v,'sec,'a) secvarmap,'a) opbasic" 
-
-text \<open> (\<Gamma> s v) provides the security level (of the current content of) variable v in state s \<close>
-
-type_synonym sec = bool
-
-abbreviation \<Gamma> :: "('r,'v,sec,'a) secvarmap \<Rightarrow> 'r \<Rightarrow> sec" 
-  where "\<Gamma> s v \<equiv> snd (varmap_st s v)"
-
-definition \<Gamma>\<^sub>E :: "('r,'v,sec,'a) secvarmap \<Rightarrow> ('r, 'v \<times>sec) exp \<Rightarrow> sec"
-  where "\<Gamma>\<^sub>E s e \<equiv> (\<And>v. v \<in> (vars e) \<Longrightarrow> \<Gamma> s v)"
-
-text \<open> secClass provides a type for security classifications for each variable v, \<L>(v) \<close>
-
-type_synonym ('r, 'v, 'a) secClass = "'r \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) pred"
 
 
 (*-----------------------------------------------------------------------------------*)
@@ -170,15 +148,6 @@ fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap
   where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}"
 
 
-text \<open>Additional proof obligations to check information flow security, see CSF'2021 paper\<close>
-fun po :: "('r,'v) op \<Rightarrow> ('r, 'v, 'a) secClass \<Rightarrow> ('r,'v,'a) varmap' set"
-  where
-    "po (assign r e) \<L> =  {s| s.  s \<in>(\<L> r) \<longrightarrow> s \<in> (\<Gamma>\<^sub>E s e)}" |
-    "po (cmp v) \<L> = undefined" |
-    "po (leak v va) \<L> = undefined"  |
-    "po full_fence \<L> = undefined" |
-    "po nop \<L> = undefined" 
- 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
 definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
@@ -195,7 +164,7 @@ text \<open>Ensure all global operations in a thread conform to its guarantee\<c
 fun guar\<^sub>c
   where 
     "guar\<^sub>c Skip G = True" |
-    "guar\<^sub>c (Op v a f) G = ((v \<inter> (po a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
+    "guar\<^sub>c (Op v a f) G = (v \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
@@ -222,14 +191,13 @@ text \<open>Transform a predicate based on a program c within an environment R\<
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (po (cmp b)) \<inter> 
-                           stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
      "wp R (While b I _ c) Q = (stabilize R I \<inter> 
-       assert (I \<subseteq> (po (cmp b)) \<inter> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
+       assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
     "wp R (DoWhile I _ c b) Q = (stabilize R I \<inter> 
-       assert (I \<subseteq> (po (cmp b)) \<inter> wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
+       assert (I \<subseteq>  wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
 end (* end of locale wp_WOspec *)
 
