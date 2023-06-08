@@ -271,15 +271,6 @@ text \<open>Restricts a labelled predicate into an unlabelled predicate,
 fun restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = {s. gl_lift s \<in> Q \<and> ul_lift s \<in> Q}"
 
-text \<open>Additional proof obligations during speculation, different po for speculated leaks \<close>
-fun po\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set"
-  where
-    "po\<^sub>s (assign r e) = undefined" |
-    "po\<^sub>s (cmp v) = undefined" |
-    "po\<^sub>s full_fence = undefined" |
-    "po\<^sub>s nop = undefined" |
-    "po\<^sub>s (leak v va) = undefined" 
-
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
@@ -295,7 +286,7 @@ text \<open>wp_spec transformer on lang.\<close>
 fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (po\<^sub>s a) \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
+    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
@@ -326,7 +317,7 @@ text \<open>Transform a predicate based on a program c within an environment R\<
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) Q = stabilize R (v \<inter> (po a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
            (merge R  (stabilize R (wp\<^sub>s c\<^sub>2  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
@@ -334,13 +325,11 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
 (* here (wp\<^sub>s r true) is simplified to Q *)
     "wp R (While b Imix Ispec c) Q =
       (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (po (cmp b)) \<inter>
-                        (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix)))) \<inter>
+        assert (Imix \<subseteq> (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix)))) \<inter>
                         (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))" |
     "wp R (DoWhile Imix Ispec c b) Q =
       (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (po (cmp b)) \<inter>
-                        (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
+        assert (Imix \<subseteq> (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
                                   (wp R c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
                                            (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" 
 (* before simplifying it to the above form:
