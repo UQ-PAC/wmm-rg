@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm Var_map HOL.Lattices
+  imports SimAsm HOL.Lattices SimAsm_StateStack
 begin
 
 text \<open>Labels on global variables only \<close>
@@ -17,8 +17,11 @@ This takes the place of the "state" type in previous theories.
 
 (* varmap_rec is a record with only one mapping in it, varmap_st, i.e., varmap_st replaces
     the old st mapping that provides the mapping from var to val  *)
+
 record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
-type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
+type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme" 
+
+(* type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) frame_scheme" *)
 type_synonym ('r,'v,'a) auxop' = "('r,'v,('r,'v,'a) varmap','a) auxop"
 type_synonym ('r,'v,'a) opbasic' = "('r,'v,('r,'v,'a) varmap','a) opbasic" 
 
@@ -34,7 +37,7 @@ text \<open> General WP reasoning
        the added rg and glb are projections onto the local and global states.\<close>
 
 locale wp =
-  fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
+(*  fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" *)
   fixes rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
   fixes glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 
@@ -141,13 +144,18 @@ fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow>
     "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
+(*
+fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+  where 
+    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wp\<^sub>i _ Q = Q"
+*)
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
-  (* where "wp\<^sub>a a Q = {t. t(aux: a) \<in> Q}" *)
-  where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}"
-
-
+ fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+   where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}" 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
 definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
@@ -175,9 +183,9 @@ end  (* of locale wp *)
 (*---------------------------------------------------------------------------------------*)
 text \<open> Locale for reasoning without speculation in mind  \<close>
 
-locale wp_WOspec = wp project rg glb
-  for project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
-  and rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
+locale wp_WOspec = wp rg glb
+(*  for project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" *)
+  for rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 
 
@@ -204,9 +212,8 @@ end (* end of locale wp_WOspec *)
 (*---------------------------------------------------------------------------------------*)
 text \<open> Locale for reasoning with speculation in mind  \<close>
 
-locale wp_spec = wp project rg glb
-  for project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" 
-  and rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
+locale wp_spec = wp rg glb
+  for rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 
 
@@ -239,11 +246,11 @@ text \<open> Producing a labelled predicate from an unlabelled predicate \<close
 
 text \<open>Restricts the given predicate to its unlabelled part.\<close>
 fun ul_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "ul_restrict s = \<lparr> varmap_st = \<lambda>v. varmap_st s (Ul v), \<dots> = more s \<rparr>"
+  "ul_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Ul v)), \<dots> = more s \<rparr>"
 
 text \<open>Restricts the given predicate to its globally labelled part.\<close>
 fun gl_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "gl_restrict s = \<lparr> varmap_st = \<lambda>v. varmap_st s (Gl v), \<dots> = more s \<rparr>"
+  "gl_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Gl v)), \<dots> = more s \<rparr>"
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Global 
                                             and without constraining Unlabelled.\<close>

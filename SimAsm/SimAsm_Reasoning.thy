@@ -3,8 +3,8 @@ theory SimAsm_Reasoning
 begin
 
 
-type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) stack,'a) auxop"
-type_synonym ('r,'v,'a) opbasicSt = "('r,'v,('r,'v,'a) stack,'a) opbasic" 
+type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop"
+type_synonym ('r,'v,'a) opbasicSt = "('r,'v,('r,'v,'a) tstack,'a) opbasic" 
 
 section \<open>Locales for reasoning, either with speculation (reasoning_spec) or without (reasoning_WOspec)\<close>
 
@@ -15,10 +15,10 @@ section \<open>Locales for reasoning, either with speculation (reasoning_spec) o
 (*---------------------------------------------------------------------------------------*)
 
 locale reasoning_WOspec = wp_WOspec + expression st st_upd aux aux_upd locals
-  for st :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v"
-  and st_upd :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) stack"
-  and aux :: "('r,'v,'a) stack \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) stack \<Rightarrow> (('r,'v,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) stack"
+  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
+  and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
+  and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
+  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
   and locals :: "'r set"
 
 print_locale reasoning_WOspec
@@ -38,7 +38,7 @@ abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
 (*fun lift\<^sub>c :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> (('r,'v,'a) auxop', ('r,'v,'a) varmap') com" *)
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) stack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) stack, ('r,'v) frame) com" 
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | 
@@ -54,17 +54,17 @@ lemma local_lift [intro]:
   "local (lift\<^sub>c c)"
   by (induct c) auto
 
-
-end
+end   (* of reasoning_WOspec*)
 
 (*---------------------------------------------------------------------------------------*)
 
 locale reasoning_spec = wp_spec + expression st st_upd aux aux_upd locals
-  for st :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v"
-  and st_upd :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) stack"
-  and aux :: "('r,'v,'a) stack \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) stack \<Rightarrow> (('r,'v,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) stack"
-  and locals :: "'r set"
+  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
+  and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
+  and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
+  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
+  and locals :: "'r set" +
+  fixes project' :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'"
 
 print_locale reasoning_spec
 
@@ -104,8 +104,8 @@ text \<open>Convert the language into the abstract language expected by the unde
        differs from rest of c2) \<close> 
 
 
-function lift\<^sub>c :: "('r,'v,('r,'v,'a) stack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) stack, ('r,'v) frame) com \<Rightarrow> 
-                                                       (('r,'v,'a) auxopSt, ('r,'v,'a) stack, ('r,'v) frame) com" 
+function lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 
+                                                       (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 
   where
     "lift\<^sub>c Skip r = com.Nil" |
     "lift\<^sub>c (Op v a f) r = Basic (\<lfloor>v,a,f\<rfloor>)" | 
@@ -139,60 +139,29 @@ text \<open> The locale reasoning is currently set to reasoning with speculation
         but it can be set to reasoning without speculation by replacing 
         reasoning_spec --> reasoning_WOspec \<close>
 
+type_synonym ('r,'v,'a) stack_opbasic = "('r,'v,('r,'v,'a) tstack,'a) opbasic"
 
-locale reasoning = reasoning_spec project rg glb st st_upd aux aux_upd locals
-  for project :: "('b \<Rightarrow> 'c) \<Rightarrow> ('b, 'c, 'd) varmap_rec_scheme"
-  and rg :: "('b, 'c, 'd) varmap_rec_scheme \<Rightarrow> 'e"
-  and glb :: "('b, 'c, 'd) varmap_rec_scheme \<Rightarrow> 'f"
-  and st :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v"
-  and st_upd :: "('r,'v,'a) stack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) stack"
-  and aux :: "('r,'v,'a) stack \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) stack \<Rightarrow> (('r,'v,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) stack"
-  and locals :: "'r set"
+locale reasoning = reasoning_spec 
 
 print_locale reasoning
 
 context reasoning
 begin
 
-(* TODO:
-  in lift\<^sub>c we have to model how lang maps to its semantics;
-  to model speculative execution, we have to match
-      lift\<^sub>c (While b I c) = ...
-      lift\<^sub>c (DoWhile I c b) = 
-*)
-
-(* these two dummy parameters used in the interpretation of locale rules, locale semantics resp.,
-    and help to instantiate the types of auxop and state*)
-
-abbreviation "someAuxOp ::('v,'g,'r,'a) auxop  \<equiv> undefined"
-abbreviation "someState ::('r \<Rightarrow> 'v) \<equiv> undefined" (* add a push instance *)
-
-print_locale rules 
-
-interpretation rules   (* No type arity state_rec_ext :: pstate  when "someAuxOp" "someState" *)
-  done
-
-term obs 
-term lexecute
-term lift\<^sub>c 
-print_locale rules
-
-
 
 text \<open>Extract the instruction from an abstract operation \<close>
-(* tag (opbasic) = (op \<times> auxfn) *)
-abbreviation inst :: "('r,'v,'a) opbasic' \<Rightarrow> ('r,'v) op"
+(* tag (opbasic) = (op \<times> auxfn) :: "('r,'v,'a) stack_opbasic \<Rightarrow> ('r,'v) op"  *)
+abbreviation inst
   where "inst a \<equiv> fst (tag a)"
 
-abbreviation auxbasic :: "('r,'v,('r,'v,'a) varmap','a) opbasic \<Rightarrow> (('r,'v,'a) varmap','a) auxfn"
+abbreviation auxbasic (* :: "('r,'v,'a) stack_opbasic \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn" *)
   where "auxbasic a \<equiv> snd (tag a)"
 
 text \<open>A basic is well-formed if its behaviour (i.e., its abstract semantics) agrees with the behaviour
       of its instruction and auxiliary composed (i.e., the concrete semantics of the instantiation).\<close>
-(* beh \<beta> = snd (snd \<beta>) *)
-definition wfbasic :: "('r,'v,'a) opbasic' \<Rightarrow> bool"
-  where "wfbasic \<beta> \<equiv> beh \<beta> = beh\<^sub>a (inst \<beta>, auxbasic \<beta>)"
+(* beh \<beta> = snd (snd \<beta>); type "('r,'v,'a) stack_opbasic \<Rightarrow> bool"*)
+definition wfbasic 
+  where "wfbasic \<beta> \<equiv> beh \<beta> = (beh\<^sub>a) (inst \<beta>, auxbasic \<beta>)"
 
 
 lemma opbasicE:

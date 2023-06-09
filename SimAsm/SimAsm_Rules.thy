@@ -1,18 +1,26 @@
 theory SimAsm_Rules
-  imports SimAsm_StateStack SimAsm_Reasoning
+  imports SimAsm_StateStack SimAsm_Reasoning 
 begin
 
-fun project :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" where 
+fun project :: "('r,'v,'a) varmap'  \<Rightarrow> ('r,'v,'a) tstack" where 
   "project x = undefined"
   
-fun projectrel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" where 
-  "projectrel x = undefined"
+fun projectrel (* ::  "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" *)
+  where "projectrel x = undefined"
+
+fun projectpred (* :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" *)
+  where "projectpred x = undefined"
+
+fun projectcom (* :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) tstack, 'a) lang" *)
+  where "projectcom x = undefined"
 
 context reasoning_spec
 begin
+print_locale reasoning_spec
+print_locale wp_spec
 
 
-interpretation rules: rules undefined undefined tstack_push
+interpretation srules: rules undefined tstack_push
 proof (unfold_locales, standard)
   fix m s m' s'
   assume "tstack_push m s = tstack_push m' s'" 
@@ -33,12 +41,12 @@ qed
 term rules
 
 
-
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
-  where "lifted_abv R G P c Q \<equiv> rules.rules (projectrel (step\<^sub>t R)) (step G) P (lift\<^sub>c c com.Nil) Q" 
+  where "lifted_abv R G P c Q \<equiv> 
+      srules.rules (projectrel (step\<^sub>t R)) (projectrel (step G)) (projectpred P) (lift\<^sub>c c com.Nil) (projectpred Q)" 
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
- where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c) P (step\<^sub>t R) (step G) Q" 
+ where "validity_abv c P R G Q \<equiv> srules.validity (lift\<^sub>c c com.Nil) P (projectrel (step\<^sub>t R)) (projectrel (step G)) Q" 
 
 text \<open>An ordering property on contexts\<close>
 definition context_order 
@@ -50,7 +58,7 @@ text \<open>The validity property we intend to show, abstracts over the preserva
 definition valid 
   ("_,_ \<turnstile>\<^sub>w _ {_} _" [100,0,0,0,100] 60)
   where "valid R G P c Q \<equiv>  
-    (wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c c G) \<longrightarrow> (stable\<^sub>t R P \<and> (R,G \<turnstile>\<^sub>s P {c} Q))"
+     (wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c c G) \<longrightarrow> (stable\<^sub>t R P \<and> (R,G \<turnstile>\<^sub>s P {(projectcom c)} Q))" 
 
 section \<open>Soundness\<close>
 
@@ -58,7 +66,9 @@ text \<open>Basic Rule for operations with vc\<close>
 lemma basic_wp\<^sub>i_1:
   assumes "P \<subseteq> stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))" "wellformed R G" "stable\<^sub>t R Q" 
   assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"
-  shows "(step\<^sub>t R),(step G) \<turnstile> P {Basic (liftg c \<alpha> f)} Q"
+  shows "(step\<^sub>t R),(step G) \<turnstile>\<^sub>s P {Basic (liftg c \<alpha> f)} Q"
+(*  shows "srules.rules (step\<^sub>t R) (step G) P {Basic (liftg c \<alpha> f)} Q" *)
+(*  shows "(step\<^sub>t R),(step G) \<turnstile> P {Basic (liftg c \<alpha> f)} Q" *)
 proof -
     have "(step\<^sub>t R),(step G) \<turnstile>\<^sub>A (stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))) {(liftg c \<alpha> f)} Q"
 (*  have "step\<^sub>t R,step G \<turnstile>\<^sub>A stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)) {\<lfloor>c, \<alpha>, f\<rfloor>} Q" *)

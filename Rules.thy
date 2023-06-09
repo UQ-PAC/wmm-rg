@@ -11,6 +11,7 @@ locale rules = interference
 context rules
 begin
 
+
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
