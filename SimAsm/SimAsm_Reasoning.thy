@@ -14,8 +14,10 @@ section \<open>Locales for reasoning, either with speculation (reasoning_spec) o
 
 (*---------------------------------------------------------------------------------------*)
 
-locale reasoning_WOspec = wp_WOspec + expression st st_upd aux aux_upd locals
-  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
+locale reasoning_WOspec = wp_WOspec rg glb + expression st st_upd aux aux_upd locals
+  for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
+  and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
+  and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
   and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
@@ -58,8 +60,10 @@ end   (* of reasoning_WOspec*)
 
 (*---------------------------------------------------------------------------------------*)
 
-locale reasoning_spec = wp_spec + expression st st_upd aux aux_upd locals
-  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
+locale reasoning_spec = wp_spec rg glb + expression st st_upd aux aux_upd locals
+  for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
+  and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
+  and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
   and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
