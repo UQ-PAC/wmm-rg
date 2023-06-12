@@ -1,18 +1,24 @@
 theory SimAsm_Rules
   imports SimAsm_StateStack SimAsm_Reasoning 
-begin
+  begin
 
-fun project :: "('r,'v,'a) varmap'  \<Rightarrow> ('r,'v,'a) tstack" where 
-  "project x = undefined"
+lift_definition tstack_flat :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
+  is "\<lambda>s. \<lparr> varmap_st = tlookup s, \<dots> = frame.more (hd (Rep_tstack s))\<rparr>".
+
+lift_definition tstack_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
+  "\<lambda>v. tstack_flat -` v".
   
-fun projectrel (* ::  "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" *)
-  where "projectrel x = undefined"
-
-fun projectpred (* :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" *)
-  where "projectpred x = undefined"
-
-fun projectcom (* :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) tstack, 'a) lang" *)
-  where "projectcom x = undefined"
+lift_definition tstack_rel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" is 
+  "\<lambda>x. {(s,s') | s s'. (tstack_flat s, tstack_flat s') \<in> x}".
+  
+fun tstack_com :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) tstack, 'a) lang" where
+  "tstack_com (Skip) = Skip " |
+  "tstack_com (Op pred op auxfn) = Op (tstack_pred pred) op (auxfn \<circ> tstack_flat)" |
+  "tstack_com (Seq a b) = Seq (tstack_com a) (tstack_com b) " |
+  "tstack_com (If c t f) = If c (tstack_com t) (tstack_com f)" |
+  "tstack_com (While b Imix Ispec c) = While b (tstack_pred Imix) (tstack_pred Ispec) (tstack_com c) " |
+  "tstack_com (DoWhile Imix Ispec c b) = DoWhile (tstack_pred Imix) (tstack_pred Ispec) (tstack_com c) b "
+ 
 
 context reasoning_spec
 begin
@@ -38,15 +44,15 @@ proof (unfold_locales, standard)
   show "m = m'" using \<open>Rep_tstack m = Rep_tstack m'\<close> Rep_tstack_inject by auto
 qed
 
-term rules
+term rules.rules
 
 
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
   where "lifted_abv R G P c Q \<equiv> 
-      srules.rules (projectrel (step\<^sub>t R)) (projectrel (step G)) (projectpred P) (lift\<^sub>c c com.Nil) (projectpred Q)" 
+      srules.rules (tstack_rel (step\<^sub>t R)) (tstack_rel (step G)) (tstack_pred P) (lift\<^sub>c c com.Nil) (tstack_pred Q)" 
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
- where "validity_abv c P R G Q \<equiv> srules.validity (lift\<^sub>c c com.Nil) P (projectrel (step\<^sub>t R)) (projectrel (step G)) Q" 
+ where "validity_abv c P R G Q \<equiv> srules.validity (lift\<^sub>c c com.Nil) P (tstack_rel (step\<^sub>t R)) (tstack_rel (step G)) Q" 
 
 text \<open>An ordering property on contexts\<close>
 definition context_order 
