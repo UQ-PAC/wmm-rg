@@ -67,7 +67,7 @@ inductive lexecute :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> 
   ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>' \<Longrightarrow> 
                                       c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
-  cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
+  cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> 
                            Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
   inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"     
                    (*interrupt can terminate c\<^sub>1 at any time (with a silent step, see below) *) 

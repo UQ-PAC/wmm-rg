@@ -54,7 +54,6 @@ qed auto
 
 section \<open>Transition Rules\<close>
 
-
 text \<open>Judgements are preserved across thread-local execution steps\<close>
 lemma lexecute_ruleI [intro]:                
   assumes "R,G \<turnstile> P {c} Q" "c \<mapsto>[\<alpha>',r] c'" "inter R r" 
@@ -78,15 +77,16 @@ next
     by (metis (mono_tags, lifting) ooo.prems(1) seq seqE)
 next
   case (cap c \<alpha>' r c' s s')
-  let ?R="capRely R" and ?G="capGuar G" and ?P="capPred s P" and ?Q="pushpredAll Q"
-  have "?R,?G \<turnstile> ?P {c} ?Q" using cap(4) by (rule captureE)
-  moreover have "inter ?R r" using cap(5) by simp
+  let ?R="capRely R" and ?G="capGuar G" and ?P="capPred s P" and ?Q="capPost Q"
+  obtain "?R,?G \<turnstile> ?P {c} ?Q" using cap(3) by (rule captureE)
+  moreover have "inter ?R r" using cap(4) by simp
   ultimately obtain M where m: "?R,?G \<turnstile>\<^sub>A stabilise ?R ?P {\<alpha>'} M" "?R,?G \<turnstile> M {c'} ?Q"
     using cap(2) by force
-  have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic s s' \<alpha>'} poppred' s' M"
-    using helpa[OF m(1)[simplified stabilise_pushrel]] by simp
-  moreover have "R,G \<turnstile> (poppred' s' M) {Capture s' c'} Q"
-    using m(2) push_poppred_subset by blast
+  have "R,G \<turnstile>\<^sub>A stabilise R P {popbasic s s' \<alpha>'} poppred' s' M" using m(1)
+    apply (rule atomic_pre[OF atomic_popI])
+    by (intro push_to_pop stabilise_pushrel) auto
+  moreover have "R,G \<turnstile> poppred' s' M {Capture s' c'} Q" using m(2)
+    by (meson capture conseq dual_order.refl push_poppred_subset)
   ultimately show ?case by blast
 next
   case (inter1 c\<^sub>1 \<alpha>' r c\<^sub>2)    
@@ -132,27 +132,15 @@ next
   case (capture R G s P c Q)
   show ?case using capture
   proof (cases "Capture s c" c' rule: silentE)
-    case 1
-    then show ?case using capture by auto
-  next
     case (15 k)
-    hence "capRely R,capGuar G \<turnstile> capPred s P {Nil} pushpredAll Q"
-      using capture(1) by simp
-    hence t: "stabilise (capRely R) (capPred s P) \<subseteq> pushpredAll Q"
-      using nilE2 by simp
-    have "R,G \<turnstile> stabilise R P {Nil} stabilise R P"
-      by (simp add: rules.nil stable_stabilise)
-    moreover have "P \<subseteq> stabilise R P"
-      by (simp add: stabilise_supset)
-    moreover have "stabilise R P \<subseteq> Q"
-      using t pushpredAll_mem unfolding stabilise_pushrel by blast
-    ultimately show ?thesis using 15(2) by blast
-  next
-    case (16 c'' c''' k)
-    then show ?thesis using capture by auto
+    hence "stabilise (capRely R) (capPred s P) \<subseteq> pushpredAll Q"
+      using nilE2 capture(1) by simp
+    hence "pushpred s (stabilise R P) \<subseteq> pushpredAll Q"
+      using stabilise_pushrel by fast
+    thus ?thesis unfolding 15
+      by simp (meson conseq dual_order.refl nil stabilise_supset stable_stabilise)
   qed auto
 qed (cases rule: silentE, auto)+
-
 
 text \<open>Judgements are preserved across global execution steps\<close>
 
