@@ -74,7 +74,7 @@ next
     using ooo(2)[OF m(2) i(2)] by auto
   have m'': "R,G \<turnstile> P {c\<^sub>2} stabilise R M'" using m(1) stabilise_supset[of M' R] by auto
   show ?case using reorder_prog[OF m'' m'(1)] i(1) m'(2) ooo(3) 
-    by (metis (mono_tags, lifting) ooo.prems(1) seq seqE)
+    by (metis (mono_tags, lifting) seq seqE)
 next
   case (cap c \<alpha>' r c' s s')
   let ?R="capRely R" and ?G="capGuar G" and ?P="capPred s P" and ?Q="capPost Q"

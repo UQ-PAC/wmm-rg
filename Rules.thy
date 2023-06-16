@@ -20,9 +20,9 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   where
   basic[intro]:   "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:     "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
-  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
+  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
-  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
+  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
   thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
   par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
@@ -95,7 +95,7 @@ qed
 
 lemma seqE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
-  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q" "wlf w"
+  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
   using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+  
 
 
@@ -202,25 +202,6 @@ lemma stable_preE:
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
-
-text \<open> to derive guar predicate from judgement \<close>
-
-lemma wlf_trans:
-  assumes "\<alpha>' < c <\<^sub>w \<alpha>" "wlf w" "guar\<^sub>\<alpha> \<alpha> G"
-  shows "guar\<^sub>\<alpha> \<alpha>' G" using assms
-proof (induct c arbitrary: \<alpha> \<alpha>' w)
-  case Nil
-  then show ?case using wlf_def reorder_com.simps(1) by auto
-next
-  case (Basic x)
-  then show ?case using wlf_def reorder_com.simps(2) by metis
-next
-  case (Seq c1 w c2)
-  obtain \<alpha>\<^sub>n where a0:"\<alpha>\<^sub>n < c2 <\<^sub>w \<alpha>" "\<alpha>' < c1 <\<^sub>w \<alpha>\<^sub>n"
-    using Seq(3) reorder_com.simps(3) by blast
-  have a1:"guar\<^sub>\<alpha> \<alpha>\<^sub>n G" using a0(1) Seq(2,4,5) by simp
-  then show ?case using a1 a0(2) Seq(1,4,5) by simp
-qed auto
 
 end
 
