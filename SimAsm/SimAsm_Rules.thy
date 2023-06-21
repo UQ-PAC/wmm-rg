@@ -70,7 +70,11 @@ locale simasm_rules =
   for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and rg :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
-  
+  + 
+  assumes [simp]: "\<And>s. glb (glb s) = glb s" 
+  assumes [simp]: "\<And>s. rg (rg s) = rg s" 
+  assumes [simp]: "\<And>s s'. rg (glb s) = rg (glb s')" 
+
 context simasm_rules
 begin
 
@@ -113,7 +117,21 @@ definition valid
   where "valid R G P c Q \<equiv>  
      (wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c (vm_lang_of_ts_lang c) G) \<longrightarrow> (stable\<^sub>t R P \<and> (R,G \<turnstile>\<^sub>s P {c} Q))" 
 
-     
+
+lemma vm_of_ts_upds: 
+  "(vm_of_ts x)\<lparr>varmap_rec.more := f (vm_of_ts x)\<rparr> = vm_of_ts (tauxupd x (f \<circ> vm_of_ts))"
+proof -
+  have Is_tstack: "Is_tstack (auxupd (Rep_tstack x) (\<lambda>tstack. f (vm_of_ts (Abs_tstack tstack))))"
+    by auto
+  have f: "f (vm_of_ts x) = frame.more (last (Rep_tstack (tauxupd x (f \<circ> vm_of_ts))))"
+    unfolding tauxupd_def 
+    by (auto simp add: Is_tstack, simp add: auxupd_def Rep_tstack_inverse)
+  
+  show ?thesis
+  using f unfolding vm_of_ts_def by auto
+qed
+   
+  
 lemma tauxupd_in_ts_pred:
   assumes "x \<in> ts_pred_of_vm_pred {t. t\<lparr>varmap_rec.more := f t\<rparr> \<in> Q}" 
   shows "tauxupd x (f \<circ> vm_of_ts) \<in> ts_pred_of_vm_pred Q"
@@ -122,121 +140,130 @@ proof -
     by (simp add: ts_pred_of_vm_pred.rep_eq) 
   hence Q: "(vm_of_ts x) \<lparr> more := f (vm_of_ts x) \<rparr> \<in> Q" by simp
 
-  have Is_tstack: "Is_tstack (auxupd (Rep_tstack x) (\<lambda>tstack. f (vm_of_ts (Abs_tstack tstack))))"
-    by auto
-  have f: "f (vm_of_ts x) = frame.more (last (Rep_tstack (tauxupd x (f \<circ> vm_of_ts))))"
-    unfolding tauxupd_def 
-    by (auto simp add: Is_tstack, simp add: auxupd_def Rep_tstack_inverse)
-  
-  have "(vm_of_ts x) \<lparr> more := f (vm_of_ts x) \<rparr> = vm_of_ts (tauxupd x (f \<circ> vm_of_ts))"
-  using f unfolding vm_of_ts_def by auto
-
-  thus ?thesis using Q by (simp add: ts_pred_of_vm_pred.abs_eq)
-qed
+  show ?thesis using vm_of_ts_upds[where ?x = x] Q by (simp add: ts_pred_of_vm_pred.abs_eq)
+  qed
 
 lemma ts_pred_of_vm_pred_Inter [simp]: 
   "ts_pred_of_vm_pred (P \<inter> Q) = ts_pred_of_vm_pred P \<inter> ts_pred_of_vm_pred Q"
 unfolding ts_pred_of_vm_pred_def by simp
 
-lemma
-  assumes "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile>\<^sub>A ts_pred_of_vm_pred P {liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} ts_pred_of_vm_pred Q"
-  shows "step\<^sub>t R,step G \<turnstile>\<^sub>s P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
-proof (induct \<alpha>)
-  case (assign x11 x12)
-  have 2: "stable (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_pred_of_vm_pred P)"
-    using assms unfolding atomic_rule_def by simp
-  have 1: "step\<^sub>t (step\<^sub>t R) = step\<^sub>t R" for R unfolding step\<^sub>t_def apply auto sorry
-  show ?case 
-  unfolding assign apply simp apply (rule rules.basic)
-  unfolding atomic_rule_def apply auto
-  unfolding liftg_def apply auto
-  prefer 3 unfolding stable_def 1 apply auto
-  using  2 unfolding stable_def apply auto
-  using assms unfolding atomic_rule_def apply auto 
-  unfolding wp_def liftg_def apply auto
-  prefer 3 apply (meson State.stable_def)
-  defer unfolding guar_def apply auto sorry
-next
-  case (cmp x2)
-  then show ?case sorry
-next
-  case (leak x31 x32)
-  then show ?case sorry
-next
-  case full_fence
-  then show ?case sorry
-next
-  case nop
-  then show ?case sorry
+lemma vm_of_ts_wp:
+  assumes "vm_of_ts x \<in> c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)"
+  shows "x \<in> State.wp (ts_pred_of_vm_pred c) (st_beh\<^sub>i \<alpha> O {(t, t'). t' = tauxupd t (f \<circ> vm_of_ts)}) (ts_pred_of_vm_pred Q)"
+proof -
+  have x: "vm_of_ts x \<in> c" "vm_of_ts x \<in> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)" using assms by auto
+
+  show ?thesis
+  proof (cases \<alpha>)
+    case (assign x11 x12)
+    then show ?thesis
+    unfolding wp_def ts_pred_of_vm_pred_def using x
+    apply auto
+    apply (auto simp add: vm_of_ts_upds vm_of_ts.rep_eq)
+    by (metis (mono_tags, lifting) st_upd_aux st_upd_map taux.transfer varmap_rec.update_convs(2) vm_of_ts.transfer vm_of_ts_upds)
+  next
+    case (cmp x2)
+    then show ?thesis  
+    unfolding wp_def ts_pred_of_vm_pred_def using x
+    by (auto simp add: vm_of_ts_upds, simp add: vm_of_ts.rep_eq)
+  next
+    case (leak x31 x32)
+    then show ?thesis 
+    unfolding wp_def ts_pred_of_vm_pred_def using x
+    apply (auto simp add: vm_of_ts_upds vm_of_ts.rep_eq)
+    by (metis (mono_tags, lifting) st_upd_aux st_upd_map taux.transfer varmap_rec.update_convs(2) vm_of_ts.transfer vm_of_ts_upds)
+  next
+    case full_fence
+    then show ?thesis unfolding wp_def ts_pred_of_vm_pred_def using x by (simp add: vm_of_ts_upds)
+  next
+    case nop
+    then show ?thesis unfolding wp_def ts_pred_of_vm_pred_def using x by (simp add: vm_of_ts_upds)
+  qed
 qed
-     
+
+lemma vm_of_ts_wp_liftg:
+  "\<And>x. vm_of_ts x \<in> c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q) \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) (ts_pred_of_vm_pred Q)" 
+unfolding liftg_def 
+by (simp add: ts_pred_of_vm_pred.transfer vm_of_ts_wp)
+
+lemma guar_of_liftg:
+  assumes "c \<subseteq> local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G)"
+  shows "guar\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) (ts_rel_of_vm_rel (step G))"
+unfolding liftg_def
+using assms
+apply auto
+unfolding guar_def
+unfolding ts_pred_of_vm_pred_def
+unfolding ts_rel_of_vm_rel_def
+apply auto
+proof goal_cases
+  case (1 x y)
+  hence x: "vm_of_ts x \<in> wp\<^sub>i \<alpha> {ta. (vm_of_ts x, ta\<lparr>varmap_rec.more := f ta\<rparr>) \<in> step G}"
+    unfolding wp\<^sub>r_def by auto
+  then show ?case unfolding wp\<^sub>r_def using 1
+  proof (cases \<alpha>)
+  case (assign x11 x12)
+    then show ?thesis using x 1  vm_of_ts_upds apply auto  apply (auto simp add: vm_of_ts_upds vm_of_ts.rep_eq)
+    by (smt (verit) st_upd_aux st_upd_map taux.rep_eq varmap_rec.update_convs(2) vm_of_ts.transfer vm_of_ts_upds)
+  next
+    case (cmp x2)
+    then show ?thesis using x 1 vm_of_ts_upds apply auto  apply (auto simp add: vm_of_ts_upds vm_of_ts.rep_eq)
+    by (smt (verit, del_insts) simasm_rules.vm_of_ts_upds simasm_rules_axioms varmap_rec.update_convs(2) vm_of_ts.transfer)
+  next
+    case (leak x31 x32)
+    then show ?thesis using x 1 vm_of_ts_upds apply auto  apply (auto simp add: vm_of_ts_upds vm_of_ts.rep_eq)
+    by (smt (verit) st_upd_aux st_upd_map taux.rep_eq varmap_rec.update_convs(2) vm_of_ts.transfer vm_of_ts_upds)
+  next
+    case full_fence
+    then show ?thesis using x 1 by (simp add: vm_of_ts_upds)
+  next
+    case nop
+    then show ?thesis using x "local.1"(3)
+    by (auto simp add: vm_of_ts_upds)
+  qed
+qed
+
+
+
+lemma stable_ts_rel_of_vm_rel[intro]: 
+  assumes "stable\<^sub>t R P"
+  shows "State.stable (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_pred_of_vm_pred (P))"
+unfolding stable_def stabilize_def ts_pred_of_vm_pred_def ts_rel_of_vm_rel_def step\<^sub>t_def
+apply auto
+using assms unfolding transitive_def
+by (simp add: State.stable_def step\<^sub>t_def)
+
 section \<open>Soundness\<close>
 
 text \<open>Basic Rule for operations with vc\<close>
 lemma basic_wp\<^sub>i_1:
   assumes "P \<subseteq> stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))" "wellformed R G" "stable\<^sub>t R Q" 
-  assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"
+  assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"           
   shows "(step\<^sub>t R),(step G) \<turnstile>\<^sub>s P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
 proof -
-term atomic_rule  
-  have "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel(step G) \<turnstile>\<^sub>A ts_pred_of_vm_pred(stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))) {(liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts))} ts_pred_of_vm_pred Q"
-  using assms apply (cases \<alpha>) 
-
-  apply (rule atomicI)
-  apply auto
-  proof goal_cases
-  case (1 x11 x12 x)
-  then show ?case sorry
+  have 1: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel(step G) \<turnstile>\<^sub>A ts_pred_of_vm_pred(stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))) {(liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts))} ts_pred_of_vm_pred Q"
+  proof (rule atomicI, goal_cases)
+    case 1
+    then show ?case 
+      unfolding ts_pred_of_vm_pred_def
+      apply (rule subsetI, simp del: wp\<^sub>a.simps, erule stabilizeE, simp add: assms(2))
+      using vm_of_ts_wp_liftg assms(2) ts_pred_of_vm_pred_def[symmetric]
+      by (simp add: ts_pred_of_vm_pred.rep_eq)
   next
-  case (2 x11 x12)
-  then show ?case sorry
+    case 2
+    then show ?case using assms(4) using guar_of_liftg by blast
   next
-  case (3 x11 x12)
-  then show ?case sorry
+    case 3
+    then show ?case using stable_ts_rel_of_vm_rel assms by blast
   next
-  case (4 x11 x12)
-  then show ?case sorry
-  next
-  case (5 x2)
-  then show ?case sorry
-  next
-  case (6 x31 x32)
-  then show ?case sorry
-  next
-  case 7
-  then show ?case sorry
-  next
-  case 8
-  then show ?case sorry
+    case 4
+    then show ?case using stable_ts_rel_of_vm_rel assms by blast
   qed
-    (* case (1 x) *)
-    (* hence x: "x \<in> ts_pred_of_vm_pred (c \<inter> {t. t\<lparr>more := f t\<rparr> \<in> Q})"  *)
-      (* using stabilizeE by (metis (no_types, lifting) ts_pred_of_vm_pred.abs_eq vimageE vimageI) *)
-    (* thus ?case unfolding wp_def liftg_def  *)
-      (* using tauxupd_in_ts_pred by auto *)
-  (* next *)
-    (* case 2 *)
-    (* show ?case unfolding liftg_def State.guar_def apply auto using 2(3) *)
-  (* next *)
-    (* case 3 *)
-    (* then show ?case sorry *)
-  (* next *)
-    (* case 4 *)
-    (* then show ?case sorry *)
-  (* next *)
-    (* case (5 x11 x12) *)
-    (* then show ?case sorry *)
-  (* next *)
-    (* case (6 x2) *)
-    (* then show ?case sorry *)
-  (* next *)
-    (* case (7 x31 x32) *)
-    (* then show ?case sorry *)
-  (* next *)
-    (* case 8 *)
-    (* then show ?case sorry *)
-  (* qed *)
-  thus ?thesis 
+  have 2: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G" for G unfolding step\<^sub>t_def by auto
+  have 3: "step (step G) = step G" for G unfolding step_def by auto
+  have "(step\<^sub>t R),(step G) \<turnstile>\<^sub>s (stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))) {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
+    using 1 unfolding 2 3 by (simp only: lift\<^sub>c.simps) (rule rules.basic)
+  thus ?thesis unfolding ts_pred_of_vm_pred_def apply (rule rules.conseq) using assms(1) by auto
 qed
 
 text \<open>Basic Rule for operations without vc\<close>
