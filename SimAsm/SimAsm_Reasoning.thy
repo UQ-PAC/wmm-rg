@@ -108,7 +108,7 @@ text \<open>Convert the language into the abstract language expected by the unde
        differs from rest of c2) \<close> 
 
 
-function lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 
   where
     "lift\<^sub>c Skip r = com.Nil" |
@@ -122,8 +122,6 @@ function lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'
                     else Interrupt (Capture emptyFrame ((lift\<^sub>c c r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>))))" |
     "lift\<^sub>c (DoWhile Imix Ispec c b) r = ((lift\<^sub>c c (Basic (\<lfloor>cmp b\<rfloor>) ;; r)) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; 
                                          (lift\<^sub>c c (Basic (\<lfloor>ncmp b\<rfloor>) ;; r)) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
-
-  apply pat_completeness by auto 
 
 
 
