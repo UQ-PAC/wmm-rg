@@ -40,13 +40,6 @@ text \<open> (w \<alpha>' \<beta> \<alpha>) is an abstract reordering relation t
           \<alpha> can reorder over \<beta> to become \<alpha>' under WMM w; it is carried around 
           as a subscript to reordering relation _ < _ < _  \<close>
 
-text \<open> wellformedness condition on the reordering semantics
-        (allows us to deduce some information on forwarded instructions of which we otherwise
-         don't know anyting) \<close>
-
-definition wlf 
-  where  "wlf w \<equiv> \<forall> \<alpha>' \<beta> \<alpha>. w \<alpha>' \<beta> \<alpha> \<longrightarrow> (\<forall> G. guar\<^sub>\<alpha> \<alpha> G \<longrightarrow> guar\<^sub>\<alpha> \<alpha>' G)"
-
 text \<open>Extend a reordering relation recursively over a program\<close>
 fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b,'c) com \<Rightarrow> ('a,'b) wmm \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   ("_ < _ <\<^sub>_ _" [100,0,0,100] 100)
@@ -55,7 +48,6 @@ fun reorder_com :: "('a,'b) basic \<Rightarrow> ('a,'b,'c) com \<Rightarrow> ('a
     "\<alpha>' < Basic \<beta> <\<^sub>w \<alpha> = (w \<alpha>' \<beta> \<alpha>)" |
     "\<alpha>' < c\<^sub>1 ;\<^sub>w c\<^sub>2 <\<^sub>c \<alpha> = (\<exists>\<alpha>\<^sub>n. \<alpha>' < c\<^sub>1 <\<^sub>c \<alpha>\<^sub>n \<and> \<alpha>\<^sub>n < c\<^sub>2 <\<^sub>c \<alpha>)" |
     "_ < _ <\<^sub>c _ = False"
-
 
 section \<open>Program Transition Definitions\<close>
 
@@ -67,8 +59,7 @@ inductive lexecute :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> 
   ino[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> c\<^sub>1 ;\<^sub>w c\<^sub>2 \<mapsto>[\<alpha>',r] c\<^sub>1' ;\<^sub>w c\<^sub>2" |
   ooo[intro]: "c\<^sub>1 \<mapsto>[\<alpha>',r] c\<^sub>1' \<Longrightarrow> \<alpha>'' < c\<^sub>2 <\<^sub>w \<alpha>' \<Longrightarrow> 
                                       c\<^sub>2 ;\<^sub>w c\<^sub>1 \<mapsto>[\<alpha>'',(Reorder \<alpha>' w c\<^sub>2) # r] c\<^sub>2 ;\<^sub>w c\<^sub>1'" |
-  cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> poppableBasic s s' \<alpha>' \<Longrightarrow> 
-                           Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
+  cap[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> Capture s c \<mapsto>[popbasic s s' \<alpha>', Scope # r] Capture s' c'" |
   inter1[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> (\<triangle>c) \<mapsto>[\<alpha>',r] (\<triangle>c')"     
                    (*interrupt can terminate c\<^sub>1 at any time (with a silent step, see below) *) 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"

@@ -74,4 +74,20 @@ theorem sound:
 
 end
 
+text \<open>
+Create a sublocale for rules that introduces a trivial push operation, that does not allow
+for a Capture's inner region to reason over the push state.
+\<close>
+locale rules_wo_pstate = sem_exists
+begin
+  definition trivial_push
+    where "trivial_push m s = m"
+  lemma trivial_push_inj1:
+    "trivial_push m s = trivial_push m' s' \<Longrightarrow> m = m'"
+    by (auto simp: trivial_push_def)
+end
+
+sublocale rules_wo_pstate \<subseteq> semantics _ trivial_push
+  by (standard) (blast intro: trivial_push_inj1)
+
 end

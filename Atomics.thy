@@ -62,7 +62,7 @@ lemma atomic_conseqI [intro]:
   using assms unfolding atomic_rule_def guar_def by blast
 
 text \<open>Atomic judgements over the same instruction can be combined\<close>
-lemma actomic_conjI [intro]:
+lemma atomic_conjI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P\<^sub>1 {\<alpha>} Q\<^sub>1" "R,G  \<turnstile>\<^sub>A P\<^sub>2 {\<alpha>} Q\<^sub>2"
   shows "R,G \<turnstile>\<^sub>A P\<^sub>1 \<inter> P\<^sub>2 {\<alpha>} Q\<^sub>1 \<inter> Q\<^sub>2"
   using assms unfolding atomic_rule_def wp_def stable_def by blast
@@ -88,6 +88,57 @@ lemma atomic_falseI [intro]:
   shows "R,G \<turnstile>\<^sub>A {} {\<beta>} {}"
   using assms unfolding atomic_rule_def by auto
 
+context pstate
+begin
+
+lemma wp_pop:
+  assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> M"
+  shows "poppred' s P \<subseteq> wp\<^sub>\<alpha> (popbasic s s' \<alpha>) (poppred' s' M)"
+  unfolding wp_def 
+proof (clarify)
+  fix x assume "x \<in> poppred' s P"
+  hence "push x s \<in> P" by (auto simp: poppred'_def)
+  hence "push x s \<in> wp\<^sub>\<alpha> \<alpha> M" using assms by auto
+  hence "push x s \<in> vc \<alpha> \<inter> {m. (\<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" unfolding wp_def by auto
+  thus "x \<in> vc (popbasic s s' \<alpha>) \<inter>
+              {m. (\<forall>m'. (m, m') \<in> beh (popbasic s s' \<alpha>) \<longrightarrow> m' \<in> (poppred' s' M))}"
+    by (auto simp: poppred'_def poprel'_def)
+qed
+
+lemma guar_pop:
+  assumes "guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
+  shows "guar\<^sub>\<alpha> (popbasic s s' \<alpha>) G"
+  using assms by (auto simp: guar_def dest!: poppred'D poprel'D pushrelAllD)
+
+lemma stable_pop:
+  assumes "stable (pushrelSame R) M"
+  shows "stable R (poppred' n M)"
+  unfolding stable_def poppred'_def
+proof (clarsimp)
+  fix m m' assume a: "push m n \<in> M" "(m,m') \<in> R"
+  hence "(push m n, push m' n) \<in> pushrelSame R" by (auto simp: pushrelSame_def)
+  thus "push m' n \<in> M" using a assms by (auto simp: stable_def) 
+qed
+
+lemma atomic_popI:
+  assumes "capRely R, capGuar G \<turnstile>\<^sub>A P {\<alpha>} M"
+  shows "R, G \<turnstile>\<^sub>A (poppred' s P) {popbasic s s' \<alpha>} (poppred' s' M)"
+proof (unfold atomic_rule_def, intro conjI, goal_cases)
+  case 1
+  then show ?case using assms wp_pop unfolding atomic_rule_def by blast
+next
+  case 2
+  then show ?case using assms guar_pop unfolding atomic_rule_def by blast
+next
+  case 3
+  then show ?case using assms stable_pop unfolding atomic_rule_def by blast
+next
+  case 4
+  then show ?case using assms stable_pop unfolding atomic_rule_def by blast
+qed
+
+end
+
 (*---- new: *)
 
 text \<open> Stabilising P over R \<close>
@@ -101,7 +152,7 @@ lemma stabilise_rtrancl: "stabilise R P = (R\<^sup>*) `` P"
 unfolding stabilise_def
 by (simp add: Un_Image Un_commute rtrancl_trancl_reflcl)
 
-lemma stable_stabilise: "stable R (stabilise R P)"
+lemma stable_stabilise [simp]: "stable R (stabilise R P)"
 unfolding stable_rel stabilise_def
 by auto (metis ImageI Transitive_Closure.trancl_into_trancl)
 
@@ -244,35 +295,39 @@ lemma sp_mono: "P \<subseteq> P' \<Longrightarrow> sp \<alpha> P \<subseteq> sp 
 context pstate
 begin
 
-lemma stabilise_pushrel: "stabilise (pushrelSame R) (pushpred s P) = pushpred s (stabilise R P)"
-unfolding stabilise_def
-by (simp add: pushpred_relimage pushpred_union pushrelSame_trancl)
+lemma stabilise_pushrel:
+  "pushpred s (stabilise R P) \<subseteq> stabilise (pushrelSame R) (pushpred s P)"
+  unfolding stabilise_def pushpred_union
+  using pushrelSame_trancl pushpred_relimage by force
 
+(*
 lemma sp_pushbasic: "sp (pushbasic s s' \<alpha>) (pushpred s P) = pushpred s' (sp \<alpha> P)" 
 unfolding pushpred_def pushrel_def sp_def
-by auto (metis ImageI pop_push)
+by auto (metis ImageI pop_push) *)
 
 
 text \<open>Definitions and lemmas for capturing guarantee and stability properties.\<close>
 
+(*
 lemma stable_cap: "stable (capRely R) (capPred s P) \<Longrightarrow> stable R P"
 unfolding stable_def pushrelSame_def pushpred_def
-by (auto, metis pop_push)
+by (auto, metis pop_push) *)
 
 (*
 lemma stable_mix: "stable (pushrelSame R) M \<Longrightarrow> stable R (poppred M)"
 unfolding stable_def pushrelSame_def poppred_def
 by auto (metis pop_push push_pop) *)
 
+(*
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpred s P)"
 unfolding stable_rel
 using pushpred_relimage pushpred_mono
-by metis
+by metis*)
 
 lemma stable_pushrelAll: "stable R P \<Longrightarrow> stable (pushrelAll R) (pushpredAll P)"
 unfolding stable_rel
 using pushpredAll_relimage pushpredAll_mono
-by blast
+by blast 
 
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"
@@ -393,7 +448,7 @@ proof (intro conjI)
   thus "stabilise R (sp \<alpha> P) \<subseteq> Q" using A(4) stabilise_min[of _ Q] by simp
 qed
 
-
+(*
 lemma poppable_stabilise_sp:
   assumes "poppable s P"
   shows "poppable s' (stabilise (pushrelSame R) (sp (pushbasic s s' \<alpha>) P))"
@@ -408,7 +463,7 @@ proof -
   finally have "Q' = pushpred s' (stabilise R (sp \<alpha> (poppred P)))"
     using stabilise_pushrel unfolding Q'_def by simp
   thus "poppable s' Q'" by simp
-qed
+qed *)
 
 (*
 lemma atomic_pushbasic_postE:
@@ -438,74 +493,6 @@ proof (intro conjI)
   show "guar\<^sub>\<alpha> \<alpha> G" using guar_capE[OF a(2)] by simp
   show "stable R P" "stable R Q" using a(3,4) stable_cap by auto
 qed*)
-
-
-lemma help1:
-  assumes "stable (pushrelSame R) M"
-  shows "stable R (poppred' n M)"
-  unfolding stable_def poppred'_def
-proof (clarsimp)
-  fix m m' assume a: "push m n \<in> M" "(m,m') \<in> R"
-  hence "(push m n, push m' n) \<in> pushrelSame R" by (auto simp: pushrelSame_def)
-  thus "push m' n \<in> M" using a assms by (auto simp: stable_def) 
-qed
-
-lemma help3:
-  assumes "guar\<^sub>\<alpha> \<alpha> (pushrelAll G)"
-  shows "guar (poppred' s (vc \<alpha>)) (poprel' s s' (beh \<alpha>)) G"
-  unfolding guar_def
-proof (clarify)
-  fix m m' assume a: "m \<in> poppred' s (vc \<alpha>)" "(m,m') \<in> poprel' s s' (beh \<alpha>)" 
-  hence "push m s \<in> vc \<alpha>" by (auto simp: poppred'_def)
-  moreover have "(push m s, push m' s') \<in> beh \<alpha>" using a by (auto simp: poprel'_def)
-  ultimately have "(push m s, push m' s') \<in> pushrelAll G" using assms by (auto simp: guar_def)
-  thus "(m,m') \<in> G" unfolding pushrelAll_def using push_inj apply (auto ) by blast
-qed
-
-lemma help4:
-  assumes "pushpred s P \<subseteq> wp\<^sub>\<alpha> \<alpha> M"
-  shows "P \<subseteq> wp\<^sub>\<alpha> (popbasic s s' \<alpha>) (poppred' s' M)"
-  unfolding wp_def 
-proof (clarify)
-  fix x assume "x \<in> P"
-  hence "push x s \<in> pushpred s P" by (auto simp: pushpred_def)
-  hence "push x s \<in> wp\<^sub>\<alpha> \<alpha> M" using assms by auto
-  hence "push x s \<in> vc \<alpha> \<inter> {m. (\<forall>m'. (m, m') \<in> beh \<alpha> \<longrightarrow> m' \<in> M)}" unfolding wp_def by auto
-  thus "x \<in> vc (popbasic s s' \<alpha>) \<inter>
-              {m. (\<forall>m'. (m, m') \<in> beh (popbasic s s' \<alpha>) \<longrightarrow> m' \<in> (poppred' s' M))}"
-    by (auto simp: poppred'_def poprel'_def)
-qed
-
-lemma pushpredAll_mem:
-  assumes "pushpred s P \<subseteq> pushpredAll Q" "x \<in> P" 
-  shows "x \<in> Q"
-proof -
-  have "push x s \<in> pushpred s (P)" using assms by auto
-  hence "push x s \<in> pushpredAll Q" using assms by auto
-  then obtain x' s' where e: "push x s = push x' s'" "x' \<in> Q" unfolding pushpredAll_def by auto
-  hence "x' = x" using push_inj by auto
-  thus ?thesis using e by auto
-qed
-
-text \<open>
-Critical for soundness: atomic judgement with a hidden top-most state fixed to an initial s
-can be lifted to a judgement over its observable behaviour fixed to a final internal state s'\<close>
-lemma helpa:
-  assumes "pushrelSame R,pushrelAll G \<turnstile>\<^sub>A pushpred s P {\<alpha>} M"
-  shows "R,G \<turnstile>\<^sub>A P {popbasic s s' \<alpha>} (poppred' s' M)"
-proof (unfold atomic_rule_def, intro conjI, goal_cases)
-  case 1
-  then show ?case using assms help4 unfolding atomic_rule_def by blast
-next
-  case 2
-  then show ?case using assms help3 by (auto simp: atomic_rule_def)
-next
-  case 3
-  then show ?case using assms stable_cap by (auto simp: atomic_rule_def)
-next
-  case 4
-  then show ?case using assms help1 by (auto simp: atomic_rule_def)
-qed
 
 end
 

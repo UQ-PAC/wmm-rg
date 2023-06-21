@@ -20,9 +20,9 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   where
   basic[intro]:   "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<Longrightarrow> R,G \<turnstile> P { Basic \<alpha> } Q" |
   nil[intro]:     "stable R P \<Longrightarrow> R,G \<turnstile> P { Nil } P" |
-  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
+  seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
-  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> wlf w \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
+  loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
   thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
   par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
@@ -30,7 +30,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                     R',G' \<turnstile> P' { c } Q'"  |
   inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> 
                     R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
-  capture[intro]: "capRely R,capGuar G \<turnstile> pushpred s P {c} pushpredAll Q \<Longrightarrow> 
+  capture[intro]: "capRely R,capGuar G \<turnstile> capPred s P {c} capPost Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
   interr[intro]:  "P \<subseteq> I \<Longrightarrow> stable R I \<Longrightarrow> stable G I \<Longrightarrow> R,G \<turnstile> P {c} _ \<Longrightarrow>
                     R,G \<turnstile> P {(\<triangle>c)} I" 
@@ -44,6 +44,7 @@ lemma nilE [elim!]:
   obtains M where "stable R M" "P \<subseteq> M" "M \<subseteq> Q"
   using assms 
   by (induct R G P "Nil :: ('a,'b,'c) com" Q) blast+
+
 
 lemma nilE2:
   assumes "R,G \<turnstile> P {Nil} Q"
@@ -94,42 +95,31 @@ qed
 
 lemma seqE [elim]:
   assumes "R,G \<turnstile> P {c\<^sub>1 ;\<^sub>w c\<^sub>2} Q"
-  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q" "wlf w"
+  obtains M  where "R,G \<turnstile> P {c\<^sub>1} M" "R,G \<turnstile> M {c\<^sub>2} Q"
   using assms by (induct R G P "c\<^sub>1 ;\<^sub>w c\<^sub>2" Q arbitrary: c\<^sub>1 c\<^sub>2) blast+  
- 
+
 
 lemma captureE:
   assumes "R,G \<turnstile> P {Capture s c} Q"
-  shows "capRely R, capGuar G \<turnstile> capPred s P {c} pushpredAll Q"
+  obtains "capRely R, capGuar G \<turnstile> capPred s P {c} capPost Q" 
 using assms
 proof (induct R G P "Capture s c" Q arbitrary: s c)
   case (conseq R G P Q P' R' G' Q')
-  thus ?case using rules.conseq by force
+  thus ?case by (meson pushpredAll_mono pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
 next
   case (capture R G s P c Q)
-  thus ?case by simp
+  thus ?case by blast
 next
   case (inv R G P Q R' I)
-  have "pushrelSame R,pushrelAll G \<turnstile> pushpred s P {c} pushpredAll Q"
-    using inv(2) by auto
-  moreover have "pushrelAll G \<subseteq> pushrelAll R'"
-    using inv by (intro pushrelAll_mono)
-  moreover have
-    "stable (pushrelAll R') (pushpredAll I)"
-    using inv by (intro stable_pushrelAll)
-  ultimately have 
-    "pushrelSame R \<inter> pushrelAll R',pushrelAll G
-      \<turnstile> pushpred s P \<inter> pushpredAll I {c} pushpredAll Q \<inter> pushpredAll I"
-    by (intro rules.inv)
-  hence 
-    "pushrelSame R \<inter> pushrelAll R',pushrelAll G
-      \<turnstile> pushpred s (P \<inter> I) {c} pushpredAll (Q \<inter> I)"
-    by (simp add: pushpred_inter_pushpredAll pushpredAll_inter)
-  hence
-    "pushrelSame (R \<inter> R'),pushrelAll G 
-      \<turnstile> pushpred s (P \<inter> I) {c} pushpredAll (Q \<inter> I)"
-    using pushrelSame_in_pushrelAll by auto 
-  thus ?case.
+  show ?case
+  proof (rule inv(2), goal_cases)
+    case (1)
+    let ?G="capGuar G" and ?R="capGuar R'" and ?I="capPost I"
+    have "stable ?R ?I" using inv(3) by (rule stable_pushrelAll)
+    moreover have "?G \<subseteq> ?R" using inv(4) by (rule pushrelAll_mono)      
+    ultimately have "capRely R \<inter> ?R,?G \<turnstile> capPred s P \<inter> ?I {c} capPost Q \<inter> ?I" using 1(1) by blast
+    thus ?case using inv(5) by force
+  qed
 qed
 
 
@@ -198,7 +188,7 @@ next
   thus ?case using stabilise_inter_RP by (rule conseq; simp)
 next
   case (capture R G s P c Q)
-  thus ?case by (intro rules.capture, auto simp add: stabilise_pushrel)
+  thus ?case using stabilise_pushrel by blast
 next
   case (interr P Q R G c uu)
   have "(stabilise R P) \<subseteq> Q" using interr(1,2) by (simp add: stabilise_min)
@@ -212,70 +202,6 @@ lemma stable_preE:
   shows "\<exists>P'. P \<subseteq> P' \<and> stable R P' \<and> R,G \<turnstile> P' {c} Q"
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
-
-text \<open> to derive guar predicate from judgement \<close>
-
-lemma wlf_trans:
-  assumes "\<alpha>' < c <\<^sub>w \<alpha>" "wlf w" "guar\<^sub>\<alpha> \<alpha> G"
-  shows "guar\<^sub>\<alpha> \<alpha>' G" using assms
-proof (induct c arbitrary: \<alpha> \<alpha>' w)
-  case Nil
-  then show ?case using wlf_def reorder_com.simps(1) by auto
-next
-  case (Basic x)
-  then show ?case using wlf_def reorder_com.simps(2) by metis
-next
-  case (Seq c1 w c2)
-  obtain \<alpha>\<^sub>n where a0:"\<alpha>\<^sub>n < c2 <\<^sub>w \<alpha>" "\<alpha>' < c1 <\<^sub>w \<alpha>\<^sub>n"
-    using Seq(3) reorder_com.simps(3) by blast
-  have a1:"guar\<^sub>\<alpha> \<alpha>\<^sub>n G" using a0(1) Seq(2,4,5) by simp
-  then show ?case using a1 a0(2) Seq(1,4,5) by simp
-qed auto
-
-lemma guar_com:
-  assumes "c \<mapsto>[\<alpha>,r] c'" "R,G \<turnstile> P {c} Q" 
-  shows "guar\<^sub>\<alpha> \<alpha> G" using assms
-proof (induct arbitrary: P Q R G)
-  case (act \<alpha>)
-  then show ?case 
-  proof -
-    obtain Q' where a0:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>} Q'" using act basicE by auto
-    then show ?thesis using atomic_rule_def by blast
-  qed
-next
-  case (ino c\<^sub>1 \<alpha>' r c\<^sub>1' w c\<^sub>2)
-  then show ?case 
-  proof -
-    obtain M where a0:"R,G \<turnstile> P {c\<^sub>1} M" using ino(3) seqE by auto
-    then show ?thesis using ino(2) by auto
-    qed
-next
-  case (ooo c\<^sub>1 \<alpha>' r c\<^sub>1' \<alpha>'' c\<^sub>2 w)
-  then show ?case 
-  proof -
-    obtain M where m:"R,G \<turnstile> P {c\<^sub>2} M" "R,G \<turnstile> M {c\<^sub>1} Q" "wlf w" using ooo(4) seqE by auto
-    have g1:"guar\<^sub>\<alpha> \<alpha>' G" using ooo(1) ooo(2) m(2) by auto
-    then show ?thesis  using m(3) ooo(3) wlf_def wlf_trans by auto
-    qed
-next
-  case (cap c \<alpha>' r c' s s')
-  then show ?case 
-  proof -
-    have c0:"capRely R, pushrelAll G \<turnstile> capPred s P {c} pushpredAll Q" using captureE cap(4) by auto
-    have c1:"guar\<^sub>\<alpha> \<alpha>' (pushrelAll G)" using c0 cap(2) by auto 
-    then show ?thesis using guar_capE by (simp add: help3)
-  qed
-next
-  case (inter1 c \<alpha>' r c')
-  then show ?case 
-  proof -
-    obtain Q' where i0: "R,G \<turnstile> P {c} Q'" using interrE inter1(3)
-      by (smt (verit) conseq equalityD2)
-    have i1:"guar\<^sub>\<alpha> \<alpha>' G" using i0 inter1(2) by auto
-    then show ?thesis using guar_sub i0 by auto
-  qed
-qed
-
 
 end
 

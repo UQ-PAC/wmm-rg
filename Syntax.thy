@@ -29,10 +29,6 @@ abbreviation pushbasic where
 abbreviation popbasic where
   "popbasic s s' \<alpha> \<equiv> (tag \<alpha>, poppred' s (vc \<alpha>), poprel' s s' (beh \<alpha>))"
 
-
-abbreviation poppableBasic where
-"poppableBasic s s' \<alpha> \<equiv> poppable s (vc \<alpha>) \<and> poppable_rel s s' (beh \<alpha>)"
-
 end
 
 text \<open>
@@ -43,9 +39,6 @@ be expressed as an Isabelle datatype. To mimic a set, choice takes a function fr
 The state encoding is reused to express the notion of a label, hence the choice is over
 some set of states (but maybe this is a bad idea).
 \<close>
-
-
-
 
 datatype ('a,'b,'c) com =
   Nil
