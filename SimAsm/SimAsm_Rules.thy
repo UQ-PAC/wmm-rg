@@ -70,10 +70,6 @@ locale simasm_rules =
   for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and rg :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
-  + 
-  assumes [simp]: "\<And>s. glb (glb s) = glb s" 
-  assumes [simp]: "\<And>s. rg (rg s) = rg s" 
-  assumes [simp]: "\<And>s s'. rg (glb s) = rg (glb s')" 
 
 context simasm_rules
 begin
@@ -207,11 +203,11 @@ by auto
 lemma vm_of_ts_in_ts_pred_of_vm_pred[simp]: "(x \<in> ts_pred_of_vm_pred P) = (vm_of_ts x \<in> P)"
 unfolding ts_pred_of_vm_pred_def by simp
 
-lemma stept_stept [simp]: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G" 
-unfolding step\<^sub>t_def by simp
+(* lemma stept_stept [simp]: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G"  *)
+(* unfolding step\<^sub>t_def by simp *)
 
-lemma step_step [simp]: "step (step G) = step G" 
-unfolding step_def by simp
+(* lemma step_step [simp]: "step (step G) = step G"  *)
+(* unfolding step_def by simp *)
 
 lemma tauxupd_more [simp]: "{(t, t'). t' = tauxupd t (varmap_rec.more \<circ> vm_of_ts)} = Id" 
 unfolding tauxupd_def auxupd_def vm_of_ts_def 
@@ -237,7 +233,7 @@ text \<open>Basic Rule for operations with vc\<close>
 lemma basic_wp\<^sub>i_1:
   assumes "P \<subseteq> stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))" "wellformed R G" "stable\<^sub>t R Q" 
   assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"           
-  shows "(step\<^sub>t R),(step G) \<turnstile>\<^sub>s P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
+  shows "R,G \<turnstile>\<^sub>s P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
 proof -
   have x: "vm_of_ts x \<in> c" "vm_of_ts x \<in> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)"
   if "x \<in> ts_pred_of_vm_pred (stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)))" for x 
@@ -258,10 +254,10 @@ proof -
     case 4
     then show ?case using stable_ts_rel_of_vm_rel assms by blast
   qed
-  have 2: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G" for G unfolding step\<^sub>t_def by auto
-  have 3: "step (step G) = step G" for G unfolding step_def by auto
-  have "(step\<^sub>t R),(step G) \<turnstile>\<^sub>s (stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))) {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
-    using 1 unfolding 2 3 by (simp only: lift\<^sub>c.simps) (rule rules.basic)
+  (* have 2: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G" for G unfolding step\<^sub>t_def by auto *)
+  (* have 3: "step (step G) = step G" for G unfolding step_def by auto *)
+  have "R,G \<turnstile>\<^sub>s (stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))) {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
+    using 1 by (simp only: lift\<^sub>c.simps) (rule rules.basic)
   thus ?thesis apply (rule rules.conseq) using assms(1) by auto
 qed
 
@@ -269,7 +265,7 @@ text \<open>Basic Rule for operations without vc\<close>
 lemma basic_wp\<^sub>i_2:
   assumes "P \<subseteq> stabilize R (wp\<^sub>i \<alpha> Q)" "wellformed R G" "stable\<^sub>t R Q"
   assumes "\<forall>m. m \<in> guar (wp\<^sub>i \<alpha>) (step G)"
-  shows "step\<^sub>t R,step G \<turnstile>\<^sub>s P {Op UNIV \<alpha> taux} Q"
+  shows "R, G \<turnstile>\<^sub>s P {Op UNIV \<alpha> taux} Q"
 proof -
   have x: "vm_of_ts x \<in> wp\<^sub>i \<alpha> Q" if "x \<in> ts_pred_of_vm_pred (stabilize R (wp\<^sub>i \<alpha> Q))" for x 
     using assms(1,2) stabilizeE using that vm_of_ts_in_ts_pred_of_vm_pred by blast
@@ -294,7 +290,7 @@ proof -
     case 4
     then show ?case using assms(3) by auto
   qed
-  then have "step\<^sub>t R,step G \<turnstile>\<^sub>s stabilize R (wp\<^sub>i \<alpha> Q) {Op UNIV \<alpha> taux} Q"
+  then have "R,G \<turnstile>\<^sub>s stabilize R (wp\<^sub>i \<alpha> Q) {Op UNIV \<alpha> taux} Q"
     by simp (rule rules.basic)
   thus ?thesis using assms(1) conseq 
   by (simp add: ts_pred_of_vm_pred.rep_eq vimage_mono)
