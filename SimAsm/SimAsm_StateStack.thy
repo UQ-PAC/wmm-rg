@@ -237,7 +237,7 @@ find_theorems Abs_tstack
 thm type_definition_tstack
 term more 
 
-lemma aux_update: 
+lemma aux_update [simp]: 
   shows "Is_tstack s \<Longrightarrow> more (last (update s v x)) = more (last s)"
 proof (induct s)
   case (Cons a s)
@@ -254,6 +254,19 @@ proof (induct s)
     ultimately show ?thesis by simp    
   qed auto
 qed auto
+
+lemma aux_tupdate [simp]:
+  shows "more (last (Rep_tstack (tupdate s v x))) = more (last (Rep_tstack s))"
+proof (induct s rule: tstack_induct)
+  case (Base s)
+  hence "Is_tstack (update [s] v x)" by (rule Is_tstack_update)
+  thus ?case unfolding tupdate_def using Base by auto
+next
+  case (Frame x xs)
+  hence "Is_tstack (x#xs)" by auto
+  thus ?case unfolding tupdate_def using Frame 
+    by (simp_all add: Is_tstackE(1) Is_tstack_ConsI Is_tstack_update aux_update)
+qed
 
 lemma auxupd_Cons:
   "xs \<noteq> [] \<Longrightarrow> auxupd (x#xs) f = x # auxupd xs (\<lambda>xs. f (x#xs))"
