@@ -135,6 +135,14 @@ fun rd :: "('r,'v) op \<Rightarrow> 'r set"
     "rd (leak _ e) = deps\<^sub>E e" |
     "rd _ = {}"
 
+text \<open>Variables leaked by an operation\<close>
+fun lk :: "('r,'v) op \<Rightarrow> 'r set"
+  where 
+    "lk (assign y _) = {}" |
+    "lk (leak c _) = {c}" |
+    "lk _ = {}"
+
+
 text \<open>Test if an instruction is a memory barrier\<close>
 fun barriers :: "('r,'v) op \<Rightarrow> bool"
   where "barriers full_fence = True" | "barriers _ = False"

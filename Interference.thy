@@ -11,7 +11,7 @@ and then defines all possible early executions that may be observed for a progra
 \<close>
                          
 locale interference = semantics 
-
+                        
 context interference
 begin
 

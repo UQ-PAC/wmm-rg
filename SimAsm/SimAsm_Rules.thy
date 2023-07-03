@@ -73,16 +73,16 @@ locale simasm_rules =
 
 context simasm_rules
 begin
-term aux
+
+abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
+  where "rules_abv R G P c Q \<equiv> rules R G P c Q"
 
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
   where "lifted_abv R G P c Q \<equiv> 
-      rules (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_rel_of_vm_rel (step G)) (ts_pred_of_vm_pred P) (lift\<^sub>c c com.Nil) (ts_pred_of_vm_pred Q)" 
-
-term lifted_abv
+      (ts_rel_of_vm_rel (step\<^sub>t R)), (ts_rel_of_vm_rel (step G)) \<turnstile> (ts_pred_of_vm_pred P) {(lift\<^sub>c c com.Nil {})} (ts_pred_of_vm_pred Q)" 
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
- where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c com.Nil) P (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_rel_of_vm_rel (step G)) Q" 
+ where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c com.Nil {}) P (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_rel_of_vm_rel (step G)) Q" 
 
 text \<open>An ordering property on contexts\<close>
 definition context_order 
@@ -163,6 +163,17 @@ proof -
   qed (simp_all add: vm_of_ts_auxupd)
 qed
 
+lemma wp_of_liftg:
+  
+  "\<And>x. reflexive R \<Longrightarrow> vm_of_ts x \<in> stabilize R ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg c \<alpha> f) (ts_pred_of_vm_pred Q)" 
+unfolding liftg_def apply simp
+proof goal_cases
+  case (1 x)
+  have "vm_of_ts x \<in> ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U"
+    using "local.1"(1) "local.1"(2) wp.stabilizeE by blast
+  then show ?case unfolding wp_def stabilize_def
+qed
+
 lemma vm_of_ts_wp_liftg:
   "\<And>x. vm_of_ts x \<in> c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q) \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) (ts_pred_of_vm_pred Q)" 
 unfolding liftg_def 
@@ -191,6 +202,35 @@ proof (clarsimp, goal_cases)
     then show ?thesis using x 1 vm_of_ts_bothupd[where ?s=x and ?v=v] 
     by (simp add: vm_of_ts.rep_eq)
   qed (auto simp add: vm_of_ts_auxupd)
+qed
+
+lemma guar_of_liftg':
+  assumes "c \<subseteq> ts_pred_of_vm_pred (local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a (f \<circ> ts_of_vm)) (step G))" 
+  shows "guar\<^sub>\<alpha> (liftg c \<alpha> f) (ts_rel_of_vm_rel (step G))"
+using assms
+unfolding liftg_def guar_def ts_pred_of_vm_pred_def ts_rel_of_vm_rel_def
+proof (clarsimp; goal_cases)
+  case (1 x y)
+  hence x: "vm_of_ts x \<in> wp\<^sub>i \<alpha> {ta. (vm_of_ts x, ta\<lparr>varmap_rec.more := f (ts_of_vm ta)\<rparr>) \<in> step G}" sorry
+  hence x2: "vm_of_ts x \<in> guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a (f \<circ> ts_of_vm)) (step G)" unfolding wp\<^sub>r_def by simp
+  then show ?case 
+  proof (cases \<alpha>)
+    case (assign v x')
+    show ?thesis using   x2 unfolding assign wp\<^sub>r_def apply simp 
+    using 1(3)   unfolding comp_def unfolding assign apply simp using vm_of_ts_bothupd[where ?s=x and ?v=v and ?f="f \<circ> ts_of_vm"] sorry
+  next
+    case (cmp x2)
+    then show ?thesis sorry
+  next
+    case (leak x31 x32)
+    then show ?thesis sorry
+  next
+    case full_fence
+    then show ?thesis sorry
+  next
+    case nop
+    then show ?thesis using 1 unfolding nop wp\<^sub>r_def apply auto using x vm_of_ts_auxupd[where ?x=x] sorry
+  qed
 qed
 
 lemma stable_ts_rel_of_vm_rel[intro]: 
@@ -300,8 +340,9 @@ text \<open>A rule for cmp operations, used for If/While\<close>
 lemma cmp_sound [intro!]:
   assumes "wellformed R G" "stable\<^sub>t R Q"
   assumes "P \<subseteq> stabilize R (wp\<^sub>i (cmp b) Q)"
-  shows "step\<^sub>t R,step G \<turnstile>\<^sub>s P {Basic ((liftl (cmp b)))} Q"
-  using assms by (intro basic_wp\<^sub>i_2) (auto simp: step_def reflexive_def wp\<^sub>r_def)
+  shows "R,G \<turnstile>\<^sub>s P {Op UNIV (cmp b) taux} Q"
+  using assms 
+  by (intro basic_wp\<^sub>i_2) (auto simp: step_def reflexive_def wp\<^sub>r_def)  
 
 subsection \<open>State Ordering\<close>
 
@@ -328,19 +369,111 @@ subsection \<open>Rules\<close>
 
 text \<open>If Rule\<close>
 
+lemma "R,G \<turnstile>\<^sub>w stabilize R ((wp\<^sub>s (vm_lang_of_ts_lang c) (Q\<^sup>G))\<^sup>U) {c} Q"
+unfolding valid_def
+apply (intro impI conjI; elim conjE)
+proof (goal_cases)
+  case 1
+  then show ?case by auto
+next
+  case 2
+  then show ?case
+  proof (induct c arbitrary: R G)
+    case Skip
+    have s: "ts_pred_of_vm_pred (stabilize R (Q\<^sup>G)\<^sup>U) \<subseteq> ts_pred_of_vm_pred Q" unfolding ts_pred_of_vm_pred_def restrict_pred_def gl_lift_pred_def apply auto
+      by (metis (no_types, lifting) Skip.prems(1) mem_Collect_eq varmap_rec.surjective wp.stabilizeE)
+    have q: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ts_pred_of_vm_pred (Q) {Nil} ts_pred_of_vm_pred (Q)"
+      apply (rule rules.nil) apply (rule stable_ts_rel_of_vm_rel)
+      using Skip.prems(1) Skip.prems(4) Skip by simp
+    then show ?case unfolding valid_def 
+    apply auto using q s by (meson equalityD2 rules.rules.conseq rules_axioms)
+  next
+    case (Op c \<alpha> f)
+    have "c \<subseteq> ts_pred_of_vm_pred (local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a (f \<circ> ts_of_vm)) (step G))" 
+      using Op unfolding ts_pred_of_vm_pred_def by auto
+    thm guar_of_liftg
+    hence "guar\<^sub>\<alpha> (liftg (c) \<alpha> f) (ts_rel_of_vm_rel (step G))" using guar_of_liftg' by auto
+
+    
+    show ?case unfolding valid_def apply clarsimp 
+    apply (rule rules.basic)
+    unfolding atomic_rule_def 
+    apply auto 
+    defer
+    using \<open>guar\<^sub>\<alpha> (liftg c \<alpha> f) (ts_rel_of_vm_rel (step G))\<close> apply linarith
+    defer
+    using Op.prems(2) apply blast 
+    defer
+    using Op.prems(1) Op.prems(4) apply blast
+    
+    
+    
+  next
+    case (Seq c1 c2)
+    then show ?case sorry
+  next
+    case (If x1 c1 c2)
+    then show ?case sorry
+  next
+    case (While x1 x2 x3 c)
+    then show ?case sorry
+  next
+    case (DoWhile x1 x2 c x4)
+    then show ?case sorry
+  qed
+qed
+
 lemma if_wp:
-  "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q \<Longrightarrow> 
-            R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q) \<inter> 
-                    stabilize R (wp\<^sub>i (cmp b) P\<^sub>1 \<inter> wp\<^sub>i (ncmp b) P\<^sub>2) {If b c\<^sub>1 c\<^sub>2} Q"
-  unfolding valid_def apply clarsimp 
-  apply (intro conjI)
+  "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q \<Longrightarrow>
+  R,G \<turnstile>\<^sub>w stabilize R ((wp\<^sub>s (vm_lang_of_ts_lang (If b c\<^sub>1 c\<^sub>2)) (Q\<^sup>G))\<^sup>U) {If b c\<^sub>1 c\<^sub>2} UNIV \<Longrightarrow>
+  P \<subseteq> (wp\<^sub>i (cmp b) P\<^sub>1 \<inter> wp\<^sub>i (ncmp b) P\<^sub>2) \<Longrightarrow>
+            R,G \<turnstile>\<^sub>w stabilize R P {If b c\<^sub>1 c\<^sub>2} Q"
+  unfolding valid_def apply clarsimp
+apply standard 
+apply blast
+proof (rule rules.choice, standard, goal_cases)
+  case (1 l)
+  have "ts_rel_of_vm_rel
+          (step\<^sub>t
+            R),ts_rel_of_vm_rel
+                (step
+                  G) \<turnstile> ts_pred_of_vm_pred
+                           (((wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>1) (Q\<^sup>G) \<inter> wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>2) (Q\<^sup>G))\<^sup>U) \<inter>
+
+                           ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> P\<^sub>1} \<inter>
+                            {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
+                                s \<in> P\<^sub>2})) {(\<triangle> Capture (emptyFrame (wr\<^sub>l c\<^sub>2)) (Seqw (lift\<^sub>c c\<^sub>2 com.Nil {}) com.Nil)) . Seqw (Basic (liftl (cmp b))) (lift\<^sub>c c\<^sub>1 com.Nil {})} ts_pred_of_vm_pred Q"
+  proof (rule rules.seq)
+  let ?M = "ts_pred_of_vm_pred (stabilize R (P\<^sub>1 \<inter> {s. ev\<^sub>B (varmap_st s) b}))"
+  have cmp: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ?M {Basic (liftl (cmp b))} ?M"
+    apply (rule rules.basic) unfolding atomic_rule_def liftl_def wp_def guar_def apply auto using 1(3) unfolding reflexive_def step_def 
+    sorry    using 1 by blast
+  show "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ?M {Seqw (Basic (liftl (cmp b))) (lift\<^sub>c c\<^sub>1 com.Nil {})} ts_pred_of_vm_pred Q"
+    apply (rule rules.seq[where ?M = ?M]) using 1(8)
+    apply (meson "local.1"(1) Int_iff conseq subsetI vm_of_ts_in_ts_pred_of_vm_pred wp.stabilizeE)
+    using cmp.
+  show " ts_rel_of_vm_rel
+     (step\<^sub>t
+       R),ts_rel_of_vm_rel
+           (step
+             G) \<turnstile> ts_pred_of_vm_pred
+                    (((wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>1) (Q\<^sup>G) \<inter> wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>2) (Q\<^sup>G))\<^sup>U) \<inter>
+                     ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> P\<^sub>1} \<inter>
+                      {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
+                          s \<in> P\<^sub>2})) {\<triangle> Capture (emptyFrame (wr\<^sub>l c\<^sub>2)) (Seqw (lift\<^sub>c c\<^sub>2 com.Nil {}) com.Nil)} ts_pred_of_vm_pred (stabilize R (P\<^sub>1 \<inter> {s. ev\<^sub>B (varmap_st s) b})) "
+    apply (rule rules.interr) prefer 4 apply auto apply (rule rules.capture)
+  qed
+  then show ?case apply (cases "l = 0"; simp)
+qed
+  apply (rule local.rules.seq)
   prefer 2
    apply (intro rules.choice)
    apply (intro allI)
    apply (simp split: if_splits)
    apply (intro conjI impI)
   using cmp_sound rules.rules.seq rules.rules.interr stabilize_entail subsetI 
-  sorry
+  apply simp
+  prefer 3
 (*            R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q) \<inter> wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter>  *)
 (*    apply (simp add: cmp_sound rules.rules.seq stabilize_entail subsetI)+  
   by blast 

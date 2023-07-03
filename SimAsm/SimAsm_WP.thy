@@ -254,12 +254,12 @@ fun gl_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Global 
                                             and without constraining Unlabelled.\<close>
-fun gl_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>G" [901] 900) where
+definition gl_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(2_)\<^sup>G" [901] 900) where
   "gl_lift_pred Q = {s. gl_restrict s \<in> Q }"
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Unlabelled 
                                                     and without constraining Global.\<close>
-fun ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(_\<^sup>L)" [1000] 1000) where
+definition ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(_\<^sup>L)" [1000] 1000) where
   "ul_lift_pred Q = {s. ul_restrict s \<in> Q }"
 
 
@@ -267,16 +267,17 @@ text \<open> Other direction: Producing an unlabelled predicate from a labelled 
 
 text \<open>Lifts the given unlabelled state to its Ul labelled counterpart.\<close>
 fun ul_lift :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where 
-  "ul_lift s = \<lparr> varmap_st = \<lambda>v. (varmap_st s (unlabel v)), \<dots> = more s \<rparr>"
+  "ul_lift s = \<lparr> varmap_st = \<lambda>v. varmap_st s (unlabel v), \<dots> = more s \<rparr>"
 
 text \<open>Lifts the given unlabelled state to its Gl labelled counterpart.\<close>
 fun gl_lift :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where 
   "gl_lift s = \<lparr> varmap_st = \<lambda>v. varmap_st s (unlabel v), \<dots> = more s \<rparr>"
+(* Kait: these do not really work..? *)
 
 text \<open>Restricts a labelled predicate into an unlabelled predicate, 
             constraining both, global and unlabelled predicates.\<close>
-fun restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
-  "restrict_pred Q = {s. gl_lift s \<in> Q \<and> ul_lift s \<in> Q}"
+definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
+  "restrict_pred Q = {s. gl_lift s \<in> Q}"
 
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>

@@ -37,6 +37,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
 (*   for interr the wmm should be set to sc but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
+
 subsection \<open>Properties\<close>
 
 lemma nilE [elim!]:

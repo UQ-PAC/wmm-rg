@@ -107,27 +107,26 @@ text \<open>Convert the language into the abstract language expected by the unde
       The "rest" is relative within composed language constructs (e.g., in Seq c1 c2 rest of c1 
        differs from rest of c2) \<close> 
 
-
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 'r set \<Rightarrow> 
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 
   where
-    "lift\<^sub>c Skip r = com.Nil" |
-    "lift\<^sub>c (Op v a f) r = Basic (\<lfloor>v,a,f\<rfloor>)" | 
-    "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) r = (lift\<^sub>c c\<^sub>1 (lift\<^sub>c c\<^sub>2 r)) ;; (lift\<^sub>c c\<^sub>2 r)" |  
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r =  (Choice (\<lambda> s. if (s = 0)
-                    then Interrupt (Capture emptyFrame ((lift\<^sub>c c\<^sub>2 r) ;; r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r)) 
-                    else Interrupt (Capture emptyFrame ((lift\<^sub>c c\<^sub>1 r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r))))" |
-    "lift\<^sub>c (While b Imix Ispec c) r = (Choice (\<lambda> s. if (s = 0)
-                    then Interrupt (Capture emptyFrame (r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r)) 
-                    else Interrupt (Capture emptyFrame ((lift\<^sub>c c r) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>))))" |
-    "lift\<^sub>c (DoWhile Imix Ispec c b) r = ((lift\<^sub>c c (Basic (\<lfloor>cmp b\<rfloor>) ;; r)) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; 
-                                         (lift\<^sub>c c (Basic (\<lfloor>ncmp b\<rfloor>) ;; r)) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
+    "lift\<^sub>c Skip r wrs = com.Nil" |
+    "lift\<^sub>c (Op v a f) r wrs = Basic (\<lfloor>v,a,f\<rfloor>)" | 
+    "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) r wrs = (lift\<^sub>c c\<^sub>1 (lift\<^sub>c c\<^sub>2 r wrs) (wr\<^sub>l c\<^sub>2 \<union> wrs)) ;; (lift\<^sub>c c\<^sub>2 r wrs)" |  
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda> s. if (s = 0)
+                    then Interrupt (Capture (emptyFrame (wr\<^sub>l c\<^sub>2 \<union> wrs)) ((lift\<^sub>c c\<^sub>2 r wrs) ;; r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r wrs)) 
+                    else Interrupt (Capture (emptyFrame (wr\<^sub>l c\<^sub>1 \<union> wrs)) ((lift\<^sub>c c\<^sub>1 r wrs) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r wrs))))" |
+    "lift\<^sub>c (While b Imix Ispec c) r wrs = (Choice (\<lambda> s. if (s = 0)
+                    then Interrupt (Capture (emptyFrame (wrs)) (r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)) 
+                    else Interrupt (Capture (emptyFrame (wr\<^sub>l c \<union> wrs)) ((lift\<^sub>c c r wrs) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>))))" |
+    "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs = ((lift\<^sub>c c (Basic (\<lfloor>cmp b\<rfloor>) ;; r) wrs) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; 
+                                         (lift\<^sub>c c (Basic (\<lfloor>ncmp b\<rfloor>) ;; r) wrs) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
 
 
 
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:
-  "local (lift\<^sub>c c r)"
+  "local (lift\<^sub>c c r {})"
   apply (induct c) 
   sorry
 

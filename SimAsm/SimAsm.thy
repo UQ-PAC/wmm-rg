@@ -21,6 +21,16 @@ datatype ('r,'v,'s,'a) lang =
   | While "('r,'v) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
   | DoWhile "('r,'v,'s,'a) pred" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang" "('r,'v) bexp"
 
+fun ops :: "('r,'v,'s,'a) lang \<Rightarrow> ('r,'v) op set" where 
+  "ops Skip = {}" |
+  "ops (Op _ op _) = {op}" |
+  "ops (Seq a b) = ops a \<union> ops b" | 
+  "ops (If _ a b) = ops a \<union> ops b" | 
+  "ops (While _ _ _ a) = ops a" |
+  "ops (DoWhile _ _ a _) = ops a"
+
+abbreviation wr\<^sub>l where 
+  "wr\<^sub>l l \<equiv> \<Union>(wr ` ops l)"
 
 context expression
 begin
