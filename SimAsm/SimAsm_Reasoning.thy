@@ -1,6 +1,50 @@
 theory SimAsm_Reasoning
-  imports SimAsm_WP SimAsm_StateStack
+  imports "../Syntax" SimAsm_WP SimAsm_StateStack 
 begin
+
+section \<open> Instruction Specification Language: 
+           this creates the link between the abstract logic and the SimAsm instantiation \<close>
+
+(* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
+type_synonym ('r,'v,'s,'a) opbasic = "(('r,'v,'s,'a) auxop, 's) basic"
+
+
+locale sem_link = expression st st_upd aux aux_upd locals
+    for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v"
+    and st_upd :: "'s \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 's" 
+    and aux :: "'s \<Rightarrow> 'a"
+    and aux_upd :: "'s \<Rightarrow> ('s \<Rightarrow> 'a) \<Rightarrow> 's" 
+    and locals :: "'r set"
+
+context sem_link
+begin
+
+text \<open>
+To instantiate the abstract theory, we must couple each sub-operation with its precondition
+and behaviour in a tuple\<close>
+
+fun re\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
+  where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
+
+text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
+fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+  where 
+    "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
+    "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
+                                    (* (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" | *)
+    "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
+
+text \<open>Lift an operation with specification\<close>
+definition liftg :: "'s pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('s,'a) auxfn \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+  ("\<lfloor>_,_,_\<rfloor>" 100)
+  where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
+
+text \<open>Lift an operation without specification\<close>
+definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+  ("\<lfloor>_\<rfloor>" 100)
+  where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
+
+end
 
 
 type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop"
@@ -14,7 +58,7 @@ section \<open>Locales for reasoning, either with speculation (reasoning_spec) o
 
 (*---------------------------------------------------------------------------------------*)
 
-locale reasoning_WOspec = wp_WOspec rg glb + expression st st_upd aux aux_upd locals
+locale reasoning_WOspec = wp_WOspec rg glb + sem_link st st_upd aux aux_upd locals
   for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
   and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
   and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
@@ -60,7 +104,7 @@ end   (* of reasoning_WOspec*)
 
 (*---------------------------------------------------------------------------------------*)
 
-locale reasoning_spec = wp_spec rg glb + expression st st_upd aux aux_upd locals
+locale reasoning_spec = wp_spec rg glb + sem_link st st_upd aux aux_upd locals
   for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
   and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
   and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"

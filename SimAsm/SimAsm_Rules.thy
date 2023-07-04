@@ -1,5 +1,5 @@
 theory SimAsm_Rules
-  imports SimAsm_StateStack SimAsm_Reasoning 
+  imports SimAsm_StateStack SimAsm_Reasoning "../Soundness"
   begin
 
 lift_definition vm_of_ts :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
@@ -10,7 +10,7 @@ lift_definition ts_of_vm :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) tstack"
 
 lemma ts_of_vm_exists: "\<exists>ts. vm_of_ts ts = vm"
 proof
-  let ?s = "[\<lparr> frame_st = Some \<circ> varmap_st vm, frame_cap = UNIV, \<dots> = more vm \<rparr>]"
+  let ?s = "[\<lparr> frame_st = Some \<circ> varmap_st vm, frame_cap = UNIV, \<dots> = varmap_rec.more vm \<rparr>]"
   let ?ts = "Abs_tstack ?s"
   have "Is_tstack ?s" by (simp add: Is_tstack_def)
   hence 1: "RepAbs_tstack ?s = ?s" by simp
@@ -27,7 +27,7 @@ proof -
   have "varmap_st vm = tlookup (ts_of_vm vm)" 
     using a ts_of_vm_exists
     by (metis (mono_tags, lifting) varmap_rec.select_convs(1) verit_sko_ex' vm_of_ts.transfer)  
-  moreover have "more vm = frame.more (last (Rep_tstack (ts_of_vm vm)))"
+  moreover have "varmap_rec.more vm = frame.more (last (Rep_tstack (ts_of_vm vm)))"
     using a ts_of_vm_exists
     by (metis (mono_tags, lifting) varmap_rec.select_convs(2) verit_sko_ex' vm_of_ts.transfer)    
   ultimately show ?thesis unfolding vm_of_ts_def by simp
@@ -171,7 +171,7 @@ proof goal_cases
   case (1 x)
   have "vm_of_ts x \<in> ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U"
     using "local.1"(1) "local.1"(2) wp.stabilizeE by blast
-  then show ?case unfolding wp_def stabilize_def
+  then show ?case unfolding wp_def stabilize_def 
 qed
 
 lemma vm_of_ts_wp_liftg:

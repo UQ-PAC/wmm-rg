@@ -1,12 +1,10 @@
 theory SimAsm
-  imports "../Security"  SimAsm_Exp
+  imports SimAsm_Exp
 begin
 
 type_synonym ('s,'a) auxfn = "'s \<Rightarrow> 'a"
 type_synonym ('r,'v,'s,'a) auxop = "('r,'v) op \<times> ('s,'a) auxfn"
 
-(* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
-type_synonym ('r,'v,'s,'a) opbasic = "(('r,'v,'s,'a) auxop, 's) basic"
 
 type_synonym ('r,'v,'s,'a) pred = "'s set"
 
@@ -70,35 +68,6 @@ fun beh\<^sub>a :: "('r,'v,'s,'a) auxop \<Rightarrow> 's rel"
 
 fun re\<^sub>a :: "('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> bool" 
   where "re\<^sub>a (\<alpha>,_) (\<beta>,_) = re\<^sub>i \<alpha> \<beta>"
-
-
-section \<open>Instruction Specification Language\<close>
-
-text \<open>
-To instantiate the abstract theory, we must couple each sub-operation with its precondition
-and behaviour in a tuple\<close>
-
-fun re\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
-  where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
-
-text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
-fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  where 
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
-                                    (* (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" | *)
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
-
-text \<open>Lift an operation with specification\<close>
-definition liftg :: "('r,'v,'s,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('s,'a) auxfn \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  ("\<lfloor>_,_,_\<rfloor>" 100)
-  where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
-
-text \<open>Lift an operation without specification\<close>
-definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  ("\<lfloor>_\<rfloor>" 100)
-  where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
-
 
 
 end

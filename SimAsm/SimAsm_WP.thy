@@ -1,5 +1,5 @@
 theory SimAsm_WP
-  imports SimAsm HOL.Lattices SimAsm_StateStack
+  imports SimAsm HOL.Lattices "../State"
 begin
 
 text \<open>Labels on global variables only \<close>
@@ -20,14 +20,10 @@ This takes the place of the "state" type in previous theories.
 
 record ('r,'v) varmap_rec = varmap_st :: "'r \<Rightarrow> 'v"
 type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme" 
-
-(* type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) frame_scheme" *)
 type_synonym ('r,'v,'a) auxop' = "('r,'v,('r,'v,'a) varmap','a) auxop"
-type_synonym ('r,'v,'a) opbasic' = "('r,'v,('r,'v,'a) varmap','a) opbasic" 
 
 text \<open>Labelled state (record) in which every variable appears in its Gl and UL variation \<close>
 type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
-type_synonym ('r,'v,'a) lopbasic = "('r label,'v,('r,'v,'a) lvarmap','a) opbasic" 
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
 
@@ -37,7 +33,6 @@ text \<open> General WP reasoning
        the added rg and glb are projections onto the local and global states.\<close>
 
 locale wp =
-(*  fixes project :: "('r \<Rightarrow> 'v) \<Rightarrow> ('r,'v,'a) varmap'" *)
   fixes rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
   fixes glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 
@@ -144,14 +139,7 @@ fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow>
     "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
     "wp\<^sub>i _ Q = Q"
 
-(*
-fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
-  where 
-    "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
-    "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
-    "wp\<^sub>i _ Q = Q"
-*)
+
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
  fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
@@ -173,7 +161,7 @@ fun guar\<^sub>c
   where 
     "guar\<^sub>c Skip G = True" |
     "guar\<^sub>c (Op v a f) G = (v \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
-    "guar\<^sub>c (Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
+    "guar\<^sub>c (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
     "guar\<^sub>c (DoWhile _ _ c _) G = (guar\<^sub>c c G)"
@@ -200,7 +188,7 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
-    "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
+    "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
      "wp R (While b I _ c) Q = (stabilize R I \<inter> 
        assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
@@ -295,7 +283,7 @@ fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) l
   where 
     "wp\<^sub>s Skip Q = Q" |
     "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
-    "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
+    "wp\<^sub>s (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
     "wp\<^sub>s (DoWhile Imix Ispec c b) Q = undefined"
@@ -326,7 +314,7 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
-    "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
+    "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
            (merge R  (stabilize R (wp\<^sub>s c\<^sub>2  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
          \<inter> (merge R  (stabilize R (wp\<^sub>s c\<^sub>1  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
@@ -340,135 +328,8 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
         assert (Imix \<subseteq> (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
                                   (wp R c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
                                            (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" 
-(* before simplifying it to the above form:
-   "wp R (DoWhile Imix Ispec c b) Q =
-      (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (po (cmp b)) \<inter>
-                        (merge R (stabilize R (wp\<^sub>s c Q\<^sup>L)\<^sup>U)  
-                                               (wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))))) \<inter>
-                        (merge R (stabilize R ((wp\<^sub>s c (spec Ispec))\<^sup>U \<inter> (wp\<^sub>s c Q\<^sup>L)\<^sup>U)) 
-                                               (wp R c (stabilize R (wp\<^sub>i (ncmp b) Q))))))" 
-*)
+
 end (* end of locale wp_spec *)
 
 
 end
-
-
-(* old stuff, not needed for Nick's new soundness proof:
-
-(* TODO: try using local_trace (from semantics.thy) instead of obs_trace *)
-
-text \<open>Correctness of the guarantee check\<close>
-
-lemma com_guar:
-  "wellformed R G \<Longrightarrow> guar\<^sub>c c G \<Longrightarrow>  \<forall>\<beta> \<in> obs (lift\<^sub>c c). guar\<^sub>\<alpha> \<beta> (step G)"
-proof (induct c)
-  case Skip
-  then show ?case by auto
-next
-  case (Op pred op aux)
-  then show ?case 
-    apply (cases op) using Op  
-    by (auto simp: liftg_def guar_def wp\<^sub>r_def) 
-next
-  case (Seq c1 c2)
-  then show ?case 
-  proof -
-    have a0:"guar\<^sub>c c1 G" "guar\<^sub>c c2 G" using Seq(4) by auto+
-    then have a1:"\<forall>\<beta>\<in>obs (lift\<^sub>c c1). guar\<^sub>\<alpha> \<beta> (step G)" 
-      using Seq by blast
-    then have a2:"\<forall>\<beta>\<in>obs (lift\<^sub>c c2). guar\<^sub>\<alpha> \<beta> (step G)" 
-      using Seq a0(2) by blast
-    then show ?thesis using Seq a1 
-      sorry
-  qed
-next
-  case (If x1 c1 c2)
-  then show ?case 
-    apply (auto simp: guar_def reflexive_def liftl_def step_def If) 
-    sorry    
-next
-  case (While x1 x2 c)
-  then show ?case 
-    apply (auto simp: guar_def reflexive_def liftl_def step_def While)
-    sorry
-next
-  case (DoWhile x1 c x3)
-  then show ?case 
-    apply (auto simp: guar_def reflexive_def liftl_def step_def)
-    sorry
-qed
-
-
-
-lemma fwdE:
-  assumes "reorder_inst \<alpha>' \<beta> \<alpha>"
-  obtains (no_fwd) "inst \<alpha>' = inst \<alpha>" "aux \<alpha>' = aux \<alpha>" "vc \<alpha>' = vc \<alpha>" "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}" |
-          (fwd) x e f where "tag \<beta> = (assign x e,f)" "x \<in> rd (inst \<alpha>)" "deps\<^sub>E e \<subseteq> locals"
-proof (cases "wr (inst \<beta>) \<inter> rd (inst \<alpha>) = {}")
-  case True
-  then show ?thesis using no_fwd assms    
-    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def split: if_splits)
-    sorry
-next
-  case False
-  then show ?thesis using fwd assms 
-    apply (cases \<alpha> rule: opbasicE)
-    apply( cases \<beta> rule: opbasicE)
-    apply (auto simp: Let_def split: if_splits)
-    sorry
-qed
-
-lemma fwd_wfbasic:
-  assumes "reorder_com \<alpha>' c w \<alpha>" "wfbasic \<alpha>" 
-  shows "wfbasic \<alpha>'"
-  using assms 
-  sorry
-(*
-proof (induct \<alpha>' \<alpha> rule: reorder_com.induct)
-  case (2 \<alpha>' \<beta> \<alpha>)
-  then show ?case 
-    apply (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto simp: Let_def wfbasic_def)
-qed auto
-*)
-
-lemma [simp]:
-  "wfcom (c\<^sub>1 ;\<^sub>w c\<^sub>2) = (wfcom c\<^sub>1 \<and> wfcom c\<^sub>2)"
-  apply (auto simp: wfcom_def) 
-  sorry
-
-lemma wfcom_silent:
-  "silent c c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
-  using obs_sil by (auto simp: wfcom_def)
-
-lemma wfcom_exec:
-  "lexecute c \<alpha> r c' \<Longrightarrow> wfcom c \<Longrightarrow> wfcom c'"
-  using obs_exec unfolding wfcom_def by blast
-
-
-lemma wfcom_exec_prefix:
-  "lexecute c \<alpha> r c' \<Longrightarrow> wfcom c \<Longrightarrow> wfbookkeep r \<and> wfbasic \<alpha>"
-  using  wfcom_def wfbookkeep_def wfbookkeep_list.simps wfcom_exec fwd_wfbasic 
-
-
-
-
-(* fix up the commands: no ., Choice, Loop, no SeqChoice
-fun sim :: "('a,'b) com \<Rightarrow> bool"
-  where 
-    "sim (c\<^sub>1 || c\<^sub>2) = False" |
-    "sim (Thread _) = False" |
-    "sim (SeqChoice _) = False" |
-    "sim (c\<^sub>1 ;\<^sub>w c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
-    "sim (c\<^sub>1 \<cdot> c\<^sub>2) = False"  |
-    "sim (c\<^sub>1 \<sqinter> c\<^sub>2) = (sim c\<^sub>1 \<and> sim c\<^sub>2)" |
-    "sim (c loopStar) = (sim c)" |
-    "sim _ = True"
-
-text \<open>The language is always thread-local\<close>
-lemma sim_lift [intro]:
-  "sim (lift\<^sub>c c)"
-  apply (induct c) apply auto sorry
-*)
-*)

@@ -1,5 +1,5 @@
 theory SimAsm_Exp
-  imports State2 Var_map
+  imports Var_map
 begin
 
 context expression
@@ -80,8 +80,6 @@ proof (induct e)
   proof -
     have a0:"deps\<^sub>E (Var x) ={x}" by simp
     then have a1:"st m x = st m' x" using Var by simp
-    (* then have a2:"lookupSome m x = lookupSome m' x" using Var lookupSome.simps[of m x]  *)
-           (* lookupSome.simps[of m' x] sorry *)
     then show ?thesis       using st_ev\<^sub>E.simps deps\<^sub>E.simps(1) ev\<^sub>E.simps(1) Var by simp
   qed
 next
@@ -147,91 +145,10 @@ next
 qed
 
 
-subsection \<open>Update lemmas\<close>
-
-(*
-definition upd                   (* use if f is a total fun: 'a \<Rightarrow> 'v *)
-  where "upd S f m \<equiv> m\<lparr>st := \<lambda>x. if x \<in> S then (f x) else st m x\<rparr>"
-
-definition upd_part       (* use if f is a partial fun: 'a \<Rightarrow> 'v option *)
-  where "upd_part S f m \<equiv> m\<lparr>st := \<lambda>x. if x \<in> S then (f x) else st m x\<rparr>"
-
-lemma upd_nil [simp]:
-  "upd {} f m = m"
-  by (auto simp: upd_def)
-
-
-lemma upd_insert' [simp]:
-  "upd (insert x V) f m = (upd V f m)(x :=\<^sub>s (f x))"
-  by (auto simp: upd_def st_upd_def intro!: state_rec.equality)
-
-lemma upd_rep [simp]:
-  "upd_part A (st (upd A f m\<^sub>1)) m\<^sub>2 = upd A f m\<^sub>2"
-  by (auto simp: upd_part_def upd_def intro!: state_rec.equality)
-
-lemma upd_rep' [simp]:
-  "upd A f (upd B f m) = upd (A \<union> B) f m"
-  by (auto simp: upd_def intro!: state_rec.equality)
-
-lemma upd_st [simp]:
-  "st (upd S f m) x = (if x \<in> S then (f x) else st m x)"
-  by (auto simp: upd_def)
-
-lemma upd_more [simp]:
-  "state_rec.more (upd V f m) = state_rec.more m"
-  by (auto simp: upd_def)
-
-lemma upd_cap [simp]:
-  "state_rec.cap (upd V f m) = state_rec.cap m"
-  by (auto simp: upd_def)
-
-lemma upd_init [simp]:
-  "state_rec.initState (upd V f m) = state_rec.initState m"
-  by (auto simp: upd_def)
-
-*)
-
-
-(* if \<Gamma> is in aux then this will include equality of \<Gamma> mapping *)
-(* lemma st_upd_eq [intro]: *)
-  (* "state_rec.more m = state_rec.more m' \<Longrightarrow>  *)
-              (* state_rec.cap m = state_rec.cap m' \<Longrightarrow> *)
-                 (* initState m = initState m' \<Longrightarrow> *)
-                    (* \<forall>x. x \<noteq> y \<longrightarrow> st m x = st m' x \<Longrightarrow> m(y :=\<^sub>s e) = m'(y :=\<^sub>s e)" *)
-  (* by (auto simp: upd_def st_upd_def intro!: state_rec.equality) *)
-
-
-
-(* lemma [simp]: *)
-  (* "rg (upd_part V f m) x = (if Reg x \<in> V then f (Reg x) else rg m x)" *)
-  (* unfolding  upd_part_def *)
-  (* by simp *)
-
-(* lemma [simp]: *)
-  (* "rg (m(aux: f)) = rg m" *)
-  (* unfolding rg_def aux_upd_def by simp *)
-
-
 
 lemma eq_comm:
   "(a \<Longrightarrow> (b = c)) \<Longrightarrow> (a \<Longrightarrow> (c = b))" by blast
 
-(*
-
-lemma beh_substi [simp]:
-  "st_beh\<^sub>i (subst\<^sub>i \<alpha> x e) = 
-                     {(m\<^sub>1,upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (m\<^sub>1(x :=\<^sub>s st_ev\<^sub>E m\<^sub>1 e),m) \<in> st_beh\<^sub>i \<alpha>}"
-  sorry
-
-lemma [simp]:
-  "st (m(x :=\<^sub>s e)) = (st m)(x := e)"
-  by (auto simp: st_upd_def st_upd_map)
-
-lemma [simp]:
-  "Base (st (m(x :=\<^sub>s e))) = Base ((st m)(x := e))"
-  by (auto simp: st_upd_def)
-
-*)
 
 end (* of context expression *)
 end
