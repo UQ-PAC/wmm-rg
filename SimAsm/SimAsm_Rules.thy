@@ -1,5 +1,5 @@
 theory SimAsm_Rules
-  imports SimAsm_StateStack SimAsm_Reasoning "../Soundness"
+  imports SimAsm_StateStack SimAsm_Semantics "../Soundness"
   begin
 
 lift_definition vm_of_ts :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
@@ -57,7 +57,7 @@ fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, '
 
   
 locale simasm_rules = 
-  reasoning_spec 
+  semantics_spec 
     where st = tlookup
     and st_upd = tupdate
     and aux = taux

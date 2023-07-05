@@ -1,6 +1,7 @@
 theory SimAsm_SecState
-  imports SimAsm_State
+  imports Var_map
 begin
+
 
 text \<open> Extension to the state record with the auxiliary variable \<Gamma> 
         which holds the security level \<close>
@@ -8,12 +9,11 @@ text \<open> Extension to the state record with the auxiliary variable \<Gamma>
 text \<open> 'sec is a generic type for the security lattice, which gets instantiated for
         each example, e.g., Basic_Lattice.thy in Example folder \<close>
 
-record ('v, 'a, 'sec) sec_state_rec = "('v, 'a) state_rec" +
-  \<Gamma> :: "'a \<Rightarrow> 'sec"                       
+record ('var, 'val, 'sec) sec_rec = sec_st :: "'var \<Rightarrow> 'val" 
+                                       \<Gamma> :: "'var \<Rightarrow> 'sec"                       
 
 
-type_synonym ('v,'g,'r,'sec,'a) sec_state = "('v,('g,'r) var,'sec,'a) sec_state_rec_scheme"
-type_synonym ('v,'g,'sec,'a) gsec_state = "('v,'g,'sec,'a) sec_state_rec_scheme"
+type_synonym ('var,'val,'r,'sec,'a) sec_state = "('var, 'val, 'sec, 'a) sec_rec_scheme"
 
 (* the possible extension of the state is used to store this auxiliary information *)
 type_synonym ('v,'g,'r,'sec,'a) auxfnSec = "('v,('g,'r) var,'sec,'a) sec_state_rec_scheme \<Rightarrow> 'a"

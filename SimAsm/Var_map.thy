@@ -2,11 +2,6 @@ theory Var_map
   imports Main State2
 begin
 
-
-(* variable: either a register or a global, where registers equal local vars *)
-datatype 'r Reg = reg 'r | tmp 'r
-(* datatype 'v = Reg 'r | Glb 'g *)
-
 (* first value in Exp is a function used to combine the values from its
 subexpressions into one value. *)
 
@@ -15,11 +10,6 @@ datatype ('var,'val) exp =
   Val 'val | 
   Exp "'val list \<Rightarrow> 'val" "('var,'val) exp list" (* some fct over a list of subexpr *) 
 
-(*fun vars :: "('var,'val) exp \<Rightarrow> 'var list"    (*gives us finiteness of the list - vs sets*)
-  where "vars (Var v) = {v}" |
-        "vars (Val _)   = {}" |
-        "vars (Exp f eList) = \<Union> (set (map vars eList))"  ?
-*)
 
 fun vars :: "('var,'val) exp \<Rightarrow> 'var set"
   where "vars (Var v) = {v}" |
@@ -42,7 +32,6 @@ datatype ('r,'v) op =
   | full_fence
   | nop
 
-print_locale state
 
 locale expression = state st st_upd aux aux_upd 
   for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v" 
@@ -52,23 +41,9 @@ locale expression = state st st_upd aux aux_upd
   and locals :: "'r set"                          (* added *)
     
 
-(* context expression *)
-(* begin *)
-
-(* definition rg :: "'s \<Rightarrow> 'r \<Rightarrow> 'v option" *)
-  (* where "rg m v \<equiv> (if v \<in> locals then Some (st m v) else None)" *)
-
 term restrict
 
 text \<open>Domain of register variables\<close>
-
-(* Tmp registers are also local? *)
-(* abbreviation locals *)
-  (* where "locals \<equiv> Reg ` UNIV" *)
-
-(* text \<open>Domain of register variables\<close> *)
-(* abbreviation globals *)
-  (* where "globals \<equiv> Glb ` UNIV" *)
 
 section \<open>Expression Language based on a generic mapping of variables to values \<close>
 
@@ -175,33 +150,9 @@ lemma [simp]:
   "(m (r := e)) q = (if r = q then e else m q)"
   by (auto simp: fun_upd_def)
 
-(* lemma [simp]: *)
-  (* "rg' (m(Reg x := e)) = (rg' m)(x := e)" *)
-  (* by (auto simp: fun_upd_def rg'_def) *)
-
 
 lemma map_upd_twist: "a \<noteq> c \<Longrightarrow> (m(a := b))(c := d) = (m(c := d))(a := b)"
   unfolding fun_upd_twist  by auto
-
-(* lemma [simp]: *)
-  (* "rg' m x = m (Reg x)" *)
-  (* by (auto simp: rg'_def) *)
-
-(* lemma [simp]: *)
-  (* "glb' m x = m (Glb x)" *)
-  (* by (auto simp: glb'_def) *)
-
-(* lemma [simp]: *)
-  (* "g \<notin> locals \<Longrightarrow> rg (m(g :=\<^sub>u x)) = rg m" *)
-  (* unfolding rg_def by auto *)
-
-(* lemma [dest]: *)
-  (* "rg m = rg m' \<Longrightarrow> x \<in> locals \<Longrightarrow> st m x = st m' x" *)
-  (* unfolding rg_def by (meson option.inject) *)
-
-(* lemma [intro]: *)
-  (* "(\<And>x. x \<in> locals \<Longrightarrow> st m x = st m' x) \<Longrightarrow> rg m = rg m'" *)
-  (* unfolding rg_def by auto *)
 
 lemma [simp]:
   "P O {(m, m'). m' = m} = P"
@@ -298,10 +249,6 @@ lemma finite_deps\<^sub>B [intro]:
   "finite (deps\<^sub>B e)"
   by (induct e) auto
 
-
-(* lemma local_ev\<^sub>E [intro]: *)
-  (* "deps\<^sub>E e \<subseteq> locals \<Longrightarrow> rg' m = rg' m' \<Longrightarrow> ev\<^sub>E m e = ev\<^sub>E m' e" *)
-  (* by auto *)
 
 subsection \<open>Operations\<close>
 

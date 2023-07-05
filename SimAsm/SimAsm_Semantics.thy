@@ -1,4 +1,4 @@
-theory SimAsm_Reasoning
+theory SimAsm_Semantics
   imports "../Syntax" SimAsm_WP SimAsm_StateStack 
 begin
 
@@ -6,7 +6,6 @@ section \<open> Instruction Specification Language:
            this creates the link between the abstract logic and the SimAsm instantiation \<close>
 
 (* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
-type_synonym ('r,'v,'s,'a) opbasic = "(('r,'v,'s,'a) auxop, 's) basic"
 type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop"
 type_synonym ('r,'v,'a) opbasicSt = "(('r,'v,'a) auxopSt, ('r,'v,'a) tstack) basic" 
 
@@ -18,12 +17,6 @@ locale sem_link = expression st st_upd aux aux_upd locals
   and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
   and locals :: "'r set"
 
-(*    for st :: "'s \<Rightarrow> 'r \<Rightarrow> 'v"
-    and st_upd :: "'s \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> 's" 
-    and aux :: "'s \<Rightarrow> 'a"
-    and aux_upd :: "'s \<Rightarrow> ('s \<Rightarrow> 'a) \<Rightarrow> 's" 
-    and locals :: "'r set"
-*)
 
 context sem_link
 begin
@@ -36,7 +29,7 @@ fun re\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rig
   where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
 
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
-fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Rightarrow> ('r,'v,'a) opbasicSt" 
   where 
     "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
     "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
@@ -44,42 +37,17 @@ fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Ri
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation with specification\<close>
-definition liftg :: "'s pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('s,'a) auxfn \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+definition liftg :: "('r,'v,'a) tstack pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation without specification\<close>
-definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_\<rfloor>" 100)
   where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
 
 end   (* of locale sem_link *)
 
-(* 
-fun re\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
-  where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
-
-text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
-fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  where 
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
-                                    (* (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" | *)
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
-
-text \<open>Lift an operation with specification\<close>
-definition liftg :: "'s pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('s,'a) auxfn \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  ("\<lfloor>_,_,_\<rfloor>" 100)
-  where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
-
-text \<open>Lift an operation without specification\<close>
-definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  ("\<lfloor>_\<rfloor>" 100)
-  where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
- *)
-
-(* type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop" *)
-(* type_synonym ('r,'v,'a) opbasicSt = "('r,'v,('r,'v,'a) tstack,'a) opbasic"  *)
 
 section \<open>Locales for reasoning, either with speculation (reasoning_spec) or without (reasoning_WOspec)\<close>
 
@@ -89,7 +57,7 @@ section \<open>Locales for reasoning, either with speculation (reasoning_spec) o
 
 (*---------------------------------------------------------------------------------------*)
 
-locale reasoning_WOspec = wp_WOspec rg glb + sem_link st st_upd aux aux_upd locals
+locale semantics_WOspec = wp_WOspec rg glb + sem_link st st_upd aux aux_upd locals
   for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
   and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
   and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
@@ -98,9 +66,10 @@ locale reasoning_WOspec = wp_WOspec rg glb + sem_link st st_upd aux aux_upd loca
   and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
   and locals :: "'r set"
 
-print_locale reasoning_WOspec
 
-context reasoning_WOspec
+print_locale semantics_WOspec
+
+context semantics_WOspec
 begin
 
 definition reorder_inst :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> bool"
@@ -114,8 +83,8 @@ abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
-(*fun lift\<^sub>c :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> (('r,'v,'a) auxop', ('r,'v,'a) varmap') com" *)
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 
+
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com"
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | 
@@ -131,11 +100,11 @@ lemma local_lift [intro]:
   "local (lift\<^sub>c c)"
   by (induct c) auto
 
-end   (* of reasoning_WOspec*)
+end   (* of semantics_WOspec*)
 
 (*---------------------------------------------------------------------------------------*)
 
-locale reasoning_spec = wp_spec rg glb + sem_link st st_upd aux aux_upd locals
+locale semantics_spec = wp_spec rg glb + sem_link st st_upd aux aux_upd locals
   for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
   and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
   and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
@@ -145,10 +114,10 @@ locale reasoning_spec = wp_spec rg glb + sem_link st st_upd aux aux_upd locals
   and locals :: "'r set" +
   fixes project' :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'"
 
-print_locale reasoning_spec
+print_locale semantics_spec
 
 
-context reasoning_spec
+context semantics_spec
 begin
 
 text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
@@ -209,33 +178,32 @@ end   (* end of reasoning_spec *)
 
 (*---------------------------------------------------------------------------------------*)
 
-print_locale reasoning_spec
+print_locale semantics_spec
 
 text \<open> The locale reasoning is currently set to reasoning with speculation 
         but it can be set to reasoning without speculation by replacing 
         reasoning_spec --> reasoning_WOspec \<close>
 
-type_synonym ('r,'v,'a) stack_opbasic = "('r,'v,('r,'v,'a) tstack,'a) opbasic"
 
-locale reasoning = reasoning_spec 
+locale semantics = semantics_spec 
 
-print_locale reasoning
+print_locale semantics
 
-context reasoning
+context semantics
 begin
 
 
 text \<open>Extract the instruction from an abstract operation \<close>
-(* tag (opbasic) = (op \<times> auxfn) :: "('r,'v,'a) stack_opbasic \<Rightarrow> ('r,'v) op"  *)
+(* tag (opbasic) = (op \<times> auxfn) :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v) op"  *)
 abbreviation inst
   where "inst a \<equiv> fst (tag a)"
 
-abbreviation auxbasic (* :: "('r,'v,'a) stack_opbasic \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn" *)
+abbreviation auxbasic (* :: "('r,'v,'a) opbasicSt \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn" *)
   where "auxbasic a \<equiv> snd (tag a)"
 
 text \<open>A basic is well-formed if its behaviour (i.e., its abstract semantics) agrees with the behaviour
       of its instruction and auxiliary composed (i.e., the concrete semantics of the instantiation).\<close>
-(* beh \<beta> = snd (snd \<beta>); type "('r,'v,'a) stack_opbasic \<Rightarrow> bool"*)
+(* beh \<beta> = snd (snd \<beta>); type "('r,'v,'a) opbasicSt \<Rightarrow> bool"*)
 definition wfbasic 
   where "wfbasic \<beta> \<equiv> beh \<beta> = (beh\<^sub>a) (inst \<beta>, auxbasic \<beta>)"
 
@@ -278,6 +246,6 @@ lemma inst_fwd\<^sub>s [simp]:
   by (cases \<alpha> rule: opbasicE; auto simp: Let_def split: if_splits)
 
 
-end  (* end of context reasoning *)
+end  (* end of context semantics *)
 
 end

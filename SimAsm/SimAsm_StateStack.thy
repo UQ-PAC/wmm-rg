@@ -1,5 +1,5 @@
 theory SimAsm_StateStack
-  imports Main State2
+  imports Main 
 begin
 
 section \<open>State Stacks\<close>
