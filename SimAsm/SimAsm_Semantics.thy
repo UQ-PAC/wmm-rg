@@ -1,5 +1,5 @@
 theory SimAsm_Semantics
-  imports "../Syntax" SimAsm_WP SimAsm_StateStack 
+  imports "../Syntax" SimAsm SimAsm_StateStack
 begin
 
 section \<open> Instruction Specification Language: 
@@ -37,7 +37,8 @@ fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Righ
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation with specification\<close>
-definition liftg :: "('r,'v,'a) tstack pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn \<Rightarrow> ('r,'v,'a) opbasicSt" 
+definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn 
+                                                                        \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
@@ -57,10 +58,8 @@ section \<open>Locales for reasoning, either with speculation (reasoning_spec) o
 
 (*---------------------------------------------------------------------------------------*)
 
-locale semantics_WOspec = wp_WOspec rg glb + sem_link st st_upd aux aux_upd locals
-  for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
-  and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
-  and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
+locale semantics_WOspec = sem_link st st_upd aux aux_upd locals
+  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
   and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
@@ -104,15 +103,13 @@ end   (* of semantics_WOspec*)
 
 (*---------------------------------------------------------------------------------------*)
 
-locale semantics_spec = wp_spec rg glb + sem_link st st_upd aux aux_upd locals
-  for rg :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'e"
-  and glb :: "('r,'v,'a) varmap_rec_scheme \<Rightarrow> 'f" 
-  and st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
+locale semantics_spec = sem_link st st_upd aux aux_upd locals
+  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
   and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
-  and locals :: "'r set" +
-  fixes project' :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'"
+  and locals :: "'r set" 
+  (* + fixes project' :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" *)
 
 print_locale semantics_spec
 
@@ -174,11 +171,9 @@ lemma local_lift [intro]:
   apply (induct c) 
   sorry
 
-end   (* end of reasoning_spec *)
+end   (* end of semantics_if_spec *)
 
 (*---------------------------------------------------------------------------------------*)
-
-print_locale semantics_spec
 
 text \<open> The locale reasoning is currently set to reasoning with speculation 
         but it can be set to reasoning without speculation by replacing 

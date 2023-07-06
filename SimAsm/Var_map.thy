@@ -11,15 +11,19 @@ datatype ('var,'val) exp =
   Exp "'val list \<Rightarrow> 'val" "('var,'val) exp list" (* some fct over a list of subexpr *) 
 
 
-fun vars :: "('var,'val) exp \<Rightarrow> 'var set"
-  where "vars (Var v) = {v}" |
-        "vars (Val _)   = {}" |
-        "vars (Exp f eList) = \<Union> (set (map vars eList))"
-
 datatype ('var,'val) bexp = 
   Neg "('var,'val) bexp" | 
   Exp\<^sub>B "'val list \<Rightarrow> bool" "('var,'val) exp list"
-  
+
+
+datatype ('var,'val) expBexp = Expr "('var,'val) exp" | Bexpr "('var,'val) bexp"
+
+fun vars :: "('var,'val) expBexp \<Rightarrow> 'var set"
+  where "vars (Expr (Var v)) = {v}" |
+        "vars (Expr (Val _))   = {}" |
+        "vars (Expr (Exp f eList)) = \<Union> (set (map (vars \<circ> Expr) eList))" |
+        "vars (Bexpr (Neg b)) = vars (Bexpr b)" |
+        "vars (Bexpr (Exp\<^sub>B f eList)) = \<Union> (set (map (vars \<circ> Expr) eList))"
 
 type_synonym ('var,'val) varmap = "'var \<Rightarrow> 'val"
 
