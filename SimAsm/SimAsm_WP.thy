@@ -142,7 +142,7 @@ fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow>
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
- fun wp\<^sub>a :: "(('r,'v,'a) varmap','a) auxfn \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+ fun wp\<^sub>a :: "(('r','v','a) varmap','a) auxfn \<Rightarrow> ('r','v','a) varmap' set \<Rightarrow> ('r','v','a) varmap' set"
    where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}" 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
@@ -254,21 +254,11 @@ definition ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lva
   "ul_lift_pred Q = {s. ul_restrict s \<in> Q }"
 
 
-text \<open> Other direction: Producing an unlabelled predicate from a labelled predicate \<close>
+text \<open> Unlabelling a predicate, such that variables with differing labels need to be equal 
+         as they become indistinguishable without their label \<close>
 
-text \<open>Lifts the given unlabelled state to its Ul labelled counterpart.\<close>
-fun ul_lift :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where 
-  "ul_lift s = \<lparr> varmap_st = \<lambda>v. varmap_st s (unlabel v), \<dots> = more s \<rparr>"
-
-text \<open>Lifts the given unlabelled state to its Gl labelled counterpart.\<close>
-fun gl_lift :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where 
-  "gl_lift s = \<lparr> varmap_st = \<lambda>v. varmap_st s (unlabel v), \<dots> = more s \<rparr>"
-(* Kait: these do not really work..? *)
-
-text \<open>Restricts a labelled predicate into an unlabelled predicate, 
-            constraining both, global and unlabelled predicates.\<close>
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
-  "restrict_pred Q = {s. gl_lift s \<in> Q}"
+  "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
@@ -285,7 +275,7 @@ text \<open>wp_spec transformer on lang.\<close>
 fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
+    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ) Q)\<^sup>L))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 

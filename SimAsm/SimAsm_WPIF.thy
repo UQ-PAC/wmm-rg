@@ -21,12 +21,6 @@ type_synonym ('r,'v,'sec) condSec = "(('r, 'v \<times> 'sec) bexp list \<times> 
 type_synonym ('r,'v,'sec,'a) secClass = "'r \<Rightarrow> ('r,'v,'sec) condSec"
 
 
-(* If we assume that 'sec is a boolean lattice: 
-type_synonym sec = bool
-definition \<Gamma>\<^sub>E :: "('r,'v,sec,'a) secvarmap \<Rightarrow> ('r, 'v \<times>sec) exp \<Rightarrow> sec"
-  where "\<Gamma>\<^sub>E s e \<equiv>  (\<forall>v. v \<in> (vars e) \<longrightarrow> \<Gamma> s v)" 
-*)
-
 text \<open> (\<Gamma> s v) provides the security level (of the current content of) variable v in state s \<close>
 
 abbreviation \<Gamma> :: "'r \<Rightarrow> ('r,'v,'sec,'a) secvarmap \<Rightarrow> 'sec"
@@ -39,13 +33,10 @@ fun eval\<^sub>s\<^sub>e\<^sub>c :: "('r,'v,'sec) condSec \<Rightarrow> ('r,'v,'
 text \<open> @{term \<Gamma>\<^sub>E} is relative to a state and a classification \<L> since both \<L> and \<Gamma> depend on the state   \<close>
  (*      the below matches the definition  \<Gamma>\<^sub>E(e) = \<Squnion>\<^sub>v\<^sub>\<in>\<^sub>v\<^sub>a\<^sub>r\<^sub>s\<^sub>(\<^sub>e\<^sub>) \<Gamma>\<^sub>v \<sqinter> \<L>(v)
        inf = \<sqinter> = meet    and     Sup = \<Squnion> = Join   with
-       x \<le> y <=> x \<sqinter> y = x     and   x \<le> y <=> x \<squnion> y = y 
-*)
-
+       x \<le> y <=> x \<sqinter> y = x     and   x \<le> y <=> x \<squnion> y = y     *)
 
 definition \<Gamma>\<^sub>E :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r, 'v \<times>'sec) expBexp => ('r,'v,'sec::complete_lattice,'a) secvarmap \<Rightarrow> 'sec"
   where "\<Gamma>\<^sub>E \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v s)  (\<Gamma> v s)) ` (vars e))"
-  (* where "\<Gamma>\<^sub>E s \<L> e \<equiv>  Sup ((\<lambda>v. inf (\<L> s v)  (\<Gamma> s v)) ` (vars e))" *)
 
 
 text \<open> Locale wpif sets up reasoning with additional proof obligations to verify information flow security \<close>
@@ -67,7 +58,7 @@ fun po :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec) op \<Right
     "po \<L> nop = {}" 
 
 
-text \<open>Ensure all global operations in a thread conform to its guarantee\<close>
+text \<open>Ensure all global operations in a thread conform to its guarantee - this glues in the PO \<close>
 fun guar\<^sub>c_if
   where 
     "guar\<^sub>c_if Skip \<L> G = True" |
@@ -104,11 +95,13 @@ fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\
 end   (* locale wpif_WOspec *)
 (* -------------------------------------------------- *)
 
+text \<open> Information flow under speculative behaviour - this requires the labelling of variables  \<close>
+
 locale wpif_spec = wp_spec rg glb + wpif rg glb
   for rg :: "('r,'v,'sec::complete_lattice,'a) secvarmap \<Rightarrow> 'l"
   and glb :: "('r,'v,'sec,'a) secvarmap \<Rightarrow> 'g"
 
-text \<open>Labelled state (record) in which every variable appears in its Gl and UL variation \<close>
+text \<open>Labelled state (record) in which every variable appears in its Gl or UL variation \<close>
 type_synonym ('r,'v,'sec) lcondSec = "('r label,'v,'sec) condSec"
 type_synonym ('r,'v,'sec,'a) lsecvarmap = "('r label,'v,'sec,'a) secvarmap"
 type_synonym ('r,'v,'sec,'a) lsecauxop = "('r,'v,('r,'v,'sec,'a) lsecvarmap,'a) auxop"
@@ -116,20 +109,24 @@ type_synonym ('r,'v,'sec,'a) lsecauxop = "('r,'v,('r,'v,'sec,'a) lsecvarmap,'a) 
 context wpif_spec
 begin
 
+text \<open> since the eval fct is used for the \<L> predicates, we label all variables as global \<close>
+
 fun leval\<^sub>s\<^sub>e\<^sub>c :: "('r,'v,'sec) condSec \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap \<Rightarrow> 'sec"
-  where "leval\<^sub>s\<^sub>e\<^sub>c (blist, f) s  = f (map ((ev\<^sub>B  (varmap_st s))\<circ> gl\<^sub>B) blist)" 
+  (* where "leval\<^sub>s\<^sub>e\<^sub>c (blist, f) s  = f (map (ev\<^sub>B  (varmap_st (gl_restrict s))) blist)"  *)
+   where "leval\<^sub>s\<^sub>e\<^sub>c (blist, f) s  = f (map ((ev\<^sub>B  (varmap_st s))\<circ> gl\<^sub>B) blist)"  
 
 
 text \<open> @{term \<Gamma>\<^sub>E\<^sub>L} models the security level of an expression in which all expression
                    produced via \<L> are labelled as global, 
                    and all variables in other expressions are labelled as UL 
-                   i.e., \<Squnion>_v ((\<L> v)^G  \<sqinter> (\<Gamma> v)^U),\<close>
+                   i.e., \<Squnion>_v ((\<L> v)^G  \<sqinter> (\<Gamma> v)^U) \<close>
 
 definition \<Gamma>\<^sub>E\<^sub>L :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r, 'v \<times>'sec) expBexp \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap \<Rightarrow> 'sec"
-  where "\<Gamma>\<^sub>E\<^sub>L \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((leval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v s)  (\<Gamma> v (ul_restrict s))) ` (vars e))" 
+  (* where "\<Gamma>\<^sub>E\<^sub>L \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v (gl_restrict s))  (\<Gamma> v (ul_restrict s))) ` (vars e))"  *)
+   where "\<Gamma>\<^sub>E\<^sub>L \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((leval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v s)  (\<Gamma> v (ul_restrict s))) ` (vars e))"  
 
 text \<open>Additional proof obligations during speculation, different po for speculated leaks \<close>
-fun po\<^sub>s :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec::complete_lattice) op \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set"
+fun po\<^sub>s :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set"
   where
     "po\<^sub>s \<L> (assign r e) = {s| s. (\<Gamma>\<^sub>E\<^sub>L \<L> (Expr e) s) \<le> ((leval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) r s)}" |
     "po\<^sub>s \<L> (cmp b) = {s| s. (\<Gamma>\<^sub>E\<^sub>L \<L> (Bexpr b) s) \<le> bot}" |
