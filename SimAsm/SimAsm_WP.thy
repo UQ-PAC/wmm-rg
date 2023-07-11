@@ -26,6 +26,8 @@ text \<open>Labelled state (record) in which every variable appears in its Gl an
 type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
+type_synonym ('r,'v,'a) spec_state = "('r,'v,'a) lvarmap' set \<times> ('r,'v,'a) varmap' set"
+
 
 (*-----------------------------------------------------------------------------------*)
 
@@ -132,7 +134,7 @@ section \<open>Predicate Transformations\<close>
 
 text \<open> Transform a predicate based on an sub-operation, simple wp \<close>
 (* this is the normal wp transformer on ops *)
-fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set" 
+fun wp\<^sub>i :: "('r','v') op \<Rightarrow> ('r','v','a') varmap' set \<Rightarrow> ('r','v','a') varmap' set" 
   where 
     "wp\<^sub>i (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
     "wp\<^sub>i (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
@@ -142,7 +144,7 @@ fun wp\<^sub>i :: "('r,'v) op \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow>
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
- fun wp\<^sub>a :: "(('r','v','a) varmap','a) auxfn \<Rightarrow> ('r','v','a) varmap' set \<Rightarrow> ('r','v','a) varmap' set"
+ fun wp\<^sub>a :: "(('r','v','a') varmap','a') auxfn \<Rightarrow> ('r','v','a') varmap' set \<Rightarrow> ('r','v','a') varmap' set"
    where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}" 
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
@@ -275,16 +277,17 @@ text \<open>wp_spec transformer on lang.\<close>
 fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
   where 
     "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ) Q)\<^sup>L))" |
+    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Q)))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
     "wp\<^sub>s (DoWhile Imix Ispec c b) Q = undefined"
 
 
-text \<open>Merge function to merge sequential and speculative predicates into a single weakest precondition. \<close>
-fun merge :: "'g rel \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
-  where "merge R Q\<^sub>1 Q\<^sub>2 = Q\<^sub>1 \<inter> (stabilize R  Q\<^sub>1)  \<inter> Q\<^sub>2"
+text \<open>Merge function integrates the Qs speculative predicate into the sequential predicate. 
+      This considers the case that speculation may have started at this merge point. \<close>
+fun merge :: "'g rel \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
+  where "merge R (Qs,Q) = (Qs, (stabilize R Qs\<^sup>U)  \<inter> Q)"
 
 
 text \<open>  \<close>
@@ -301,26 +304,37 @@ text \<open> lifts the predicate to a "labelled" predicate, in which all variabl
 fun spec :: "('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"
   where "(spec Q) = (Q)\<^sup>L"
 
+fun spec_op :: "('r,'v) op \<Rightarrow> ('r label,'v) op" where
+  "spec_op x = undefined"
+
+fun spec_bexp :: "('r,'v) bexp \<Rightarrow> ('r label,'v) bexp" where
+  "spec_bexp x = undefined"
+
+fun spec_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("[(_)]\<^sub>s") where
+  "spec_part (Qs,_) = Qs"
+
+fun seq_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) varmap' pred" ("[(_)]\<^sub>;") where
+  "seq_part (Qs,Q) = Q"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i (spec_op a) (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = 
-           (merge R  (stabilize R (wp\<^sub>s c\<^sub>2  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q))))
-         \<inter> (merge R  (stabilize R (wp\<^sub>s c\<^sub>1  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))))" |
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
+      (wp\<^sub>i (cmp (spec_bexp b)) [wp R c\<^sub>2 Q]\<^sub>s \<inter> wp\<^sub>i (ncmp (spec_bexp b)) [wp R c\<^sub>1 Q]\<^sub>s, 
+      stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
 (* here (wp\<^sub>s r true) is simplified to Q *)
-    "wp R (While b Imix Ispec c) Q =
-      (stabilize R Imix \<inter>  
+    "wp R (While b Imix Ispec c) Q = undefined"
+(*      (stabilize R Imix \<inter>  
         assert (Imix \<subseteq> (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix)))) \<inter>
-                        (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))" |
-    "wp R (DoWhile Imix Ispec c b) Q =
-      (stabilize R Imix \<inter>  
+                        (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))"*) |
+    "wp R (DoWhile Imix Ispec c b) Q = undefined"
+(*      (stabilize R Imix \<inter>  
         assert (Imix \<subseteq> (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
                                   (wp R c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
-                                           (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" 
+                                           (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" *)
 
 end (* end of locale wp_spec *)
 

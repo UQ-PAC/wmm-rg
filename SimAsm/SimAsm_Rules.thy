@@ -50,7 +50,7 @@ fun ts_lang_of_vm_lang :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 
 fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) varmap', 'a) lang" where
   "vm_lang_of_ts_lang (Skip) = Skip " |
   "vm_lang_of_ts_lang (Op pred op auxfn) = Op (vm_of_ts ` pred) op (auxfn \<circ> ts_of_vm)" |
-  "vm_lang_of_ts_lang (Seq a b) = Seq (vm_lang_of_ts_lang a) (vm_lang_of_ts_lang b) " |
+  "vm_lang_of_ts_lang (lang.Seq a b) = lang.Seq (vm_lang_of_ts_lang a) (vm_lang_of_ts_lang b) " |
   "vm_lang_of_ts_lang (If c t f) = If c (vm_lang_of_ts_lang t) (vm_lang_of_ts_lang f)" |
   "vm_lang_of_ts_lang (While b Imix Ispec c) = While b (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) " |
   "vm_lang_of_ts_lang (DoWhile Imix Ispec c b) = DoWhile (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) b "
@@ -58,17 +58,17 @@ fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, '
   
 locale simasm_rules = 
   semantics_spec 
-    where st = tlookup
+    where st = "tlookup :: ('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
     and st_upd = tupdate
     and aux = taux
     and aux_upd = tauxupd
-    and rg = rg 
-    and glb = glb
   + rules 
     where exists_act = "undefined :: ('r,'v,'a) auxopSt"
     and push = "tstack_push :: ('r,'v,'a) tstack \<Rightarrow> ('r,'v) frame \<Rightarrow> ('r,'v,'a) tstack"
-  for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
-  and rg :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
+  + wp_spec
+    where rg = rg
+    and glb = glb
+  for rg :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
 
 context simasm_rules
@@ -129,7 +129,7 @@ lemma tauxupd_in_ts_pred:
 proof -
   have "\<exists>t \<in> {t. t\<lparr>varmap_rec.more := f t\<rparr> \<in> Q}. vm_of_ts x = t" using assms ts_of_vm_exists
     by (simp add: ts_pred_of_vm_pred.rep_eq) 
-  hence Q: "(vm_of_ts x) \<lparr> more := f (vm_of_ts x) \<rparr> \<in> Q" by simp
+  hence Q: "(vm_of_ts x) \<lparr> varmap_rec.more := f (vm_of_ts x) \<rparr> \<in> Q" by simp
   show ?thesis using vm_of_ts_auxupd[where ?x = x] Q by (simp add: ts_pred_of_vm_pred.abs_eq)
 qed
 
@@ -164,14 +164,13 @@ proof -
 qed
 
 lemma wp_of_liftg:
-  
   "\<And>x. reflexive R \<Longrightarrow> vm_of_ts x \<in> stabilize R ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg c \<alpha> f) (ts_pred_of_vm_pred Q)" 
 unfolding liftg_def apply simp
 proof goal_cases
   case (1 x)
   have "vm_of_ts x \<in> ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U"
     using "local.1"(1) "local.1"(2) wp.stabilizeE by blast
-  then show ?case unfolding wp_def stabilize_def 
+  then show ?case unfolding wp_def stabilize_def sorry
 qed
 
 lemma vm_of_ts_wp_liftg:
@@ -253,7 +252,7 @@ lemma tauxupd_more [simp]: "{(t, t'). t' = tauxupd t (varmap_rec.more \<circ> vm
 unfolding tauxupd_def auxupd_def vm_of_ts_def 
 by (auto simp add: Rep_tstackI(1) Rep_tstack_inverse)
 
-lemma wp\<^sub>a_more [simp]: "wp\<^sub>a more = id"
+lemma wp\<^sub>a_more [simp]: "wp\<^sub>a varmap_rec.more = id"
 proof
   show "\<And>x. wp\<^sub>a varmap_rec.more x = id x" by simp
 qed
@@ -313,14 +312,14 @@ proof -
   proof (rule atomicI, goal_cases)
     case 1
     have "x \<in> wp\<^sub>\<alpha> (liftg UNIV \<alpha> taux) (ts_pred_of_vm_pred Q)" if "x \<in> ts_pred_of_vm_pred (stabilize R (wp\<^sub>i \<alpha> Q))" for x
-    using x[of x, OF that] vm_of_ts_wp_liftg[where ?c = UNIV and ?f = more] 
+    using x[of x, OF that] vm_of_ts_wp_liftg[where ?c = UNIV and ?f = varmap_rec.more] 
     unfolding liftg_def wp_def by simp
     thus ?case by auto
   next
     case 2
-    hence univ: "UNIV \<subseteq> local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a more) (step G)" using assms(4) by auto
+    hence univ: "UNIV \<subseteq> local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a varmap_rec.more) (step G)" using assms(4) by auto
     have "guar\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred UNIV) \<alpha> taux) (ts_rel_of_vm_rel (step G))"
-    using guar_of_liftg[where ?c = UNIV and ?f = more, OF univ]
+    using guar_of_liftg[where ?c = UNIV and ?f = varmap_rec.more, OF univ]
     unfolding taux_def comp_def by auto
     then show ?case by simp 
   next
