@@ -254,6 +254,11 @@ text \<open>Lifts a predicate into a labelled predicate, treating the state as U
 definition ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("(_\<^sup>L)" [1000] 1000) where
   "ul_lift_pred Q = {s. ul_restrict s \<in> Q }"
 
+text \<open>Lifts a predicate into a labelled predicate, requiring the local and
+      global states to both be equal to s.\<close>
+definition glul_lift_pred :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" ("(_\<^sup>G\<^sup>L)" [1000] 1000) where
+  "glul_lift_pred s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (unlabel v)), \<dots> = more s \<rparr> " 
+
 
 text \<open> Unlabelling a predicate, such that variables with differing labels need to be equal 
          as they become indistinguishable without their label \<close>
@@ -326,30 +331,65 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
-    (* "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i (spec_op a) (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" | *)
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
+(* note: speculative component is not conditional on b because speculation may have started earlier. *)
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
        ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
         stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
-(*      (wp\<^sub>i (cmp (spec_bexp b)) [wp R c\<^sub>2 Q]\<^sub>s \<inter> wp\<^sub>i (ncmp (spec_bexp b)) [wp R c\<^sub>1 Q]\<^sub>s, 
-      stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
-*)
 (* here (wp\<^sub>s r true) is simplified to Q *)
     "wp R (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
        (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
-        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))"
-(*      (stabilize R Imix \<inter>
-        assert (Imix \<subseteq> (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix)))) \<inter>
-                        (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))"*) |
+        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
       "wp R (DoWhile Inv\<^sub>s Inv c b) Q = wp R c (merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
        (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
         assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;))))"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
-(*    "wp R (DoWhile Imix Ispec c b) Q = undefined"
-      (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
-                                  (wp R c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
-                                           (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" *)
+
+lemma "(THE s'. gl_restrict s' = s \<and> ul_restrict s' = s) = s\<^sup>G\<^sup>L"
+unfolding glul_lift_pred_def gl_lift_pred_def ul_lift_pred_def
+proof (standard, standard, goal_cases)
+  case (3 s')
+  thus ?case
+  by (induct s', clarsimp) (metis unlabel.elims)
+qed auto
+
+lemma gl_restrict_of_glul [simp]: "gl_restrict (s\<^sup>G\<^sup>L) = s" 
+unfolding glul_lift_pred_def
+by simp
+
+lemma ul_restrict_of_glul [simp]: "ul_restrict (s\<^sup>G\<^sup>L) = s" 
+unfolding glul_lift_pred_def
+by simp
+
+lemma varmap_st_of_glul: "varmap_st (s\<^sup>G\<^sup>L) (Gl v) = varmap_st (s\<^sup>G\<^sup>L) (Ul v)"
+unfolding glul_lift_pred_def
+by simp
+
+lemma [simp]: "(Q\<^sup>G)\<^sup>U = Q" 
+unfolding gl_lift_pred_def restrict_pred_def 
+proof (standard, goal_cases)
+  case 2
+  then show ?case
+  proof (standard, goal_cases)
+    case (1 s0)
+    then show ?case 
+      using gl_restrict_of_glul varmap_st_of_glul
+      by (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) auto
+  qed
+qed auto
+
+lemma [simp]: "(Q\<^sup>L)\<^sup>U = Q" 
+unfolding ul_lift_pred_def restrict_pred_def 
+proof (standard, goal_cases)
+  case 2
+  then show ?case
+  proof (standard, goal_cases)
+    case (1 s0)
+    then show ?case 
+      using gl_restrict_of_glul varmap_st_of_glul
+      by (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) auto
+  qed
+qed auto
 
 end (* end of locale wp_spec *)
 

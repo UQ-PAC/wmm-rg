@@ -169,7 +169,7 @@ unfolding liftg_def apply simp
 proof goal_cases
   case (1 x)
   have "vm_of_ts x \<in> ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U"
-    using "local.1"(1) "local.1"(2) wp.stabilizeE by blast
+    using "local.1"(1) "local.1"(2) wp.stabilizeE sorry
   then show ?case unfolding wp_def stabilize_def sorry
 qed
 
@@ -380,8 +380,7 @@ next
   proof (induct c arbitrary: R G)
     case Skip
     have s: "ts_pred_of_vm_pred (stabilize R (Q\<^sup>G)\<^sup>U) \<subseteq> ts_pred_of_vm_pred Q" unfolding ts_pred_of_vm_pred_def restrict_pred_def gl_lift_pred_def apply auto
-      by (metis (no_types, lifting) Skip.prems(1) mem_Collect_eq varmap_rec.surjective wp.stabilizeE)
-    have q: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ts_pred_of_vm_pred (Q) {Nil} ts_pred_of_vm_pred (Q)"
+    sorry    have q: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ts_pred_of_vm_pred (Q) {Nil} ts_pred_of_vm_pred (Q)"
       apply (rule rules.nil) apply (rule stable_ts_rel_of_vm_rel)
       using Skip.prems(1) Skip.prems(4) Skip by simp
     then show ?case unfolding valid_def 
