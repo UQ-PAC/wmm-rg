@@ -146,7 +146,9 @@ text \<open>Convert the language into the abstract language expected by the unde
        to allow for modelling the speculation of unlimited speculation frames 
        (i.e, speculates over the rest r of the program).
       The "rest" is relative within composed language constructs (e.g., in Seq c1 c2 rest of c1 
-       differs from rest of c2) \<close> 
+       differs from rest of c2) 
+      The second parameter carries the write-set of the lang construct, to facilitate building an
+        empty frame (and its capture set) required for the semantics of speculation \<close> 
 
 fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 'r set \<Rightarrow> 
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 

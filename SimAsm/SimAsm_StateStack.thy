@@ -43,7 +43,7 @@ type_synonym ('var,'val,'a) stack = "('var, 'val,'a) frame_scheme list"
 
 definition emptyFrame :: "'var set \<Rightarrow> ('var,'val) frame" where
   "emptyFrame cap \<equiv> \<lparr> frame_st = (\<lambda>v. None),
-                  frame_cap = cap \<rparr>"            (* is cap = emptySet ? *)
+                  frame_cap = cap \<rparr>"            (* is cap set as parameter *)
 
 definition Is_tstack :: "('var,'val,'a) stack \<Rightarrow> bool" where 
   "Is_tstack t \<equiv> t \<noteq> [] \<and> frame_cap (last t) = UNIV \<and> (\<forall>v. frame_st (last t) v \<noteq> None)"

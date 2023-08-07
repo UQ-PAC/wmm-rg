@@ -28,7 +28,6 @@ type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
 type_synonym ('r,'v,'a) spec_state = "('r,'v,'a) lvarmap' set \<times> ('r,'v,'a) varmap' set"
 
-
 (*-----------------------------------------------------------------------------------*)
 
 text \<open> General WP reasoning
@@ -280,14 +279,15 @@ fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) l
     "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Q)))" |
     "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
     "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (While b Imix Ispec c) Q = undefined" | 
-    "wp\<^sub>s (DoWhile Imix Ispec c b) Q = undefined"
+    "wp\<^sub>s (While b Inv\<^sub>s Inv c) Q = Inv\<^sub>s\<^sup>L \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> Q) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> (wp\<^sub>s c Inv\<^sub>s\<^sup>L))" | 
+    "wp\<^sub>s (DoWhile Inv\<^sub>s Inv c b) Q = wp\<^sub>s c (Inv\<^sub>s\<^sup>L \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> Q) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> (wp\<^sub>s c Inv\<^sub>s\<^sup>L)))"
 
 
 text \<open>Merge function integrates the Qs speculative predicate into the sequential predicate. 
       This considers the case that speculation may have started at this merge point. \<close>
 fun merge :: "'g rel \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where "merge R (Qs,Q) = (Qs, (stabilize R Qs\<^sup>U)  \<inter> Q)"
+
 
 
 text \<open>  \<close>
@@ -316,22 +316,37 @@ fun spec_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) lvarmap' pred" 
 fun seq_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) varmap' pred" ("[(_)]\<^sub>;") where
   "seq_part (Qs,Q) = Q"
 
+definition spec_inter :: "('r,'v,'a) spec_state \<Rightarrow> 
+                             ('r,'v,'a) spec_state  \<Rightarrow> ('r,'v,'a) spec_state" (infixr "\<inter>\<^sub>s" 80) 
+  where "spec_inter c\<^sub>1 c\<^sub>2 \<equiv> (([c\<^sub>1]\<^sub>s \<inter> [c\<^sub>2]\<^sub>s) , ([c\<^sub>1]\<^sub>; \<inter> [c\<^sub>2]\<^sub>;))"
+
+
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i (spec_op a) (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    (* "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i (spec_op a) (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" | *)
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
-      (wp\<^sub>i (cmp (spec_bexp b)) [wp R c\<^sub>2 Q]\<^sub>s \<inter> wp\<^sub>i (ncmp (spec_bexp b)) [wp R c\<^sub>1 Q]\<^sub>s, 
+       ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
+        stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
+(*      (wp\<^sub>i (cmp (spec_bexp b)) [wp R c\<^sub>2 Q]\<^sub>s \<inter> wp\<^sub>i (ncmp (spec_bexp b)) [wp R c\<^sub>1 Q]\<^sub>s, 
       stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
+*)
 (* here (wp\<^sub>s r true) is simplified to Q *)
-    "wp R (While b Imix Ispec c) Q = undefined"
-(*      (stabilize R Imix \<inter>  
+    "wp R (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
+       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
+        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))"
+(*      (stabilize R Imix \<inter>
         assert (Imix \<subseteq> (merge R Q (wp\<^sub>i (cmp b) (wp R c (stabilize R Imix)))) \<inter>
                         (merge R  (stabilize R (wp\<^sub>s c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))"*) |
-    "wp R (DoWhile Imix Ispec c b) Q = undefined"
-(*      (stabilize R Imix \<inter>  
+      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = wp R c (merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
+       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
+        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;))))"
+(* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
+(*    "wp R (DoWhile Imix Ispec c b) Q = undefined"
+      (stabilize R Imix \<inter>  
         assert (Imix \<subseteq> (merge R (stabilize R ((wp\<^sub>s c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
                                   (wp R c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
                                            (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" *)

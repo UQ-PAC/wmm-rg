@@ -268,7 +268,7 @@ unfolding ts_pred_of_vm_pred_def by simp
 
 section \<open>Soundness\<close>
 
-text \<open>Basic Rule for operations with vc\<close>
+text \<open>Basic Rule for operations with vc c\<close>
 lemma basic_wp\<^sub>i_1:
   assumes "P \<subseteq> stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))" "wellformed R G" "stable\<^sub>t R Q" 
   assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"           
