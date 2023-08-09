@@ -2,7 +2,7 @@ theory SimAsm_WPIF
   imports SimAsm_WP HOL.Complete_Lattices
 begin
 
-text \<open> The type secvarmap introduces the current security level for each variable,
+text \<open> The type secvarmap extends the state with the current security level for each variable,
         i.e., for each variable var \<mapsto> (val, secLevel) 
        'sec here is abstract but will be used as a general bounded_lattice or complete_lattice 
           with the corresponding operators \<sqinter> and \<squnion> in the definitions where required,
@@ -11,8 +11,10 @@ text \<open> The type secvarmap introduces the current security level for each v
 type_synonym ('r,'v,'sec,'a) secvarmap = "('r,'v\<times>'sec,'a) varmap'"
 type_synonym ('r,'v,'sec,'a) secauxop = "('r,'v,('r,'v,'sec,'a) secvarmap,'a) auxop"
 
-text \<open> condSec models conditional security values that need to be evaluated in each state; 
-       secClass provides a type for (conditional) security classifications for each variable v \<close>
+text \<open> condSec models conditional security values that need to be evaluated in each state
+          as a list of conditions and a function mapping a list of booleans mapped to a security value;
+       secClass provides a type for (conditional) security classifications for each variable v
+          (the type of \<L>)  \<close>
 
 (* type_synonym ('r,'v,'sec) condSec = "(('r, 'v) bexp \<times> 'sec) list" *)
 (* e.g., ([a = b, c < d], \<lambda> vList. if vList[0] then Low else vList[1] then High else...) *)
@@ -26,6 +28,8 @@ text \<open> (\<Gamma> s v) provides the security level (of the current content 
 abbreviation \<Gamma> :: "'r \<Rightarrow> ('r,'v,'sec,'a) secvarmap \<Rightarrow> 'sec"
   where "\<Gamma> v s \<equiv> snd (varmap_st s v)"
 
+text \<open> @{term eval\<^sub>s\<^sub>e\<^sub>c} evaluates the conditional security level in the current state \<close>
+
 fun eval\<^sub>s\<^sub>e\<^sub>c :: "('r,'v,'sec) condSec \<Rightarrow> ('r,'v,'sec,'a) secvarmap \<Rightarrow> 'sec"
   where "eval\<^sub>s\<^sub>e\<^sub>c (blist, f) s  = f (map (ev\<^sub>B  (varmap_st s)) blist)" 
 
@@ -35,8 +39,24 @@ text \<open> @{term \<Gamma>\<^sub>E} is relative to a state and a classificatio
        inf = \<sqinter> = meet    and     Sup = \<Squnion> = Join   with
        x \<le> y <=> x \<sqinter> y = x     and   x \<le> y <=> x \<squnion> y = y     *)
 
-definition \<Gamma>\<^sub>E :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r, 'v \<times>'sec) expBexp => ('r,'v,'sec::complete_lattice,'a) secvarmap \<Rightarrow> 'sec"
+definition \<Gamma>\<^sub>E :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r, 'v \<times>'sec) expBexp 
+                                       \<Rightarrow> ('r,'v,'sec::complete_lattice,'a) secvarmap \<Rightarrow> 'sec"
   where "\<Gamma>\<^sub>E \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v s)  (\<Gamma> v s)) ` (vars e))"
+
+definition bexpr :: "('r,'v,'sec,'a) secClass \<Rightarrow> 'r \<Rightarrow> ('r,'v\<times>'sec) expBexp list"
+  where "bexpr \<L> r =  (map Bexpr \<circ> fst \<circ> \<L>) r" 
+
+definition ctrlVars :: "('r,'v,'sec,'a) secClass \<Rightarrow> 'r set"
+  where "ctrlVars \<L> \<equiv>  {cvar | cvar r. cvar \<in>  \<Union> (set (map vars ((bexpr \<L>) r)))}"
+
+definition ctrled :: "('r,'v,'sec,'a) secClass \<Rightarrow> 'r \<Rightarrow> 'r set"
+  where "ctrled \<L> c \<equiv> {r | r. c \<in> \<Union> (set (map vars ((bexpr \<L>) r)))}"
+
+
+definition secureUpd :: "('r,'v,'sec::complete_lattice,'a) secClass \<Rightarrow> 'r \<Rightarrow> ('r,'v\<times>'sec) exp 
+                                                    \<Rightarrow> ('r,'v,'sec,'a) secvarmap set"
+   where "secureUpd \<L> r e \<equiv> {s | s. (\<forall> y. y \<in> (ctrled \<L> r) \<longrightarrow> 
+    (\<Gamma>\<^sub>E \<L> (Expr e) s) \<le> ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) y (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>)))}" 
 
 
 text \<open> Locale wpif sets up reasoning with additional proof obligations to verify information flow security \<close>
@@ -48,14 +68,33 @@ locale wpif = wp rg glb
 context wpif
 begin
 
+ (* (eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>)  *)
+
 text \<open>Additional proof obligations to check information flow security, see CSF'2021 paper\<close>
 fun po :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'a) secvarmap set"
   where
-    "po \<L> (assign r e) =  {s| s. (\<Gamma>\<^sub>E \<L> (Expr e) s) \<le> ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) r s)}" |
+    "po \<L> (assign r e) =  {s| s. ((\<Gamma>\<^sub>E \<L> (Expr e) s) \<le> ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) r s)) \<and>
+                             (r \<in> (ctrlVars \<L>) \<longrightarrow> s \<in> secureUpd \<L> r e)}" |
     "po \<L> (cmp b) =  {s| s. (\<Gamma>\<^sub>E \<L> (Bexpr b) s) \<le> bot}" |
-    "po \<L> (leak v va) = {s| s. (\<Gamma>\<^sub>E \<L> (Expr va) s) \<le> ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v s)}"  |
+    "po \<L> (leak c e) = {s| s. (\<Gamma>\<^sub>E \<L> (Expr e) s) \<le> ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) c s)}"  |
     "po \<L> full_fence = {}" |
     "po \<L> nop = {}" 
+
+
+
+section \<open>Predicate Transformations which takes \<L> and evaluation of  @{term \<Gamma>\<^sub>E} into account,
+         this should happen "automatically" through the lifting of the value type 'v to ('v\<times>'sec)\<close>
+
+(*  the normal wp\<^sub>i transformer should deliver the right results already:
+
+fun wpif\<^sub>i :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'a) secvarmap set
+                                                              \<Rightarrow> ('r,'v,'sec,'a) secvarmap set"
+  where 
+    "wpif\<^sub>i \<L> (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(r := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wpif\<^sub>i \<L> (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) b) \<longrightarrow> s \<in> Q}" | 
+    "wpif\<^sub>i \<L> (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (varmap_st s) e)\<rparr>) \<in> Q}" |
+    "wpif\<^sub>i \<L> _ Q = Q"
+*)
 
 
 text \<open>Ensure all global operations in a thread conform to its guarantee - this glues in the PO \<close>
@@ -67,6 +106,9 @@ fun guar\<^sub>c_if
     "guar\<^sub>c_if (If _ c\<^sub>1 c\<^sub>2) \<L> G = (guar\<^sub>c_if c\<^sub>1 \<L> G \<and> guar\<^sub>c_if c\<^sub>2 \<L> G)" |
     "guar\<^sub>c_if (While _ _ _ c) \<L> G = (guar\<^sub>c_if c \<L> G)" |
     "guar\<^sub>c_if (DoWhile _ _ c _) \<L> G = (guar\<^sub>c_if c \<L> G)"
+
+
+
 
 end (* locale wpif  *)
 (* ------------------------------------------------ *)
@@ -89,7 +131,7 @@ fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\
                            stabilize R (wp\<^sub>i (cmp b) (wpif R \<L> c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wpif R \<L> c\<^sub>2 Q))" |
      "wpif R \<L> (While b I _ c) Q = (stabilize R I \<inter> 
        assert (I \<subseteq> (po \<L> (cmp b)) \<inter> wp\<^sub>i (cmp b) (wpif R \<L> c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
-    "wpif R \<L> (DoWhile I _ c b) Q = (stabilize R I \<inter> 
+    "wpif R \<L> (DoWhile I _ c b) Q = (stabilize R  I \<inter> 
        assert (I \<subseteq> (po \<L> (cmp b)) \<inter> wpif R \<L> c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
 
 end   (* locale wpif_WOspec *)
@@ -112,7 +154,6 @@ begin
 text \<open> since the eval fct is used for the \<L> predicates, we label all variables as global \<close>
 
 fun leval\<^sub>s\<^sub>e\<^sub>c :: "('r,'v,'sec) condSec \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap \<Rightarrow> 'sec"
-  (* where "leval\<^sub>s\<^sub>e\<^sub>c (blist, f) s  = f (map (ev\<^sub>B  (varmap_st (gl_restrict s))) blist)"  *)
    where "leval\<^sub>s\<^sub>e\<^sub>c (blist, f) s  = f (map ((ev\<^sub>B  (varmap_st s))\<circ> gl\<^sub>B) blist)"  
 
 
@@ -122,19 +163,48 @@ text \<open> @{term \<Gamma>\<^sub>E\<^sub>L} models the security level of an ex
                    i.e., \<Squnion>_v ((\<L> v)^G  \<sqinter> (\<Gamma> v)^U) \<close>
 
 definition \<Gamma>\<^sub>E\<^sub>L :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r, 'v \<times>'sec) expBexp \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap \<Rightarrow> 'sec"
-  (* where "\<Gamma>\<^sub>E\<^sub>L \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((eval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v (gl_restrict s))  (\<Gamma> v (ul_restrict s))) ` (vars e))"  *)
    where "\<Gamma>\<^sub>E\<^sub>L \<L> e s \<equiv>  Sup ((\<lambda>v. inf ((leval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) v s)  (\<Gamma> v (ul_restrict s))) ` (vars e))"  
 
-text \<open>Additional proof obligations during speculation, different po for speculated leaks \<close>
+text \<open>Additional proof obligations during speculation, only leaks operations produce a po \<close>
 fun po\<^sub>s :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set"
   where
-    "po\<^sub>s \<L> (assign r e) = {s| s. (\<Gamma>\<^sub>E\<^sub>L \<L> (Expr e) s) \<le> ((leval\<^sub>s\<^sub>e\<^sub>c \<circ> \<L>) r s)}" |
-    "po\<^sub>s \<L> (cmp b) = {s| s. (\<Gamma>\<^sub>E\<^sub>L \<L> (Bexpr b) s) \<le> bot}" |
-    "po\<^sub>s \<L> (leak v va) = {s| s. (\<Gamma>\<^sub>E\<^sub>L \<L> (Expr va) s) \<le> bot}" |
+    "po\<^sub>s \<L> (assign r e) = {}" |
+    "po\<^sub>s \<L> (cmp b) = {}" |
+    "po\<^sub>s \<L> (leak c e) = {s| s. (\<Gamma>\<^sub>E\<^sub>L \<L> (Expr e) s) \<le> bot}" |
     "po\<^sub>s \<L> full_fence = {}" |
     "po\<^sub>s \<L> nop = {}" 
 
 
+text \<open>Transform a predicate based on a program c within an environment R\<close>
+fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
+                           ('r,'v\<times>'sec,'a) spec_state \<Rightarrow> ('r,'v\<times>'sec,'a) spec_state" 
+  where
+    "wpif R \<L> Skip Q = Q" |
+    "wpif R \<L> (Op v a f) (Q\<^sub>s, Q) = (stabilize\<^sub>L R (v\<^sup>L \<inter> (po\<^sub>s \<L> a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Q\<^sub>s)), 
+                             stabilize R (v \<inter> (po \<L> a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q)))" |
+    "wpif R  \<L> (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wpif R  \<L> c\<^sub>1 (wpif R  \<L> c\<^sub>2 Q)" |
+    "wpif R  \<L> (If b c\<^sub>1 c\<^sub>2) Q = merge R 
+       ([wpif R  \<L> c\<^sub>2 Q]\<^sub>s \<inter> [wpif R  \<L> c\<^sub>1 Q]\<^sub>s, 
+        stabilize R (po \<L> (cmp b)) \<inter> (wp\<^sub>i (cmp b) [wpif R \<L> c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wpif R \<L> c\<^sub>2 Q]\<^sub>;))" |
+    "wpif R \<L> (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
+       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
+        assert (Inv \<subseteq> (po \<L> (cmp b))) \<inter>
+        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> 
+        assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
+(* with  DoWhile Inv\<^sub>s Inv c b \<equiv> (c ; [b])* ; c ; [\<not>b]  *)
+    "wpif R \<L> (DoWhile Inv\<^sub>s Inv c b) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
+        (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
+         assert (Inv \<subseteq> (po \<L> (cmp b))) \<inter> 
+         assert (Inv \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, (stabilize R (wp\<^sub>i (cmp b) Inv))))]\<^sub>;) \<inter>
+         assert (Inv \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, (stabilize R (wp\<^sub>i (ncmp b) [Q]\<^sub>;))))]\<^sub>;))"
+
+end  (* of wpif_spec *)
+
+end
+
+
+
+(*
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s_if :: "('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set"     
   where 
@@ -143,7 +213,6 @@ fun wp\<^sub>i\<^sub>s_if :: "('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'
     "wp\<^sub>i\<^sub>s_if (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Gl c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
     "wp\<^sub>i\<^sub>s_if full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s_if nop Q = Q"  
-
 
 text \<open>wp_spec transformer on lang.\<close>
 fun wp\<^sub>s_if :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
@@ -179,7 +248,6 @@ fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\
                         (merge R (stabilize R ((wp\<^sub>s_if \<L> c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
                                   (wpif R \<L> c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
                                            (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" 
+*)
 
-end  (* of wpif_spec *)
 
-end

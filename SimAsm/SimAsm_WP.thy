@@ -266,6 +266,11 @@ text \<open> Unlabelling a predicate, such that variables with differing labels 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
+text \<open> stablilizing the verification conditions in the speculated part \<close>
+definition stabilize\<^sub>L
+  where "stabilize\<^sub>L R P \<equiv> {m. \<forall>m'. 
+        (glb (ul_restrict m),glb (ul_restrict m')) \<in> R \<longrightarrow> rg (ul_restrict m) = rg (ul_restrict m') \<longrightarrow> m' \<in> P}"
+
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
@@ -296,16 +301,8 @@ fun merge :: "'g rel \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a
 
 
 text \<open>  \<close>
-(* wp over speculation needs to relate (wp r Q) and (wp_s  r Q) without knowing r
 
-  todo: something like (spec Q) = Q \<inter> \<And>x \<in> wr(r). (\<L>(x) \<inter> \<And>y \<in> ctrl(x). \<L>(y))
-                                       "minus" stability conditions 
-   or maybe just add in the context of the non-speculated behaviour: (spec b Q) = Q \<inter> {s. (st_ev\<^sub>B s b)}
-   or maybe, wp c Q \<subseteq> (spec c Q)  where c is the speculated command, which in case c=r
-   means we can set (spec r Q) = Q  
-*)
-
-text \<open> lifts the predicate to a "labelled" predicate, in which all variable are marked as UL \<close>
+text \<open> lifts the predicate to a "labelled" predicate, in which all variables are marked as UL \<close>
 fun spec :: "('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"
   where "(spec Q) = (Q)\<^sup>L"
 
@@ -330,7 +327,8 @@ text \<open>Transform a predicate based on a program c within an environment R\<
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) (Qs, Q) = (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Qs), v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
+    "wp R (Op v a f) (Qs, Q) = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Qs)), 
+                                stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q)))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
