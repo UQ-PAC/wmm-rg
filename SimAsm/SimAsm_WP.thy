@@ -148,7 +148,7 @@ text \<open>Transform a predicate based on an auxiliary state update\<close>
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
 definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
-  where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {s'. (s,s') \<in> G}}"
+  where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {t'. (s,t') \<in> G}}"
 
 
 subsection \<open>Guarantee Checks\<close>
@@ -214,6 +214,7 @@ fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) 
   "map\<^sub>E f g h (Exp eval es) = Exp (\<lambda>vs. g (eval (map h vs))) (map (map\<^sub>E f g h) es)" |
   "map\<^sub>E f g h (Val v) = Val (g v)"
 
+
 fun ul\<^sub>E :: "('r,'v) exp \<Rightarrow> ('r label,'v) exp" ("(2_)\<^sup>u" [901] 900) where
   "ul\<^sub>E e = map\<^sub>E Ul id id e"
 
@@ -233,6 +234,12 @@ fun gl\<^sub>B :: "('r,'v) bexp \<Rightarrow> ('r label,'v) bexp" ("(2_)\<^sup>g
 fun ul\<^sub>s :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" where
   "ul\<^sub>s e = undefined"
 
+(* alternative, simpler definition of map\<^sub>E which omits second and third paramerter which are currently not used: 
+fun map\<^sub>E' :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v) exp" where
+  "map\<^sub>E' f (Var v) = Var (f v)" |
+  "map\<^sub>E' f (Exp eval es) = Exp (\<lambda>vs. (eval (vs))) (map (map\<^sub>E' f) es)" |
+  "map\<^sub>E' f (Val v) = Val (v)"
+*)
 
 text \<open> Producing a labelled predicate from an unlabelled predicate \<close>
 
@@ -266,10 +273,15 @@ text \<open> Unlabelling a predicate, such that variables with differing labels 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
-text \<open> stablilizing the verification conditions in the speculated part \<close>
+text \<open> stablilizing the verification conditions in the speculated part:
+              - global variables (labelled with G, i.e., sit in the base frame) related by R
+              - local variables (labelled with G) need to be equal 
+              - all other parts of the labelled state (all unlabelled parts, i.e., frame vars)
+                  are unchanged \<close>
 definition stabilize\<^sub>L
   where "stabilize\<^sub>L R P \<equiv> {m. \<forall>m'. 
-        (glb (ul_restrict m),glb (ul_restrict m')) \<in> R \<longrightarrow> rg (ul_restrict m) = rg (ul_restrict m') \<longrightarrow> m' \<in> P}"
+        (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> rg (gl_restrict m) = rg (gl_restrict m') 
+                                                       \<and> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P}"
 
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
@@ -280,17 +292,6 @@ fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Ri
     "wp\<^sub>i\<^sub>s (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Gl c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s nop Q = Q"  
-
-
-text \<open>wp_spec transformer on lang.\<close>
-fun wp\<^sub>s :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) lvarmap' pred"   
-  where 
-    "wp\<^sub>s Skip Q = Q" |
-    "wp\<^sub>s (Op v a f) Q = (v\<^sup>L \<inter> (wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Q)))" |
-    "wp\<^sub>s (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s c\<^sub>1 Q) \<inter> (wp\<^sub>s c\<^sub>2 Q)" |
-    "wp\<^sub>s (While b Inv\<^sub>s Inv c) Q = Inv\<^sub>s\<^sup>L \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> Q) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> (wp\<^sub>s c Inv\<^sub>s\<^sup>L))" | 
-    "wp\<^sub>s (DoWhile Inv\<^sub>s Inv c b) Q = wp\<^sub>s c (Inv\<^sub>s\<^sup>L \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> Q) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> (wp\<^sub>s c Inv\<^sub>s\<^sup>L)))"
 
 
 text \<open>Merge function integrates the Qs speculative predicate into the sequential predicate. 
