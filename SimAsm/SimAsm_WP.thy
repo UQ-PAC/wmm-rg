@@ -318,9 +318,13 @@ fun spec_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) lvarmap' pred" 
 fun seq_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) varmap' pred" ("[(_)]\<^sub>;") where
   "seq_part (Qs,Q) = Q"
 
-definition spec_inter :: "('r,'v,'a) spec_state \<Rightarrow> 
+abbreviation spec_inter :: "('r,'v,'a) spec_state \<Rightarrow> 
                              ('r,'v,'a) spec_state  \<Rightarrow> ('r,'v,'a) spec_state" (infixr "\<inter>\<^sub>s" 80) 
   where "spec_inter c\<^sub>1 c\<^sub>2 \<equiv> (([c\<^sub>1]\<^sub>s \<inter> [c\<^sub>2]\<^sub>s) , ([c\<^sub>1]\<^sub>; \<inter> [c\<^sub>2]\<^sub>;))"
+
+abbreviation spec_subset :: "('r,'v,'a) spec_state \<Rightarrow> 
+                             ('r,'v,'a) spec_state \<Rightarrow> bool" (infixr "\<subseteq>\<^sub>s" 80) 
+  where "spec_subset c\<^sub>1 c\<^sub>2 \<equiv> ([c\<^sub>1]\<^sub>s \<subseteq> [c\<^sub>2]\<^sub>s) \<and> ([c\<^sub>1]\<^sub>; \<subseteq> [c\<^sub>2]\<^sub>;)"
 
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
