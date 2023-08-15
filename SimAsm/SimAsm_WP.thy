@@ -270,6 +270,9 @@ text \<open> Unlabelling a predicate, such that variables with differing labels 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
+context wp_spec
+begin
+
 text \<open> stablilizing the verification conditions in the speculated part:
               - global variables (labelled with G, i.e., sit in the base frame) related by R
               - local variables (labelled with G) need to be equal 
@@ -279,10 +282,6 @@ definition stabilize\<^sub>L
   where "stabilize\<^sub>L R P \<equiv> {m. \<forall>m'. 
         (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> rg (gl_restrict m) = rg (gl_restrict m') 
                                                        \<and> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P}"
-
-
-context wp_spec
-begin
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
