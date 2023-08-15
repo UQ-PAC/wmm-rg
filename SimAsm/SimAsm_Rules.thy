@@ -154,7 +154,8 @@ definition context_order
   where "context_order R G P Q \<equiv> 
     (stable\<^sub>t R Q \<and> wellformed R G) \<longrightarrow> ((P \<subseteq> Q) \<and> stable\<^sub>t R P)"
 
-text \<open>The validity property we intend to show, abstracts over the preservation of wellformedness\<close>
+text \<open>The validity property we intend to show, abstracts over the preservation of wellformedness,
+        i.e., wellformedness (of R and G) and guarantee check of c become assumptions for the soundness proof \<close>
 definition valid 
   ("_,_ \<turnstile>\<^sub>w _ {_} _" [100,0,0,0,100] 60)
   where "valid R G P c Q \<equiv>  
