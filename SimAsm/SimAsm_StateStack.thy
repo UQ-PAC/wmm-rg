@@ -331,6 +331,15 @@ is
 lift_definition tstack_top :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) frame_scheme"
 is
   "\<lambda>stack. hd (Rep_tstack stack)".
+
+definition tstack_base_st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v" where
+"tstack_base_st ts = the \<circ> frame_st (last (Rep_tstack ts))"
+
+definition tstack_len :: "('r,'v,'a) tstack \<Rightarrow> nat" where
+"tstack_len ts = length (Rep_tstack ts)"
+
+lift_definition tstack_upper :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) frame_scheme list" is
+"\<lambda>ts. butlast (Rep_tstack ts)".
   
 
 (*

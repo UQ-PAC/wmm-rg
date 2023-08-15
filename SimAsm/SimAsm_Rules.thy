@@ -1,6 +1,8 @@
 theory SimAsm_Rules
   imports SimAsm_WP SimAsm_Semantics "../Soundness"
-  begin
+begin
+
+subsection \<open>Conversion between tstack and varmap.\<close>
 
 lift_definition vm_of_ts :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
   is "\<lambda>s. \<lparr> varmap_st = tlookup s, \<dots> = frame.more (last (Rep_tstack s))\<rparr>".
@@ -55,7 +57,62 @@ fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, '
   "vm_lang_of_ts_lang (While b Imix Ispec c) = While b (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) " |
   "vm_lang_of_ts_lang (DoWhile Imix Ispec c b) = DoWhile (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) b "
 
-  
+
+subsection \<open>Correspondence from spec_state to tstack.\<close>
+
+definition tstack_base :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" where
+  "tstack_base stack \<equiv> 
+    \<lparr> varmap_st = the \<circ> frame_st (last (Rep_tstack stack)), \<dots> = taux stack \<rparr>"
+
+text \<open>
+The number of frames within the tstack naturally tells us whether that state
+is speculative or sequential.
+\<close>
+
+abbreviation ts_is_seq where 
+  "ts_is_seq ts \<equiv> tstack_len ts = 1"
+
+abbreviation ts_is_spec where 
+  "ts_is_spec ts \<equiv> tstack_len ts \<noteq> 1"
+
+(*
+definition tstack_seq where
+  "tstack_seq = {ts. ts_is_seq ts}"
+definition tstack_spec where
+  "tstack_spec = {ts. ts_is_spec ts}"
+*)
+
+text \<open>
+With these definitions, we define functions to convert from spec_state's
+sequential and speculative components into tstack predicates.
+ 
+In particular, spec_pred_of_lvm_pred implements labelled variable names
+by mapping these to the appropriate parts of the tstack structure.
+\<close>
+
+lift_definition seq_pred_of_vm_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
+  "\<lambda>P. {ts \<in> ts_pred_of_vm_pred P. ts_is_seq ts}".
+
+lift_definition spec_pred_of_lvm_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
+  "\<lambda>P. {ts | ts v. 
+        v \<in> P \<and>
+        ts_is_spec ts \<and>
+        vm_of_ts ts = ul_restrict v \<and>
+        tstack_base ts = gl_restrict v}".
+(* flattening all frames of the tstack should result in the unlabelled part. *)
+(* viewing only the base frame should be equal to the globally labelled part. *)        
+
+text \<open>
+Obtains a sequential relation from a varmap relation. That is, the
+global (tstack base) state is related by the given R and
+the speculative (tstack upper) state is identity.
+\<close>
+
+lift_definition seq_rel_of_vm_rel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" is
+  "\<lambda>R. {(ts,ts') \<in> ts_rel_of_vm_rel R. tstack_upper ts = tstack_upper ts'}".
+
+
+
 locale simasm_rules = 
   semantics_spec 
     where st = "tlookup :: ('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
@@ -68,18 +125,25 @@ locale simasm_rules =
   + wp_spec
     where rg = rg
     and glb = glb
-  for rg :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
-  and glb :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap'"
+  for rg :: "('r,'v,'a) varmap' \<Rightarrow> 'local \<Rightarrow> 'v"
+  and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'global \<Rightarrow> 'v"
 
 context simasm_rules
 begin
+  
+definition stabilize\<^sub>s where 
+  "stabilize\<^sub>s R P \<equiv> {m. \<forall>m'. (glb (gl_restrict m),glb m') \<in> R \<longrightarrow> rg (gl_restrict m) = rg m' \<longrightarrow> m' \<in> [P]\<^sub>;}"
 
 abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
   where "rules_abv R G P c Q \<equiv> rules R G P c Q"
 
 abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
   where "lifted_abv R G P c Q \<equiv> 
-      (ts_rel_of_vm_rel (step\<^sub>t R)), (ts_rel_of_vm_rel (step G)) \<turnstile> (ts_pred_of_vm_pred P) {(lift\<^sub>c c com.Nil {})} (ts_pred_of_vm_pred Q)" 
+      (seq_rel_of_vm_rel (step\<^sub>t R)), (seq_rel_of_vm_rel (step G)) 
+        \<turnstile> (seq_pred_of_vm_pred [P]\<^sub>;) {lift\<^sub>c c com.Nil {}} (seq_pred_of_vm_pred [Q]\<^sub>;)
+      \<and> (seq_rel_of_vm_rel (step\<^sub>t R)), UNIV 
+        \<turnstile> (spec_pred_of_lvm_pred [P]\<^sub>s) {lift\<^sub>c c com.Nil {}} (spec_pred_of_lvm_pred [Q]\<^sub>s)" 
+
 
 abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
  where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c com.Nil {}) P (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_rel_of_vm_rel (step G)) Q" 
@@ -94,7 +158,8 @@ text \<open>The validity property we intend to show, abstracts over the preserva
 definition valid 
   ("_,_ \<turnstile>\<^sub>w _ {_} _" [100,0,0,0,100] 60)
   where "valid R G P c Q \<equiv>  
-     (wellformed R G \<and> stable\<^sub>t R Q \<and> guar\<^sub>c (vm_lang_of_ts_lang c) G) \<longrightarrow> (stable\<^sub>t R P \<and> (R,G \<turnstile>\<^sub>s P {c} Q))" 
+     (wellformed R G \<and> stable\<^sub>t R [Q]\<^sub>; \<and> guar\<^sub>c (vm_lang_of_ts_lang c) G) 
+     \<longrightarrow> (stable\<^sub>t R [P]\<^sub>; \<and> (R,G \<turnstile>\<^sub>s P {c} Q))" 
 
 
 lemma vm_of_ts_auxupd: 
@@ -268,9 +333,11 @@ unfolding ts_pred_of_vm_pred_def by simp
 
 section \<open>Soundness\<close>
 
+(* fun f :: "('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,('r,'v" where *)
+
 text \<open>Basic Rule for operations with vc c\<close>
 lemma basic_wp\<^sub>i_1:
-  assumes "P \<subseteq> stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q))" "wellformed R G" "stable\<^sub>t R Q" 
+  assumes "P \<subseteq> stabilize\<^sub>s R (c \<inter>\<^sub>s biwp (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) Q)" "wellformed R G" "stable\<^sub>t R [Q]\<^sub>;" 
   assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"           
   shows "R,G \<turnstile>\<^sub>s P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
 proof -
@@ -368,114 +435,13 @@ subsection \<open>Rules\<close>
 
 text \<open>If Rule\<close>
 
-lemma "R,G \<turnstile>\<^sub>w stabilize R ((wp\<^sub>s (vm_lang_of_ts_lang c) (Q\<^sup>G))\<^sup>U) {c} Q"
-unfolding valid_def
-apply (intro impI conjI; elim conjE)
-proof (goal_cases)
-  case 1
-  then show ?case by auto
-next
-  case 2
-  then show ?case
-  proof (induct c arbitrary: R G)
-    case Skip
-    have s: "ts_pred_of_vm_pred (stabilize R (Q\<^sup>G)\<^sup>U) \<subseteq> ts_pred_of_vm_pred Q" unfolding ts_pred_of_vm_pred_def restrict_pred_def gl_lift_pred_def apply auto
-    sorry    have q: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ts_pred_of_vm_pred (Q) {Nil} ts_pred_of_vm_pred (Q)"
-      apply (rule rules.nil) apply (rule stable_ts_rel_of_vm_rel)
-      using Skip.prems(1) Skip.prems(4) Skip by simp
-    then show ?case unfolding valid_def 
-    apply auto using q s by (meson equalityD2 rules.rules.conseq rules_axioms)
-  next
-    case (Op c \<alpha> f)
-    have "c \<subseteq> ts_pred_of_vm_pred (local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a (f \<circ> ts_of_vm)) (step G))" 
-      using Op unfolding ts_pred_of_vm_pred_def by auto
-    thm guar_of_liftg
-    hence "guar\<^sub>\<alpha> (liftg (c) \<alpha> f) (ts_rel_of_vm_rel (step G))" using guar_of_liftg' by auto
-
-    
-    show ?case unfolding valid_def apply clarsimp 
-    apply (rule rules.basic)
-    unfolding atomic_rule_def 
-    apply auto 
-    defer
-    using \<open>guar\<^sub>\<alpha> (liftg c \<alpha> f) (ts_rel_of_vm_rel (step G))\<close> apply linarith
-    defer
-    using Op.prems(2) apply blast 
-    defer
-    using Op.prems(1) Op.prems(4) apply blast
-    
-    
-    
-  next
-    case (Seq c1 c2)
-    then show ?case sorry
-  next
-    case (If x1 c1 c2)
-    then show ?case sorry
-  next
-    case (While x1 x2 x3 c)
-    then show ?case sorry
-  next
-    case (DoWhile x1 x2 c x4)
-    then show ?case sorry
-  qed
-qed
-
 lemma if_wp:
   "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q \<Longrightarrow>
   R,G \<turnstile>\<^sub>w stabilize R ((wp\<^sub>s (vm_lang_of_ts_lang (If b c\<^sub>1 c\<^sub>2)) (Q\<^sup>G))\<^sup>U) {If b c\<^sub>1 c\<^sub>2} UNIV \<Longrightarrow>
   P \<subseteq> (wp\<^sub>i (cmp b) P\<^sub>1 \<inter> wp\<^sub>i (ncmp b) P\<^sub>2) \<Longrightarrow>
             R,G \<turnstile>\<^sub>w stabilize R P {If b c\<^sub>1 c\<^sub>2} Q"
-  unfolding valid_def apply clarsimp
-apply standard 
-apply blast
-proof (rule rules.choice, standard, goal_cases)
-  case (1 l)
-  have "ts_rel_of_vm_rel
-          (step\<^sub>t
-            R),ts_rel_of_vm_rel
-                (step
-                  G) \<turnstile> ts_pred_of_vm_pred
-                           (((wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>1) (Q\<^sup>G) \<inter> wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>2) (Q\<^sup>G))\<^sup>U) \<inter>
-
-                           ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> P\<^sub>1} \<inter>
-                            {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
-                                s \<in> P\<^sub>2})) {(\<triangle> Capture (emptyFrame (wr\<^sub>l c\<^sub>2)) (Seqw (lift\<^sub>c c\<^sub>2 com.Nil {}) com.Nil)) . Seqw (Basic (liftl (cmp b))) (lift\<^sub>c c\<^sub>1 com.Nil {})} ts_pred_of_vm_pred Q"
-  proof (rule rules.seq)
-  let ?M = "ts_pred_of_vm_pred (stabilize R (P\<^sub>1 \<inter> {s. ev\<^sub>B (varmap_st s) b}))"
-  have cmp: "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ?M {Basic (liftl (cmp b))} ?M"
-    apply (rule rules.basic) unfolding atomic_rule_def liftl_def wp_def guar_def apply auto using 1(3) unfolding reflexive_def step_def 
-    sorry    using 1 by blast
-  show "ts_rel_of_vm_rel (step\<^sub>t R),ts_rel_of_vm_rel (step G) \<turnstile> ?M {Seqw (Basic (liftl (cmp b))) (lift\<^sub>c c\<^sub>1 com.Nil {})} ts_pred_of_vm_pred Q"
-    apply (rule rules.seq[where ?M = ?M]) using 1(8)
-    apply (meson "local.1"(1) Int_iff conseq subsetI vm_of_ts_in_ts_pred_of_vm_pred wp.stabilizeE)
-    using cmp.
-  show " ts_rel_of_vm_rel
-     (step\<^sub>t
-       R),ts_rel_of_vm_rel
-           (step
-             G) \<turnstile> ts_pred_of_vm_pred
-                    (((wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>1) (Q\<^sup>G) \<inter> wp\<^sub>s (vm_lang_of_ts_lang c\<^sub>2) (Q\<^sup>G))\<^sup>U) \<inter>
-                     ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> P\<^sub>1} \<inter>
-                      {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
-                          s \<in> P\<^sub>2})) {\<triangle> Capture (emptyFrame (wr\<^sub>l c\<^sub>2)) (Seqw (lift\<^sub>c c\<^sub>2 com.Nil {}) com.Nil)} ts_pred_of_vm_pred (stabilize R (P\<^sub>1 \<inter> {s. ev\<^sub>B (varmap_st s) b})) "
-    apply (rule rules.interr) prefer 4 apply auto apply (rule rules.capture)
-  qed
-  then show ?case apply (cases "l = 0"; simp)
-qed
-  apply (rule local.rules.seq)
-  prefer 2
-   apply (intro rules.choice)
-   apply (intro allI)
-   apply (simp split: if_splits)
-   apply (intro conjI impI)
-  using cmp_sound rules.rules.seq rules.rules.interr stabilize_entail subsetI 
-  apply simp
-  prefer 3
-(*            R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>s c\<^sub>2 (wp\<^sub>s c\<^sub>3 Q) \<inter> wp\<^sub>s c\<^sub>1 (wp\<^sub>s c\<^sub>3 Q)) \<inter>  *)
-(*    apply (simp add: cmp_sound rules.rules.seq stabilize_entail subsetI)+  
-  by blast 
-*)
+  unfolding valid_def 
+sorry
 
 (*
 lemma if_wp:

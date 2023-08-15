@@ -206,9 +206,6 @@ locale wp_spec = wp rg glb
   and glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
 
 
-context wp_spec
-begin
-
 fun map\<^sub>E :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('v \<Rightarrow> 'v2) \<Rightarrow> ('v2 \<Rightarrow> 'v) \<Rightarrow> ('r,'v) exp \<Rightarrow> ('r2,'v2) exp" where
   "map\<^sub>E f g h (Var v) = Var (f v)" |
   "map\<^sub>E f g h (Exp eval es) = Exp (\<lambda>vs. g (eval (map h vs))) (map (map\<^sub>E f g h) es)" |
@@ -266,6 +263,9 @@ text \<open> Unlabelling a predicate, such that variables with differing labels 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
+
+context wp_spec
+begin
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
@@ -336,7 +336,6 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
        ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
         stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
-(* here (wp\<^sub>s r true) is simplified to Q *)
     "wp R (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
        (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
         assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
@@ -344,6 +343,14 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
        (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
         assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;))))"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
+
+text \<open>transformer over a spec_state. given two mapping functions, applies them to both
+      components of the spec_state, element-wise.\<close>
+fun biwp :: "(('r_,'v_,'a_) varmap' pred \<Rightarrow> ('r_,'v_,'a_) varmap' pred)
+              \<Rightarrow> (('r_,'v_,'a_) lvarmap' pred \<Rightarrow> ('r_,'v_,'a_) lvarmap' pred)
+              \<Rightarrow> ('r_,'v_,'a_) spec_state \<Rightarrow> ('r_,'v_,'a_) spec_state"
+  where
+    "biwp f fs = (\<lambda>(Qs,Q). (fs Qs, f Q))"
 
 lemma "(THE s'. gl_restrict s' = s \<and> ul_restrict s' = s) = s\<^sup>G\<^sup>L"
 unfolding glul_lift_pred_def gl_lift_pred_def ul_lift_pred_def
