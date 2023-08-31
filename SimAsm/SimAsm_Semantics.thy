@@ -148,7 +148,10 @@ text \<open>Convert the language into the abstract language expected by the unde
       The "rest" is relative within composed language constructs (e.g., in Seq c1 c2 rest of c1 
        differs from rest of c2) 
       The second parameter carries the write-set of the lang construct, to facilitate building an
-        empty frame (and its capture set) required for the semantics of speculation \<close> 
+        empty frame (and its capture set) required for the semantics of speculation;
+        this set equals UNIV - {sidechannels} and should be constant per instantiation
+        (note, wrs must include @{term w\<^sub>l} of the rest program r, which is a com not a lang construct which
+         precludes to derived it at this level)  \<close> 
 
 fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 'r set \<Rightarrow> 
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 

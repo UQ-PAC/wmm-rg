@@ -10,6 +10,7 @@ type_synonym ('r,'v,'s,'a) opbasic = "(('r,'v,'s,'a) auxop, 's) basic"
 type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop"
 type_synonym ('r,'v,'a) opbasicSt = "(('r,'v,'a) auxopSt, ('r,'v,'a) tstack) basic" 
 
+type_synonym ('r,'v,'a) auxfnSt = "(('r,'v,'a) tstack,'a) auxfn"
 
 locale sem_link = expression st st_upd aux aux_upd locals
   for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
@@ -36,7 +37,7 @@ fun re\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rig
   where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
 
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
-fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Rightarrow> ('r,'v,'a) opbasicSt" 
   where 
     "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
     "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
@@ -44,42 +45,17 @@ fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Ri
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation with specification\<close>
-definition liftg :: "'s pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('s,'a) auxfn \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+definition liftg :: "(('r,'v,'a) tstack) pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('r,'v,'a) auxfnSt \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation without specification\<close>
-definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'s,'a) opbasic" 
+definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_\<rfloor>" 100)
   where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
 
 end   (* of locale sem_link *)
 
-(* 
-fun re\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) opbasic \<Rightarrow> bool"
-  where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
-
-text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
-fun fwd\<^sub>s :: "('r,'v,'s,'a) opbasic \<Rightarrow> ('r,'v,'s,'a) auxop \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  where 
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
-                                    (* (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" | *)
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
-
-text \<open>Lift an operation with specification\<close>
-definition liftg :: "'s pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('s,'a) auxfn \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  ("\<lfloor>_,_,_\<rfloor>" 100)
-  where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
-
-text \<open>Lift an operation without specification\<close>
-definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'s,'a) opbasic" 
-  ("\<lfloor>_\<rfloor>" 100)
-  where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
- *)
-
-(* type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop" *)
-(* type_synonym ('r,'v,'a) opbasicSt = "('r,'v,('r,'v,'a) tstack,'a) opbasic"  *)
 
 section \<open>Locales for reasoning, either with speculation (reasoning_spec) or without (reasoning_WOspec)\<close>
 

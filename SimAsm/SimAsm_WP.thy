@@ -382,8 +382,8 @@ proof (standard, goal_cases)
   proof (standard, goal_cases)
     case (1 s0)
     then show ?case 
-      using gl_restrict_of_glul varmap_st_of_glul
-      by (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) auto
+      using gl_restrict_of_glul varmap_st_of_glul 
+      by (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) auto 
   qed
 qed auto
 
