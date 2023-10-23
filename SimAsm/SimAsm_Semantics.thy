@@ -6,6 +6,7 @@ section \<open> Instruction Specification Language:
            this creates the link between the abstract logic and the SimAsm instantiation \<close>
 
 (* ('a,'b) basic = ('a \<times> 'b set \<times> 'b rel); 'a = (inst \<times> aux);  'b = state *)
+(* ('r,'v,'s,'a) auxop = "('r,'v) op \<times> ('s,'a) auxfn *)
 type_synonym ('r,'v,'a) auxopSt = "('r,'v,('r,'v,'a) tstack,'a) auxop"
 type_synonym ('r,'v,'a) opbasicSt = "(('r,'v,'a) auxopSt, ('r,'v,'a) tstack) basic" 
 
@@ -161,12 +162,17 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a)
     "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) r wrs = (lift\<^sub>c c\<^sub>1 (lift\<^sub>c c\<^sub>2 r wrs) (wr\<^sub>l c\<^sub>2 \<union> wrs)) ;; (lift\<^sub>c c\<^sub>2 r wrs)" |  
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda> s. if (s = 0)
                     then Interrupt (Capture (emptyFrame (wr\<^sub>l c\<^sub>2 \<union> wrs)) ((lift\<^sub>c c\<^sub>2 r wrs) ;; r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r wrs)) 
-                    else Interrupt (Capture (emptyFrame (wr\<^sub>l c\<^sub>1 \<union> wrs)) ((lift\<^sub>c c\<^sub>1 r wrs) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r wrs))))" |
-    "lift\<^sub>c (While b Imix Ispec c) r wrs = (Choice (\<lambda> s. if (s = 0)
-                    then Interrupt (Capture (emptyFrame (wrs)) (r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)) 
-                    else Interrupt (Capture (emptyFrame (wr\<^sub>l c \<union> wrs)) ((lift\<^sub>c c r wrs) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>))))" |
-    "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs = ((lift\<^sub>c c (Basic (\<lfloor>cmp b\<rfloor>) ;; r) wrs) ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; 
-                                         (lift\<^sub>c c (Basic (\<lfloor>ncmp b\<rfloor>) ;; r) wrs) ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
+                    else Interrupt (Capture (emptyFrame (wr\<^sub>l c\<^sub>1 \<union> wrs)) ((lift\<^sub>c c\<^sub>1 r wrs) ;; r)) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r wrs))))"  |
+(*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b]; r *)
+    "lift\<^sub>c (While b Imix Ispec c) r wrs =  
+           (Interrupt (Capture (emptyFrame (wrs)) (r)) . (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)))* ;;
+           (Interrupt (Capture (emptyFrame (wr\<^sub>l c \<union> wrs)) ((lift\<^sub>c c r wrs) ;; (lift\<^sub>c c r wrs)* ) ;; r) . (Basic (\<lfloor>ncmp b\<rfloor>) ;; r))"  |
+(* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b]; r ) *)
+    "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs =  
+           ((Interrupt (Capture (emptyFrame (wrs)) (r)) . ((lift\<^sub>c c r wrs) ;; r)) . 
+                                                      ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>cmp b\<rfloor>))))* ;;
+            (Interrupt (Capture (emptyFrame (wrs)) (r)) . ((lift\<^sub>c c r wrs)* ;; (lift\<^sub>c c r wrs) ;; r)) . 
+                                                      ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>ncmp b\<rfloor>)) ;; r)" 
 
 
 
