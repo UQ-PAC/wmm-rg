@@ -143,8 +143,10 @@ fun wp\<^sub>i :: "('r','v') op \<Rightarrow> ('r','v','a') varmap' set \<Righta
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
- fun wp\<^sub>a :: "(('r','v','a') varmap','a') auxfn \<Rightarrow> ('r','v','a') varmap' set \<Rightarrow> ('r','v','a') varmap' set"
-   where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}" 
+fun wp\<^sub>a :: "(('r','v','a') varmap','a') auxfn \<Rightarrow> ('r','v','a') varmap' set \<Rightarrow> ('r','v','a') varmap' set"
+  where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}" 
+
+declare wp\<^sub>a.simps[simp del]
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
 definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"

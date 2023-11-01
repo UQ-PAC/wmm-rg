@@ -392,6 +392,15 @@ next
 qed 
 *)
 
+lemma tupdate_len:
+  "tstack_len t = tstack_len (tupdate t x a)"
+  by (simp add: Is_tstack_upd_len tstack_len_def tupdate.rep_eq)
+
+lemma tauxupd_len:
+  "tstack_len t = tstack_len (tauxupd t f)"
+  unfolding tstack_len_def tauxupd_def
+  by (induct t) (auto simp add: Is_tstack_def auxupd_def)
+
 
 end
 

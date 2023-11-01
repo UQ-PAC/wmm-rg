@@ -24,7 +24,7 @@ section \<open>Atomic Rule\<close>
 text \<open>Rule for an atomic operation\<close>
 definition atomic_rule :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightarrow> ('a,'b) basic \<Rightarrow> 'b pred \<Rightarrow> bool" 
   ("_,_ \<turnstile>\<^sub>A _ {_} _" [65,0,0,0,65] 65)
-  where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> guar\<^sub>\<alpha> \<alpha> G \<and> stable R P \<and> stable R Q"
+  where "R,G \<turnstile>\<^sub>A P {\<alpha>} Q \<equiv> P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q \<and> (P \<noteq> {} \<longrightarrow> guar\<^sub>\<alpha> \<alpha> G) \<and> stable R P \<and> stable R Q"
 
 lemma atomicI [intro]:
   assumes "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" "guar\<^sub>\<alpha> \<alpha> G" "stable R P" "stable R Q"
@@ -128,7 +128,8 @@ proof (unfold atomic_rule_def, intro conjI, goal_cases)
   then show ?case using assms wp_pop unfolding atomic_rule_def by blast
 next
   case 2
-  then show ?case using assms guar_pop unfolding atomic_rule_def by blast
+  then show ?case using assms guar_pop unfolding atomic_rule_def
+  using poppred'_subset poppred_empty by blast
 next
   case 3
   then show ?case using assms stable_pop unfolding atomic_rule_def by blast
@@ -221,13 +222,14 @@ lemma stabilise_rtrancl_mono:
 lemma atomic_stab_pre [intro]:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q" "stable R (stabilise (G\<^sup>*) P)"
   shows "R,(G\<^sup>*) \<turnstile>\<^sub>A P {\<alpha>} (stabilise (G\<^sup>*) P)" 
-proof -
-  have a0:"P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms atomic_rule_def by fast
+proof (cases "P \<noteq> {}")
+  case True
+  have a0:"P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q" using assms atomic_rule_def by meson
   have a1a:"stable R P" using assms atomic_rule_def by fast
-  have a1:"guar\<^sub>\<alpha> \<alpha> G" using assms atomic_rule_def by blast
+  have a1:"guar\<^sub>\<alpha> \<alpha> G" using assms atomic_rule_def True by meson
   have a2:"(vc \<alpha>) \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> (m,m') \<in> G))}" 
      using assms guar2.simps guar_def atomic_rule_def case_prodI mem_Collect_eq subset_eq 
-     by (smt (verit))
+     by (smt (verit, del_insts) a1)
   have a3:"P \<subseteq> (vc \<alpha>) \<inter> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q))}" using a0 wp_def by force 
   have a4:"P \<subseteq> {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> (m,m') \<in> G))} \<inter> 
                 {m. (\<forall> m'. ((m,m') \<in> (beh \<alpha>) \<longrightarrow> m' \<in> Q))}" using a2 a3 by auto
@@ -239,8 +241,8 @@ proof -
     have a7:"P \<subseteq>  wp\<^sub>\<alpha> \<alpha> (stabilise (G) P)" using a6 wp_def by fast
     have a8:"P \<subseteq>  wp\<^sub>\<alpha> \<alpha> (stabilise (G\<^sup>*) P)" 
        using a7 stabilise_rtrancl_mono wp\<^sub>\<alpha>_mono by (simp add: stabilise_rtrancl)
-     thus ?thesis using a1 a1a assms stable_stabilise atomic_rule_def by auto
-   qed
+   thus ?thesis using a1 a1a assms stable_stabilise atomic_rule_def by auto 
+qed (simp add: atomic_rule_def stable_falseI)
 
 
 lemma atomic_stab_guarTrans [intro]:
@@ -431,11 +433,11 @@ unfolding atomic_rule_def
 proof (intro conjI)
   have A:
     "P \<subseteq> wp\<^sub>\<alpha> \<alpha> Q"
-    "guar\<^sub>\<alpha> \<alpha> G"
+    "P \<noteq> {} \<longrightarrow> guar\<^sub>\<alpha> \<alpha> G"
     "stable R P"
     "stable R Q"
     using assms unfolding atomic_rule_def by auto
-  thus "stable R P" "guar\<^sub>\<alpha> \<alpha> G" by auto
+  thus "stable R P" "P \<noteq> {} \<longrightarrow> guar\<^sub>\<alpha> \<alpha> G" by auto
 
   show "stable R (stabilise R (sp \<alpha> P))" by (rule stable_stabilise)
   

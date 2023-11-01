@@ -204,6 +204,19 @@ lemma stable_preE:
   using assms stabilise_supset stable_stabilise stable_preE'
   by metis
 
+
+lemma falseI:
+  "local c \<Longrightarrow> R,G \<turnstile> {} {c} {}"
+proof (induct c arbitrary: R G)
+  case (Basic x)
+  thus ?case 
+  by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
+next
+  case (Seq c1 w c2)
+  hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by (meson local_simps(3) subsetD)+
+  then show ?case by auto
+qed (auto)
+
 end
 
 end
