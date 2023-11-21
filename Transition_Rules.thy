@@ -97,19 +97,19 @@ next
       using inter1(3) by (rule interrE)
     obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c\<^sub>2} Q'" 
       using  g(4) inter1.prems(2) inter1.hyps(2) by force
-    have m0:"P \<noteq> {} \<longrightarrow> guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def 
-    by (metis empty_subsetI stabilise_supset subset_antisym)
+    have m0:"stabilise R P = {} \<or> guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by metis
     have g2:"G' \<subseteq> (G' \<union> R)" by auto
     have g3:"stable (G' \<union> R) I" using g(2,3) by (meson State.stable_def Un_iff)
-    have m1:"R \<inter> (G' \<union> R),G' \<turnstile>\<^sub>A (stabilise R P) \<inter> I {\<alpha>'} M \<inter> I"
-      using m(1) g3 g2 atomic_invI by blast
     have p1:"(stabilise R P) \<subseteq> (stabilise R P) \<inter> I"  using g(1,2)
       by (simp add: stabilise_min)
-    have r1:"R \<subseteq> R \<inter> (G' \<union> R)" by auto
-    have m2:"R,G \<turnstile>\<^sub>A stabilise R P  \<inter> I {\<alpha>'} M \<inter> I" using m1 r1 g(5)  atomic_conseqI 
+
+    have "guard I R,G' \<turnstile>\<^sub>A stabilise R P \<inter> I {\<alpha>'} M \<inter> I"
+      using atomic_invI m(1) g3 by blast
+    hence "R,G \<turnstile>\<^sub>A stabilise R P  \<inter> I {\<alpha>'} M \<inter> I" using guard_subset g(5) atomic_conseqI
       by auto  
-    have m3:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<inter> I" using m2 p1 atomic_pre stable_stabilise 
+    hence m3:"R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M \<inter> I" using p1 atomic_pre stable_stabilise
       by fast
+
     have m4:"R,G' \<turnstile> M \<inter> I {c\<^sub>2} Q'" using m(2) rules.conseq by blast
     have g1:"M \<inter> I \<subseteq> I" by auto
     have g2:"M \<inter> I \<subseteq> M" by auto
@@ -141,6 +141,9 @@ next
     thus ?thesis unfolding 15
       by simp (meson conseq dual_order.refl nil stabilise_supset stable_stabilise)
   qed auto
+next
+  case (inv R G P c Q I)
+  then show ?case by blast
 qed (cases rule: silentE, auto)+
 
 text \<open>Judgements are preserved across global execution steps\<close>
@@ -185,12 +188,10 @@ next
   hence "P \<noteq> {}" by auto
   thus ?case using conseq by (smt Un_iff guar_def rules.conseq subset_iff)
 next
-  case (inv R G P c Q R' M')
-  then obtain M \<alpha> where p: "P \<subseteq> wp\<^sub>\<alpha> \<alpha> M" 
-      "g = beh \<alpha>" "guar\<^sub>\<alpha> \<alpha> G" "R,G \<turnstile> M {c'} Q" "\<alpha> \<in> obs c"
+  case (inv R G P c Q I)
+  then obtain M \<alpha> where p: "P \<subseteq> wp\<^sub>\<alpha> \<alpha> M" "g = beh \<alpha>" "guar\<^sub>\<alpha> \<alpha> G" "R,G \<turnstile> M {c'} Q" "\<alpha> \<in> obs c"
     by blast
-  hence "P \<inter> M' \<subseteq> wp\<^sub>\<alpha> \<alpha> (M \<inter> M')" using inv(3,4) 
-    by (auto simp: stable_def guar_def wp_def) blast
+  hence "P \<inter> I \<subseteq> wp\<^sub>\<alpha> \<alpha> (M \<inter> I)" using inv(3,4) unfolding stable_def guar_def wp_def by blast
   thus ?case using rules.inv p inv(3,4) by blast
 next
   case (thread R G P c Q)

@@ -70,14 +70,14 @@ lemma atomic_conjI [intro]:
 text \<open>Add an invariant across an atomic judgement\<close>
 lemma atomic_invI [intro]:
   assumes "R,G \<turnstile>\<^sub>A P {\<alpha>} Q"
-  assumes "stable R\<^sub>2 I" "G \<subseteq> R\<^sub>2"
-  shows "R \<inter> R\<^sub>2,G \<turnstile>\<^sub>A P \<inter> I {\<alpha>} Q \<inter> I"
+  assumes "stable (R \<union> G) I"
+  shows "guard I R,G \<turnstile>\<^sub>A P \<inter> I {\<alpha>} Q \<inter> I"
   unfolding atomic_rule_def
 proof (safe, goal_cases)
   case (1 m)
-  hence "{(m,m'). m \<in> P \<inter> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>} \<subseteq> R\<^sub>2\<^sup>=" "m \<in> vc \<alpha>"
-    using assms(1,3) by (auto simp: wp_def guar_def atomic_rule_def)
-  hence "m \<in> wp\<^sub>\<alpha> \<alpha> I" using assms(2) 1 by (auto simp: wp_def stable_def)
+  hence "{(m,m'). m \<in> P \<inter> vc \<alpha> \<and> (m,m') \<in> beh \<alpha>} \<subseteq> G\<^sup>=" "m \<in> vc \<alpha>"
+    using assms(1) by (auto simp: wp_def guar_def atomic_rule_def)
+  hence "m \<in> wp\<^sub>\<alpha> \<alpha> I" using assms(2) 1 unfolding wp_def stable_def by blast
   moreover have "m \<in> wp\<^sub>\<alpha> \<alpha> Q" using 1 assms(1) by (auto simp: atomic_rule_def wp_def)
   ultimately show ?case by (auto simp: wp_def)
 qed (insert assms, auto simp: atomic_rule_def wp_def)
@@ -142,6 +142,10 @@ next
   case 5
   show ?case using assms stable_pop unfolding atomic_rule_def by auto
 qed
+
+lemma pushrel_guard:
+  "pushrelSame (guard I R) \<subseteq> guard (pushpredAll I) (pushrelSame R)"
+  unfolding guard_def pushpredAll_def pushrelSame_def using push_inj1 by blast
 
 end
 
@@ -212,6 +216,27 @@ by auto (metis stable_transitive subset_iff)
 lemma [simp]:
   "stabilise R {} = {}"
   by (auto simp: stabilise_def)
+
+text \<open> Stabilising over a guarded relation \<close>
+
+lemma inv_tran:
+  assumes "(m, m') \<in> (guard I R)\<^sup>+"
+  assumes "m \<in> P \<inter> I" "stable R I"
+  shows "m' \<in> (R\<^sup>+ `` P) \<inter> I"
+  using assms(1,2,3)
+proof (induct)
+  case (base y)
+  then show ?case by (auto simp: guard_def stable_def)
+next
+  case (step y z)
+  then show ?case by (auto simp: guard_def stable_def)
+      (meson ImageI Transitive_Closure.trancl_into_trancl)
+qed
+
+lemma stabilise_guard:
+  assumes "stable R I"
+  shows "stabilise (guard I R) (P \<inter> I) \<subseteq> stabilise R P \<inter> I"
+  using inv_tran assms unfolding stabilise_def by fast
 
 text \<open> P stabilised over transitive closure G is maintained \<close>
 
@@ -331,6 +356,11 @@ using pushpred_relimage pushpred_mono
 by metis*)
 
 lemma stable_pushrelAll: "stable R P \<Longrightarrow> stable (pushrelAll R) (pushpredAll P)"
+unfolding stable_rel
+using pushpredAll_relimage pushpredAll_mono
+by blast
+
+lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpredAll P)"
 unfolding stable_rel
 using pushpredAll_relimage pushpredAll_mono
 by blast 

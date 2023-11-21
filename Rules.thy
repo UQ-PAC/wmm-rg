@@ -11,7 +11,6 @@ locale rules = interference
 context rules
 begin
 
-
 section \<open>Global Rules\<close>
 
 text \<open>Establish the rules of the logic, similar to standard Hoare-logic\<close>
@@ -28,17 +27,16 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
                     R',G' \<turnstile> P' { c } Q'"  |
-  inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable R' I \<Longrightarrow> G \<subseteq> R' \<Longrightarrow> 
-                    R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" | 
+  inv[intro]:     "R,G \<turnstile> P {c} Q \<Longrightarrow> stable (R \<union> G) I \<Longrightarrow> guard I R,G \<turnstile> P \<inter> I {c} Q \<inter> I" |
   capture[intro]: "capRely R,capGuar G \<turnstile> capPred s P {c} capPost Q \<Longrightarrow> 
                     R,G \<turnstile> P {Capture s c} Q" |
   interr[intro]:  "P \<subseteq> I \<Longrightarrow> stable R I \<Longrightarrow> stable G I \<Longrightarrow> R,G \<turnstile> P {c} _ \<Longrightarrow>
-                    R,G \<turnstile> P {(\<triangle>c)} I" 
+                    R,G \<turnstile> P {\<triangle>c} I"
 (*   for interr the wmm should be set to sc but this parameter
      will be set accordingly in the instantiation when \<triangle> is seq composed within ite-com *)
 
 
-subsection \<open>Properties\<close>
+subsection \<open>Elimination Rules\<close>
 
 lemma nilE [elim!]:
   assumes "R,G \<turnstile> P {Nil} Q"
@@ -50,20 +48,11 @@ lemma nilE [elim!]:
 lemma nilE2:
   assumes "R,G \<turnstile> P {Nil} Q"
   shows "stabilise R P \<subseteq> Q"
-  using assms 
-proof (induct R G P "Nil :: ('a,'b,'c) com" Q)
-  case (nil R P G)
-  then show ?case 
-    by (simp add: stabilise_stable) 
-next
-  case (conseq R G P Q P' R' G' Q')
-  then show ?case 
-    by (meson dual_order.trans stabilise_mono_RP) 
-next
-  case (inv R G P Q R' I)
-  then show ?case 
-    by (metis Int_commute inf_mono order_refl stabilise_inter_RP stabilise_stable 
-        subset_trans)
+proof -
+  obtain M where m: "stable R M" "P \<subseteq> M" "M \<subseteq> Q" using assms by auto
+  hence "stabilise R M = M" by (simp add: stabilise_stable)
+  moreover have "stabilise R P \<subseteq> stabilise R M" using stabilise_mono m by auto
+  ultimately show ?thesis using m by auto
 qed
 
 
@@ -83,13 +72,17 @@ next
     by (meson atomic_conseqI atomic_pre dual_order.trans stabilise_mono_RP stable_stabilise)
   qed
 next
-  case (inv R G P Q R' I)
+  case (inv R G P Q I)
   show ?case 
   proof (rule inv(2), goal_cases)
     case (1 Q')
-    thus ?case using inv(3,4) inv(5)[of "Q' \<inter> I"] atomic_invI
-      by (smt (verit, best) Int_greatest atomic_pre dual_order.eq_iff dual_order.trans 
-                            le_infE stabilise_inter_RP stabilise_stable stable_stabilise)
+    hence "guard I R,G \<turnstile>\<^sub>A stabilise R P \<inter> I {\<beta>} Q' \<inter> I" using atomic_invI inv(3) by blast
+    hence "guard I R,G \<turnstile>\<^sub>A stabilise (guard I R) (P \<inter> I) {\<beta>} Q' \<inter> I"
+    proof (rule atomic_pre)
+      show "stabilise (guard I R) (P \<inter> I) \<subseteq> stabilise R P \<inter> I"
+        using stabilise_guard inv(3) by force
+    qed auto
+    thus ?case using inv(4)[of "Q' \<inter> I"] 1 by blast
   qed
 qed
 
@@ -111,15 +104,16 @@ next
   case (capture R G s P c Q)
   thus ?case by blast
 next
-  case (inv R G P Q R' I)
+  case (inv R G P Q I)
   show ?case
   proof (rule inv(2), goal_cases)
     case (1)
-    let ?G="capGuar G" and ?R="capGuar R'" and ?I="capPost I"
-    have "stable ?R ?I" using inv(3) by (rule stable_pushrelAll)
-    moreover have "?G \<subseteq> ?R" using inv(4) by (rule pushrelAll_mono)      
-    ultimately have "capRely R \<inter> ?R,?G \<turnstile> capPred s P \<inter> ?I {c} capPost Q \<inter> ?I" using 1(1) by blast
-    thus ?case using inv(5) by force
+    let ?G="capGuar G" and ?R="capGuar ( R)" and ?I="capPost I"
+    have "stable (pushrelSame R \<union> pushrelAll G) (pushpredAll I)"
+      using inv(3) stable_pushrelAll stable_pushrelSame by simp
+    with 1(1) have "guard ?I (pushrelSame R),?G \<turnstile> capPred s P \<inter> ?I {c} capPost Q \<inter> ?I"
+      by (rule rules.inv)
+    thus ?case using inv(4) pushrel_guard by force
   qed
 qed
 
@@ -140,23 +134,20 @@ proof (induct R G P "(\<triangle>c)" Q arbitrary: c)
               conseq(7)[of "I""G''""Q''"] by blast 
   qed
 next
-  case (inv R G P Q' R' I2)
+  case (inv R G P Q I)
   show ?case 
   proof (rule inv(2), goal_cases)
-    case (1 I3 G' Q)
-    have a1:"P \<inter> I2 \<subseteq> (I3 \<inter> I2)" using 1(1) by auto
-    have a2:"stable (R \<inter> R') (I3 \<inter> I2)" using  1 inv stable_conjI by blast
-    have b0:"stable G I2" using inv(3,4) stable_conseqI by blast
-    have b1:"stable G' I2" using b0 1(5) stable_conseqI by blast
-    have a5:"stable G' (I3 \<inter> I2)" using 1(3) b1 stable_conjI by blast
-    have a3:"R \<inter> R', G' \<turnstile> P \<inter> I2 {c} Q \<inter> I2" using 1 inv rules.inv by blast 
-    have a0:"I3 \<inter> I2 \<subseteq> Q' \<inter> I2" using 1 inv  by auto
-    then show ?case using inv 1 a0 a1 a2 a3 a5 inv(5) by blast
+    case (1 J G' Q')
+    have "stable (R \<union> G') I" using inv(3) 1(5) by blast
+    hence "guard I R, G' \<turnstile> P \<inter> I {c} Q' \<inter> I" using 1(4) by blast
+    moreover have "stable (guard I R) (J \<inter> I)" using stable_guard inv(3) 1 by blast
+    moreover have "stable G' (J \<inter> I)" using inv(3) 1 by blast
+    ultimately show ?case using inv(4)[where ?I2="J \<inter> I"] 1(1,5,6) by blast
   qed
 next
   case (interr P I R G c Q)
   then show ?case using interr(6)[of "I""G""Q"] by blast
-qed 
+qed
 
 
 text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.\<close>
@@ -182,11 +173,9 @@ next
   case (conseq R G P c Q P' R' G' Q')
   thus ?case using stabilise_mono_RP[of R' R P' P] by blast
 next
-  case (inv R G P c Q R' I)
-  hence "R \<inter> R',G \<turnstile> stabilise R P \<inter> I {c} Q \<inter> I" by (intro rules.inv)
-  hence "R \<inter> R',G \<turnstile> stabilise R P \<inter> stabilise R' I {c} Q \<inter> I"
-    using inv stabilise_stable[of R' I] by simp
-  thus ?case using stabilise_inter_RP by (rule conseq; simp)
+  case (inv R G P c Q I)
+  hence "guard I R,G \<turnstile> stabilise R P \<inter> I {c} Q \<inter> I" by (intro rules.inv)
+  thus ?case using stabilise_guard inv by blast
 next
   case (capture R G s P c Q)
   thus ?case using stabilise_pushrel by blast
@@ -205,6 +194,8 @@ lemma stable_preE:
   by metis
 
 
+subsection \<open>Introduction Rules\<close>
+
 lemma falseI:
   "local c \<Longrightarrow> R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
@@ -217,6 +208,40 @@ next
   hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by (meson local_simps(3) subsetD)+
   then show ?case by auto
 qed (auto)
+
+
+text \<open>Example of context-sensitive rely modification\<close>
+lemma procI:
+  assumes "R_callee,G_callee \<turnstile> P { c } Q"
+  assumes "R_caller \<subseteq> guard (stabilise (R_caller \<union> G_callee) P) R_callee"
+  assumes "G_callee \<subseteq> G_caller"
+  shows "R_caller,G_caller \<turnstile> P { c } Q"
+proof -
+  let ?R = "R_callee \<inter> R_caller"
+  let ?I = "stabilise (?R \<union> G_callee) P"
+  have "?R,G_callee \<turnstile> P { c } Q" using assms(1) by blast
+  hence "guard ?I ?R,G_callee \<turnstile> (P \<inter> ?I) {c} (Q \<inter> ?I)" by (rule inv) simp
+  thus ?thesis
+  proof (rule conseq)
+    show "P \<subseteq> P \<inter> ?I" by (simp add: stabilise_supset)
+  next
+    have "R_caller \<subseteq> guard (stabilise (R_caller \<union> G_callee) P) ?R"
+      using assms(2) by (auto simp: guard_def)
+    also have "... \<subseteq> guard ?I ?R" by (blast intro!: guard_mono stabilise_mono_R)
+    finally show "R_caller \<subseteq> guard ?I ?R" .
+  qed (insert assms(3), auto)
+qed
+
+
+lemma old_invI [intro]:
+  assumes "R,G \<turnstile> P {c} Q" "stable R' I" "G \<subseteq> R'"
+  shows "R \<inter> R',G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)"
+proof -
+  have "R \<inter> R',G \<turnstile> P {c} Q" using assms by blast
+  moreover have "stable (R \<inter> R' \<union> G) I" using assms(2,3) by blast
+  ultimately have "guard I (R \<inter> R'),G \<turnstile> (P \<inter> I) {c} (Q \<inter> I)" by blast
+  thus ?thesis using guard_subset conseq by blast
+qed
 
 end
 
