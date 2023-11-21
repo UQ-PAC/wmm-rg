@@ -25,6 +25,9 @@ definition wp :: "'b pred \<Rightarrow> 'b rpred \<Rightarrow> 'b pred \<Rightar
   where "wp pre post Q \<equiv>
     pre \<inter> {m. (\<forall>m'. (m,m') \<in> post \<longrightarrow> m' \<in> Q) }"
 
+text \<open>Remove constraints on pre-states in R outside of a predicate P\<close>
+definition guard
+  where "guard P R \<equiv> {(m,m'). m \<in> P \<longrightarrow> (m,m') \<in> R} "
 
 text \<open>Equivalent definitions for stable and wp using relation operations.\<close>
 
@@ -101,11 +104,14 @@ lemma stable_conseqI [intro]:
   shows "stable R P"
   using assms rtrancl_mono unfolding stable_def by blast
 
-
 lemma stable_conjI [intro]:
   assumes "stable R P" "stable R' P'"
   shows "stable (R \<inter> R') (P \<inter> P')"
   using assms by (auto simp: stable_def)
+
+lemma stable_disj [simp]:
+  "stable (R \<union> G) P = (stable R P \<and> stable G P)"
+  by (auto simp: stable_def)
 
 lemma stable_transitive:
   assumes "(m,m') \<in> R\<^sup>*" "m \<in> P" "stable R P"
@@ -133,6 +139,21 @@ lemma "stable R ((R\<^sup>*) `` P)"
 unfolding stable_def
 by (meson Image_iff rtrancl.rtrancl_into_rtrancl)
 
+section \<open>Guard Properties\<close>
+
+lemma stable_guard [intro]:
+  assumes "stable R P" "stable R I"
+  shows "stable (guard I R) (P \<inter> I)"
+  using assms by (auto simp: guard_def stable_def)
+
+lemma guard_mono:
+  assumes "P \<subseteq> Q"
+  shows "guard Q R \<subseteq> guard P R"
+  using assms by (auto simp: guard_def)
+
+lemma guard_subset [intro]:
+  "R \<subseteq> guard P R"
+  by (auto simp: guard_def)
 
 section \<open>Guarantee Properties\<close>
 
