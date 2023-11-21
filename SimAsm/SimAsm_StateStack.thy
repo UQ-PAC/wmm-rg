@@ -268,6 +268,19 @@ next
     by (simp_all add: Is_tstackE(1) Is_tstack_ConsI Is_tstack_update aux_update)
 qed
 
+lemma aux_tauxupd [simp]:
+  shows "more (last (Rep_tstack (tauxupd s f))) = f s"
+proof (induct s rule: tstack_induct)
+  case (Base s)
+  hence "Is_tstack (auxupd [s] (\<lambda>tstack. f (Abs_tstack tstack)))" by auto
+  thus ?case unfolding tauxupd_def auxupd_def using Base by auto
+next
+  case (Frame x xs)
+  hence "Is_tstack (x#xs)" by auto
+  thus ?case unfolding tauxupd_def auxupd_def using Frame
+  by (auto simp add: Is_tstack_ConsI Is_tstack_snoc_moreupd)
+qed
+
 lemma auxupd_Cons:
   "xs \<noteq> [] \<Longrightarrow> auxupd (x#xs) f = x # auxupd xs (\<lambda>xs. f (x#xs))"
 unfolding auxupd_def 
@@ -340,7 +353,6 @@ definition tstack_len :: "('r,'v,'a) tstack \<Rightarrow> nat" where
 
 lift_definition tstack_upper :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) frame_scheme list" is
 "\<lambda>ts. butlast (Rep_tstack ts)".
-  
 
 (*
 interpretation stack: state

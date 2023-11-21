@@ -210,7 +210,8 @@ lemma falseI:
 proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case 
-  by (intro basic) (auto simp: atomic_rule_def guar_def wp_def)
+  apply (intro basic) apply (auto simp: atomic_rule_def guar_def wp_def)
+  .
 next
   case (Seq c1 w c2)
   hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by (meson local_simps(3) subsetD)+

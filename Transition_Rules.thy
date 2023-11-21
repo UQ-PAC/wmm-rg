@@ -97,7 +97,8 @@ next
       using inter1(3) by (rule interrE)
     obtain M where m: "R,G' \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G' \<turnstile> M {c\<^sub>2} Q'" 
       using  g(4) inter1.prems(2) inter1.hyps(2) by force
-    have m0:"guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def by blast
+    have m0:"P \<noteq> {} \<longrightarrow> guar\<^sub>\<alpha> \<alpha>' G'" using m(1) atomic_rule_def 
+    by (metis empty_subsetI stabilise_supset subset_antisym)
     have g2:"G' \<subseteq> (G' \<union> R)" by auto
     have g3:"stable (G' \<union> R) I" using g(2,3) by (meson State.stable_def Un_iff)
     have m1:"R \<inter> (G' \<union> R),G' \<turnstile>\<^sub>A (stabilise R P) \<inter> I {\<alpha>'} M \<inter> I"

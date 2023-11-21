@@ -285,6 +285,7 @@ definition stabilize\<^sub>L
         (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> rg (gl_restrict m) = rg (gl_restrict m') 
                                                        \<and> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P}"
 
+
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
   where 
@@ -385,7 +386,7 @@ proof (standard, goal_cases)
     case (1 s0)
     then show ?case 
       using gl_restrict_of_glul varmap_st_of_glul 
-      by (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) auto 
+      apply (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) apply (auto simp add: glul_lift_pred_def) by (metis surjective)
   qed
 qed auto
 
@@ -398,7 +399,7 @@ proof (standard, goal_cases)
     case (1 s0)
     then show ?case 
       using gl_restrict_of_glul varmap_st_of_glul
-      by (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) auto
+      apply (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) apply (auto simp add: glul_lift_pred_def) by (metis surjective)
   qed
 qed auto
 

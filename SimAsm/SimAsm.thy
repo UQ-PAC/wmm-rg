@@ -52,7 +52,7 @@ by (induction rule: re\<^sub>i'.induct) auto
 
 fun fwd\<^sub>i  :: "('r,'v) op \<Rightarrow> ('r,'v) op \<Rightarrow> ('r,'v) op" 
   where "fwd\<^sub>i \<alpha> (assign x e) = subst\<^sub>i \<alpha> x e" | "fwd\<^sub>i \<alpha> _ = \<alpha>"
-
+                                      
 section \<open>Auxiliary State Updates\<close>
 
 text \<open>
