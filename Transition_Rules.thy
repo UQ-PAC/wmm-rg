@@ -114,7 +114,7 @@ next
     have g1:"M \<inter> I \<subseteq> I" by auto
     have g2:"M \<inter> I \<subseteq> M" by auto
     have c1:"R,G' \<turnstile> M \<inter> I {c\<^sub>2} Q'" using m(2) g2 rules.conseq by blast
-    have c2:"R,G' \<turnstile> M \<inter> I {\<triangle>c\<^sub>2} I" using g(1,2,3) c1 rules.interr by blast
+    have c2:"R,G' \<turnstile> M \<inter> I {\<triangle>c\<^sub>2} I" using g(1,2,3) c1 rules.interr by simp
     have c3:"R,G \<turnstile> M \<inter> I {\<triangle>c\<^sub>2} Q" using c2 g(5,6) rules.conseq by blast 
     then show ?thesis using m3 c3 by auto
   qed
@@ -127,7 +127,7 @@ lemma rewrite_ruleI [intro]:
   shows "R,G \<turnstile> P {c'} Q"
   using assms
 proof (induct arbitrary: c' rule: rules.induct)
-  case (seq R G P c\<^sub>1 Q c\<^sub>2 M)
+  case (seq R G M c\<^sub>2 Q P c\<^sub>1 w)
   thus ?case by (cases rule: silentE, auto) (blast)+
 next
   case (capture R G s P c Q)
@@ -195,10 +195,11 @@ next
   thus ?case using rules.inv p inv(3,4) by blast
 next
   case (thread R G P c Q)
-  then obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" "\<alpha>' \<in> obs c"
-    using gexecuteE[OF thread(4), simplified] obs_act by metis
+  hence r: "rif R c" by auto
+  obtain r \<alpha>' c'' where e: "g = beh \<alpha>'" "c \<mapsto>[\<alpha>',r] c''" "c' = Thread c''" "\<alpha>' \<in> obs c"
+    using thread gexecuteE[OF thread(4), simplified] obs_act by metis
   then obtain M where "R,G \<turnstile>\<^sub>A stabilise R P {\<alpha>'} M" "R,G \<turnstile> M {c''} Q" "rif R c''"
-    using thread lexecute_ruleI[OF thread(1) e(2)] indep_stepI[OF thread(3) e(2)] by metis
+    using thread lexecute_ruleI[OF thread(1) e(2)] indep_stepI[OF r e(2)] by metis
   thus ?case using stabilise_supset[of P R] e thread(5) unfolding atomic_rule_def obs_thread
     using local.rules.thread by blast
 qed auto

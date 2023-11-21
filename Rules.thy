@@ -22,7 +22,7 @@ inductive rules :: "'b rpred \<Rightarrow> 'b rpred \<Rightarrow> 'b set \<Right
   seq[intro]:     "R,G \<turnstile> M { c\<^sub>2 } Q \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 } M \<Longrightarrow> R,G \<turnstile> P { c\<^sub>1 ;\<^sub>w c\<^sub>2 } Q" |
   choice[intro]:  "\<forall>l. R,G \<turnstile> P { S l } Q \<Longrightarrow> R,G \<turnstile> P { Choice S } Q" |
   loop[intro]:    "stable R P \<Longrightarrow> R,G \<turnstile> P { c } P \<Longrightarrow> R,G \<turnstile> P { c*\<^sub>w } P" |
-  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> rif R c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
+  thread[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P = {} \<or> rif R c \<Longrightarrow> R,G \<turnstile> P { Thread c } Q" |
   par[intro]:     "R\<^sub>1,G\<^sub>1 \<turnstile> P\<^sub>1 { c\<^sub>1 } Q\<^sub>1 \<Longrightarrow> R\<^sub>2,G\<^sub>2 \<turnstile> P\<^sub>2 { c\<^sub>2 } Q\<^sub>2 \<Longrightarrow> G\<^sub>2 \<subseteq> R\<^sub>1 \<Longrightarrow> G\<^sub>1 \<subseteq> R\<^sub>2 \<Longrightarrow> 
                     R\<^sub>1 \<inter> R\<^sub>2,G\<^sub>1 \<union> G\<^sub>2 \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 { c\<^sub>1 || c\<^sub>2 } (Q\<^sub>1 \<inter> Q\<^sub>2)" |
   conseq[intro]:  "R,G \<turnstile> P { c } Q \<Longrightarrow> P' \<subseteq> P \<Longrightarrow> R' \<subseteq> R \<Longrightarrow> G \<subseteq> G' \<Longrightarrow> Q \<subseteq> Q' \<Longrightarrow> 
@@ -154,7 +154,7 @@ text \<open>In fact, we can rephrase a judgement with an explicit stabilisation.
 lemma stable_preE':
   assumes "R,G \<turnstile> P {c} Q"
   shows "R,G \<turnstile> stabilise R P {c} Q"
-using assms
+  using assms
 proof (induct)
   case (basic R G P \<alpha> Q)
   thus ?case using stabilise_atomic by (intro rules.basic, simp)
@@ -183,6 +183,9 @@ next
   case (interr P Q R G c uu)
   have "(stabilise R P) \<subseteq> Q" using interr(1,2) by (simp add: stabilise_min)
   thus ?case using interr(2,3,5) rules.interr by blast
+next
+  case (thread R G P c Q)
+  then show ?case by force
 qed auto
 
 
@@ -197,7 +200,7 @@ lemma stable_preE:
 subsection \<open>Introduction Rules\<close>
 
 lemma falseI:
-  "local c \<Longrightarrow> R,G \<turnstile> {} {c} {}"
+  "R,G \<turnstile> {} {c} {}"
 proof (induct c arbitrary: R G)
   case (Basic x)
   thus ?case 
@@ -207,6 +210,9 @@ next
   case (Seq c1 w c2)
   hence "R,G \<turnstile> {} {c1} {}" "R,G \<turnstile> {} {c2} {}" by (meson local_simps(3) subsetD)+
   then show ?case by auto
+next
+  case (Parallel c1 c2)
+  show ?case using par[OF Parallel, of "{}" R "{}" R] by blast 
 qed (auto)
 
 
