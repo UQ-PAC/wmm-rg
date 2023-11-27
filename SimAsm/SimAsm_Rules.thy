@@ -46,7 +46,7 @@ lift_definition ts_rel_of_vm_rel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v
   
 fun ts_lang_of_vm_lang :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) tstack, 'a) lang" where
   "ts_lang_of_vm_lang (Skip) = Skip " |
-  "ts_lang_of_vm_lang (Op pred op auxfn) = Op (ts_pred_of_vm_pred pred) op (auxfn \<circ> vm_of_ts)" |
+  "ts_lang_of_vm_lang (Op pred op auxfn) = Op (ts_pred_of_vm_pred pred) op (auxfn)" |
   "ts_lang_of_vm_lang (SimAsm.lang.Seq a b) = SimAsm.lang.Seq (ts_lang_of_vm_lang a) (ts_lang_of_vm_lang b) " |
   "ts_lang_of_vm_lang (If c t f) = If c (ts_lang_of_vm_lang t) (ts_lang_of_vm_lang f)" |
   "ts_lang_of_vm_lang (While b Imix Ispec c) = While b (ts_pred_of_vm_pred Imix) (ts_pred_of_vm_pred Ispec) (ts_lang_of_vm_lang c) " |
@@ -54,18 +54,39 @@ fun ts_lang_of_vm_lang :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 
 
 fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) varmap', 'a) lang" where
   "vm_lang_of_ts_lang (Skip) = Skip " |
-  "vm_lang_of_ts_lang (Op pred op auxfn) = Op (vm_of_ts ` pred) op (auxfn \<circ> ts_of_vm)" |
+  "vm_lang_of_ts_lang (Op pred op auxfn) = Op (vm_of_ts ` pred) op (auxfn)" |
   "vm_lang_of_ts_lang (lang.Seq a b) = lang.Seq (vm_lang_of_ts_lang a) (vm_lang_of_ts_lang b) " |
   "vm_lang_of_ts_lang (If c t f) = If c (vm_lang_of_ts_lang t) (vm_lang_of_ts_lang f)" |
   "vm_lang_of_ts_lang (While b Imix Ispec c) = While b (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) " |
   "vm_lang_of_ts_lang (DoWhile Imix Ispec c b) = DoWhile (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) b "
 
+definition ts_non_caches :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
+  "ts_non_caches ts \<equiv> \<Union>(frame_cap ` set (butlast (Rep_tstack ts)))"
+
+abbreviation ts_caches :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
+  "ts_caches ts \<equiv> UNIV - ts_non_caches ts"
 
 subsection \<open>Correspondence from spec_state to tstack.\<close>
 
 definition tstack_base :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" where
   "tstack_base stack \<equiv> 
     \<lparr> varmap_st = the \<circ> frame_st (last (Rep_tstack stack)), \<dots> = taux stack \<rparr>"
+
+lemma tupdate_non_caches[simp]: 
+  assumes "v \<in> ts_non_caches ts"
+  shows "tstack_base (tupdate ts v x) = tstack_base ts"
+using assms
+unfolding ts_non_caches_def tstack_base_def tupdate_def comp_def 
+proof (simp add: taux.abs_eq, standard, induct ts rule: tstack_induct)
+  case (Base frame)
+  then show ?case by auto
+next
+  case (Frame hd tl)
+  hence "Is_tstack (hd # tl)" by blast
+  with Frame show ?case by (auto simp add: Is_tstackE(1) Is_tstack_update)
+qed
+
+
 
 text \<open>
 The number of frames within the tstack naturally tells us whether that state
@@ -91,7 +112,6 @@ by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Su
 lemma ts_is_seq_of_ts_upper [intro]: \<open>(tstack_upper m = []) \<Longrightarrow> ts_is_seq m\<close>
 unfolding ts_is_seq_def tstack_upper_def tstack_len_def 
 by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
-
 
 
 
@@ -180,31 +200,31 @@ definition valid
      \<longrightarrow> (stable\<^sub>t R [P]\<^sub>; \<and> (R,G \<turnstile>\<^sub>s P {c} Q))" 
 
 
-lemma vm_of_ts_auxupd: 
-  "(vm_of_ts x)\<lparr>varmap_rec.more := f (vm_of_ts x)\<rparr> = vm_of_ts (tauxupd x (f \<circ> vm_of_ts))"
-proof -
-  have Is_tstack: "Is_tstack (auxupd (Rep_tstack x) (\<lambda>tstack. f (vm_of_ts (Abs_tstack tstack))))"
-    by auto
-  have f: "f (vm_of_ts x) = frame.more (last (Rep_tstack (tauxupd x (f \<circ> vm_of_ts))))"
-    unfolding tauxupd_def 
-    by (auto simp add: Is_tstack, simp add: auxupd_def Rep_tstack_inverse)
+(* lemma vm_of_ts_auxupd:  *)
+  (* "(vm_of_ts x)\<lparr>varmap_rec.more := f (vm_of_ts x)\<rparr> = vm_of_ts (tauxupd x (f \<circ> vm_of_ts))" *)
+(* proof - *)
+  (* have Is_tstack: "Is_tstack (auxupd (Rep_tstack x) (\<lambda>tstack. f (vm_of_ts (Abs_tstack tstack))))" *)
+    (* by auto *)
+  (* have f: "f (vm_of_ts x) = frame.more (last (Rep_tstack (tauxupd x (f \<circ> vm_of_ts))))" *)
+    (* unfolding tauxupd_def  *)
+    (* by (auto simp add: Is_tstack, simp add: auxupd_def Rep_tstack_inverse) *)
   
-  show ?thesis
-  using f unfolding vm_of_ts_def by auto
-qed
+  (* show ?thesis *)
+  (* using f unfolding vm_of_ts_def by auto *)
+(* qed *)
 
 lemma vm_of_ts_upd: 
   "(vm_of_ts s)\<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x)\<rparr> = vm_of_ts (tupdate s v x)"
 unfolding vm_of_ts_def tlookup_def tupdate_def  
 using lookup_update2[of "Rep_tstack s" v x] by auto
 
-lemma vm_of_ts_bothupd:
-  "(vm_of_ts s)
-    \<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x),
-     varmap_rec.more := f ((vm_of_ts s)\<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x)\<rparr>)\<rparr>
-   = vm_of_ts (tauxupd (tupdate s v x) (f \<circ> vm_of_ts))"
-using vm_of_ts_auxupd[where ?x = "tupdate s v x"] vm_of_ts_upd[of s]
-by simp
+(* lemma vm_of_ts_bothupd: *)
+  (* "(vm_of_ts s) *)
+    (* \<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x), *)
+     (* varmap_rec.more := f ((vm_of_ts s)\<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x)\<rparr>)\<rparr> *)
+   (* = vm_of_ts (tauxupd (tupdate s v x) (f \<circ> vm_of_ts))" *)
+(* using vm_of_ts_auxupd[where ?x = "tupdate s v x"] vm_of_ts_upd[of s] *)
+(* by simp *)
   
 lemma tauxupd_in_ts_pred:
   assumes "x \<in> ts_pred_of_vm_pred {t. t\<lparr>varmap_rec.more := f t\<rparr> \<in> Q}" 
@@ -444,45 +464,61 @@ qed
 lemma basic_wp\<^sub>i_1_assign_spec:
   assumes "\<alpha> = assign x11 x12"
   assumes "ts_is_spec x"
-  assumes "x \<in> spec_pred_of_lvm_pred (wp\<^sub>i\<^sub>s \<alpha> (wp\<^sub>a (f \<circ> gl_restrict) Qspec))"
-  shows "tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f \<circ> vm_of_ts) \<in> spec_pred_of_lvm_pred Qspec" (is "?ts \<in> \<dots>")
-    "ts_is_spec (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f \<circ> vm_of_ts))"
+  assumes "x \<in> spec_pred_of_lvm_pred (wp\<^sub>i\<^sub>s \<alpha> (wp\<^sub>a (\<lambda>f'. f (f' \<circ> Gl)) Qspec))"
+  assumes "x11 \<in> ts_non_caches x"
+  shows "tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f) \<in> spec_pred_of_lvm_pred Qspec" (is "?ts \<in> \<dots>")
+    "ts_is_spec (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f))"
 using assms
 unfolding spec_pred_of_lvm_pred_def
 proof (clarsimp simp add: id_def, goal_cases)
   case (1 v)
   let ?v_ = "v\<lparr>varmap_st := (varmap_st v)(Ul x11 := ev\<^sub>E (varmap_st v) (map\<^sub>E Ul id id x12))\<rparr>"
-  let ?v = "?v_\<lparr>varmap_rec.more := f (gl_restrict ?v_)\<rparr>"
+  let ?v = "?v_\<lparr>varmap_rec.more := f (varmap_st ?v_ \<circ> Gl) (varmap_rec.more ?v_)\<rparr>"
 
-  have tlookup: "tlookup x va = varmap_st v (Ul va)" for va
-    using 1(4) unfolding tlookup_def vm_of_ts_def by auto
+  have tlookup [simp]: "varmap_st v (Ul va) = tlookup x va" for va
+    using 1(5) unfolding tlookup_def vm_of_ts_def by auto
 
   have ev: "ev\<^sub>E (tlookup x) xa = (ev\<^sub>E (varmap_st v) \<circ> map\<^sub>E Ul id id) xa" for xa
-  by (induct xa, simp_all add: tlookup id_def comp_def) (metis (mono_tags, lifting) map_eq_conv)
+  by (induct xa, simp_all add: id_def comp_def) (metis (mono_tags, lifting) map_eq_conv)
 
   have "ev\<^sub>E (\<lambda>va. varmap_st v (Ul va)) x12 = ev\<^sub>E (tlookup x) x12"
     using tlookup by presburger
 
-  have notnone: "frame_st (last (Rep_tstack (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (\<lambda>x. f (vm_of_ts x))))) va \<noteq> None" for va
-    by blast
+  (* have notnone: "frame_st (last (Rep_tstack (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (\<lambda>x. f (vm_of_ts x))))) va \<noteq> None" for va *)
+    (* by blast *)
 
+  have ev_map [simp]:  "ev\<^sub>E (varmap_st v) (map\<^sub>E Ul id id x12) = ev\<^sub>E (tlookup x) x12"
+    using ev by auto  
     
+  have "tstack_base (tupdate x x11 x12) = tstack_base x" for x12
+  using assms by simp 
+
+  (* have "\<And>va. varmap_st (tstack_base (tupdate x x11 x12)) va = varmap_st v (Gl va)" for x11 x12 *)
+  (* using 1(4) apply auto apply standard unfolding comp_def apply (rule arg_cong[where ?f=the])  *)
+
   show ?case
   proof (standard, intro conjI)
-    show "?v \<in> Qspec" using 1(2) by (cases x12) (auto simp add: id_def wp\<^sub>a.simps)
-    show "ts_is_spec (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f \<circ> vm_of_ts))" using 1(2,3) by clarify (metis tauxupd_len ts_is_seq_def tupdate_len)
-    show "vm_of_ts ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Ul va), \<dots> = varmap_rec.more (?v)\<rparr>" unfolding vm_of_ts_def apply auto apply standard apply (case_tac "va = x11") apply auto apply (cases x12) apply auto using 1(4)
-    apply (simp add: vm_of_ts.abs_eq) apply (subgoal_tac "ev\<^sub>E (tlookup x) = (ev\<^sub>E (varmap_st v) \<circ> map\<^sub>E Ul id id)") apply auto apply standard  
-    using ev apply blast 
-    apply (simp add: tlookup)  apply (rule arg_cong[where ?f=f]) apply auto apply standard apply (case_tac "x11 = xa") apply auto using 1(4) unfolding vm_of_ts_def apply auto 
+    show "?v \<in> Qspec" using 1(4) by (cases x12) (auto simp add: id_def wp\<^sub>a.simps)
+    show "ts_is_spec (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f))" using 1(2,3) by clarify (metis tauxupd_len ts_is_seq_def tupdate_len)
+    show "vm_of_ts ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Ul va), \<dots> = varmap_rec.more (?v)\<rparr>"
+    unfolding vm_of_ts_def
+    apply auto using 1
     sorry (* we need properties constraining the acceptable auxfns (i.e. they are minimally state-dependent). or, we need to ignore them. *)
-    show "tstack_base ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Gl va), \<dots> = varmap_rec.more (?v)\<rparr>" unfolding tstack_base_def apply auto apply standard unfolding comp_def using notnone sledgehammer
+    show "tstack_base ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Gl va), \<dots> = varmap_rec.more (?v)\<rparr>" 
+    proof (induct x rule: tstack_induct)
+      case (Base x)
+      then show ?case sorry
+    next
+      case (Frame x xs)
+      then show ?case apply auto sledgehammer
+    qed
   qed
 next
   case 2
   show ?case using assms(2) tauxupd_len tupdate_len ts_is_seq_def by metis
 qed
 
+find_theorems name: arg_cong
 
 lemma tstack_len_of_st_beh:
 assumes "(x, y) \<in> st_beh\<^sub>i \<alpha>"

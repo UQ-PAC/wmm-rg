@@ -6,12 +6,12 @@ locale state =
   fixes st :: "'s \<Rightarrow> 'var \<Rightarrow> 'val"
   fixes st_upd :: "'s \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> 's" ("_'((2_/ :=\<^sub>u/ (2_))')" [900,0,0] 901)
   fixes aux :: "'s \<Rightarrow> 'a"
-  fixes aux_upd :: "'s \<Rightarrow> ('s \<Rightarrow> 'a) \<Rightarrow> 's" ("_'((2aux:/ _)')" [900,0] 901)
+  fixes aux_upd :: "'s \<Rightarrow> (('var \<Rightarrow> 'val) \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> 's" ("_'((2aux:/ _)')" [900,0] 901)
   (* fixes region :: "'var \<Rightarrow> 'region"  *)
   assumes st_upd: "st (st_upd s var val) var2 = (if var2 = var then val else st s var2)"
   (* assumes st_eqI [intro]: "(aux a = aux b) \<Longrightarrow> (\<And> x. st a x = st b x) \<Longrightarrow> a = b" *)
   assumes st_upd_aux [simp]: "aux (st_upd s v x) = aux s"
-  assumes aux_upd [simp]: "aux (aux_upd s f) = f s" 
+  assumes aux_upd [simp]: "aux (aux_upd s f) = f (st s) (aux s)" 
   assumes aux_upd_st [simp]: "st (m(aux: f)) v = st m v"
 (*
 locale state =
@@ -33,6 +33,9 @@ locale state =
 
 context state
 begin
+
+definition aux_id :: "('var \<Rightarrow> 'val) \<Rightarrow> 'a \<Rightarrow> 'a" where
+  "aux_id _ x \<equiv> x"
 
 abbreviation st_eq :: "'s \<Rightarrow> 's \<Rightarrow> prop" ("(_/ =\<^sub>s/ _)" [800, 800] 801) where 
   "st_eq a b \<equiv> (\<And>x. st a x = st b x)"

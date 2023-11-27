@@ -15,7 +15,7 @@ locale sem_link = expression st st_upd aux aux_upd locals
   for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
+  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r \<Rightarrow> 'v) \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
   and locals :: "'r set"
 
 
@@ -38,7 +38,7 @@ fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Righ
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation with specification\<close>
-definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn 
+definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('r,'v,'a) auxfn 
                                                                         \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
@@ -46,7 +46,7 @@ definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op
 text \<open>Lift an operation without specification\<close>
 definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_\<rfloor>" 100)
-  where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
+  where "liftl \<alpha> \<equiv> ((\<alpha>,aux_id), UNIV, beh\<^sub>a (\<alpha>,aux_id))"
 
 end   (* of locale sem_link *)
 
@@ -63,7 +63,7 @@ locale semantics_WOspec = sem_link st st_upd aux aux_upd locals
   for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
+  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r \<Rightarrow> 'v) \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
   and locals :: "'r set"
 
 
@@ -108,7 +108,7 @@ locale semantics_spec = sem_link st st_upd aux aux_upd locals
   for st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
   and st_upd :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v \<Rightarrow> ('r,'v,'a) tstack"
   and aux :: "('r,'v,'a) tstack \<Rightarrow> 'a"
-  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r,'v,'a) tstack \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
+  and aux_upd :: "('r,'v,'a) tstack \<Rightarrow> (('r \<Rightarrow> 'v) \<Rightarrow> 'a \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) tstack"
   and locals :: "'r set" 
   (* + fixes project' :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" *)
 

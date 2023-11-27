@@ -23,7 +23,7 @@ type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
 type_synonym ('r,'v,'a) auxop' = "('r,'v,('r,'v,'a) varmap','a) auxop"
 
 text \<open>Labelled state (record) in which every variable appears in its Gl and UL variation \<close>
-type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
+type_synonym ('r,'v,'a) lvarmap' = "('r,'v option \<times> 'v,'a) varmap'"
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
 type_synonym ('r,'v,'a) spec_state = "('r,'v,'a) lvarmap' set \<times> ('r,'v,'a) varmap' set"
@@ -143,8 +143,8 @@ fun wp\<^sub>i :: "('r','v') op \<Rightarrow> ('r','v','a') varmap' set \<Righta
 
 
 text \<open>Transform a predicate based on an auxiliary state update\<close>
-fun wp\<^sub>a :: "(('r','v','a') varmap','a') auxfn \<Rightarrow> ('r','v','a') varmap' set \<Rightarrow> ('r','v','a') varmap' set"
-  where "wp\<^sub>a a Q = {t. t\<lparr>more := a t\<rparr> \<in> Q}" 
+fun wp\<^sub>a :: "('r','v','a') auxfn \<Rightarrow> ('r','v','a') varmap' set \<Rightarrow> ('r','v','a') varmap' set"
+  where "wp\<^sub>a a Q = {t. t\<lparr>more := a (varmap_st t) (more t)\<rparr> \<in> Q}" 
 
 declare wp\<^sub>a.simps[simp del]
 
@@ -242,13 +242,16 @@ fun map\<^sub>E' :: "('r \<Rightarrow> 'r2) \<Rightarrow> ('r,'v) exp \<Rightarr
 
 text \<open> Producing a labelled predicate from an unlabelled predicate \<close>
 
+fun lvarmap_st where 
+  "lvarmap_st s x = (case varmap_st s x of (Some ul,_) \<Rightarrow> ul | (None,g) \<Rightarrow> g)"
+
 text \<open>Restricts the given predicate to its unlabelled part.\<close>
 fun ul_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "ul_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Ul v)), \<dots> = more s \<rparr>"
+  "ul_restrict s = \<lparr> varmap_st = lvarmap_st s, \<dots> = more s \<rparr>"
 
 text \<open>Restricts the given predicate to its globally labelled part.\<close>
 fun gl_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "gl_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Gl v)), \<dots> = more s \<rparr>"
+  "gl_restrict s = \<lparr> varmap_st = (snd \<circ> varmap_st s), \<dots> = more s \<rparr>"
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Global 
                                             and without constraining Unlabelled.\<close>
@@ -263,14 +266,14 @@ definition ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lva
 text \<open>Lifts a predicate into a labelled predicate, requiring the local and
       global states to both be equal to s.\<close>
 definition glul_lift_pred :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" ("(_\<^sup>G\<^sup>L)" [1000] 1000) where
-  "glul_lift_pred s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (unlabel v)), \<dots> = more s \<rparr> " 
+  "glul_lift_pred s = \<lparr> varmap_st = \<lambda>x. let v = varmap_st s x in (Some v,v), \<dots> = more s \<rparr>" 
 
 
 text \<open> Unlabelling a predicate, such that variables with differing labels need to be equal 
          as they become indistinguishable without their label \<close>
 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
-  "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
+  "restrict_pred Q = gl_restrict ` {s. (\<forall>v. (case (varmap_st s v) of (Some x1,x2) \<Rightarrow> x1 = x2 | _ \<Rightarrow> True)) \<and> s \<in> Q}"
 
 context wp_spec
 begin
@@ -289,9 +292,9 @@ definition stabilize\<^sub>L
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
   where 
-    "wp\<^sub>i\<^sub>s (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Ul r) := (ev\<^sub>E (varmap_st s) (ul\<^sub>E e)))\<rparr>) \<in> Q}" |
-    "wp\<^sub>i\<^sub>s (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) (ul\<^sub>B b)) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i\<^sub>s (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Gl c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
+    "wp\<^sub>i\<^sub>s (assign r e) Q = {s. (s\<lparr>varmap_st := (varmap_st s)(r := (ev\<^sub>E (lvarmap_st s) (e)))\<rparr>) \<in> Q}" |
+    "wp\<^sub>i\<^sub>s (cmp b) Q =  {s. (ev\<^sub>B (lvarmap_st s) (b)) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i\<^sub>s (leak c e) Q = {(ul,s). (ul, s \<lparr>varmap_st := (varmap_st s)(c := ev\<^sub>E (lvarmap_st (ul,s)) e)\<rparr>) \<in> Q}" |
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
     "wp\<^sub>i\<^sub>s nop Q = Q"  
 
@@ -334,7 +337,7 @@ text \<open>Transform a predicate based on a program c within an environment R\<
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) (Qs, Q) = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Qs)), 
+    "wp R (Op v a f) (Qs, Q) = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a undefined (Qs))), 
                                 stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q)))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)

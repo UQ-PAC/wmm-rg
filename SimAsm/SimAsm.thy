@@ -2,8 +2,8 @@ theory SimAsm
   imports SimAsm_Exp
 begin
 
-type_synonym ('s,'a) auxfn = "'s \<Rightarrow> 'a"
-type_synonym ('r,'v,'s,'a) auxop = "('r,'v) op \<times> ('s,'a) auxfn"
+type_synonym ('r,'v,'a) auxfn = "(('r \<Rightarrow> 'v) \<Rightarrow> 'a \<Rightarrow> 'a)"
+type_synonym ('r,'v,'s,'a) auxop = "('r,'v) op \<times> ('r,'v,'a) auxfn"
 
 
 type_synonym ('r,'v,'s,'a) pred = "'s set"
@@ -13,7 +13,7 @@ section \<open>Language Definition\<close>
 
 datatype ('r,'v,'s,'a) lang =
   Skip
-  | Op "('r,'v,'s,'a) pred" "('r,'v) op" "('s,'a) auxfn"
+  | Op "('r,'v,'s,'a) pred" "('r,'v) op" "('r,'v,'a) auxfn"
   | Seq "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"
   | If "('r,'v) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"  
   | While "('r,'v) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
