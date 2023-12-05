@@ -99,7 +99,7 @@ lemma captureE:
 using assms
 proof (induct R G P "Capture s c" Q arbitrary: s c)
   case (conseq R G P Q P' R' G' Q')
-  thus ?case by (meson pushpredAll_mono pushpred_mono pushrelAll_eq pushrelSame_mono rules.conseq)
+  thus ?case by (meson pushpredAll_mono pushpred_mono pushrelAll_mono pushrelSame_mono rules.conseq)
 next
   case (capture R G s P c Q)
   thus ?case by blast

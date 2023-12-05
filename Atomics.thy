@@ -356,14 +356,10 @@ using pushpred_relimage pushpred_mono
 by metis*)
 
 lemma stable_pushrelAll: "stable R P \<Longrightarrow> stable (pushrelAll R) (pushpredAll P)"
-unfolding stable_rel
-using pushpredAll_relimage pushpredAll_mono
-by blast
+  using push_inj1 unfolding stable_def pushpredAll_def pushrelAll_def by blast
 
 lemma stable_pushrelSame: "stable R P \<Longrightarrow> stable (pushrelSame R) (pushpredAll P)"
-unfolding stable_rel
-using pushpredAll_relimage pushpredAll_mono
-by blast 
+  using push_inj1 unfolding stable_def pushpredAll_def pushrelAll_def by blast
 
 
 lemma guar\<^sub>\<alpha>_rel: "guar\<^sub>\<alpha> \<alpha> G = (Id_on (vc \<alpha>) O beh \<alpha> \<subseteq> G)"

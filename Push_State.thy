@@ -57,7 +57,7 @@ definition pushrelSame :: "'a rel \<Rightarrow> 'a rel" where
 "pushrelSame R = {(push m s, push m' s) |m m' s. (m,m') \<in> R}"
 
 definition pushrelAll :: "'a rel \<Rightarrow> 'a rel" where
-"pushrelAll G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G}"
+"pushrelAll G = {(push m s, push m' s') |m m' s s'. (m,m') \<in> G} \<union> {(a,b). \<not>(\<exists>m s. push m s = a)}"
 
 (* allows one to match top-most stack-elem to s *)
 abbreviation poppable :: "'c \<Rightarrow> 'a set \<Rightarrow> bool" where
@@ -186,11 +186,7 @@ lemma pushrelSame_mono [simp]: "G \<subseteq> G' \<Longrightarrow> pushrelSame G
 unfolding pushrelSame_def by auto
 
 lemma pushrelAll_mono [simp]: "G \<subseteq> G' \<Longrightarrow> pushrelAll G \<subseteq> pushrelAll G'"
-unfolding pushrelAll_def by auto
-
-lemma pushrelAll_eq: "(pushrelAll G \<subseteq> pushrelAll G') = (G \<subseteq> G')"
-using poprel_mono pop_pushrelAll pushrelAll_mono
-  by metis
+unfolding pushrelAll_def by blast
 
 lemma pushpred_all_order [simp]:
   "(pushpred s P \<subseteq> pushpredAll Q) = (P \<subseteq> Q)"
@@ -203,18 +199,10 @@ lemma poprel_relcomp: "poprel (G O G') \<subseteq> poprel G O poprel G'"
 unfolding poprel_def
 by auto *)
 
-lemma pushrelAll_relcomp [simp]: "pushrelAll (G O G') = pushrelAll G O pushrelAll G'"
-unfolding pushrelAll_def
-by (auto, blast, metis pop_push relcomp.relcompI)
-
 subsubsection \<open>Special cases for popping a relational composition of pushes\<close>
 
 lemma poprel_relcomp_pushrel1: "poprel (pushrel s s' G O pushrelSame G') = G O G'"
 unfolding poprel_def pushrel_def pushrelSame_def
-by auto (metis pop_push relcomp.simps, force)
-
-lemma poprel_relcomp_pushrel2: "poprel (pushrel s s' G O pushrelAll G') = G O G'"
-unfolding poprel_def pushrel_def pushrelAll_def
 by auto (metis pop_push relcomp.simps, force)
 
 lemma poprel_relcomp_pushrelSame: "poprel (pushrelSame G O pushrelSame G') = G O G'"
@@ -311,10 +299,6 @@ lemma pushpred_relimage: "pushpred s (R `` P) \<subseteq> pushrelSame R `` pushp
   unfolding pushpred_def pushrelSame_def
   by auto
 
-lemma pushpredAll_relimage: "pushpredAll (R `` P) = pushrelAll R `` pushpredAll P"
-  unfolding pushpredAll_def pushrelAll_def
-  by (auto dest: push_inj1) blast
-
 subsection \<open>Empty set\<close>
 
 lemma pushpred_empty [simp]: "pushpred s {} = {}"
@@ -332,8 +316,8 @@ unfolding pushrel_def by simp
 lemma pushrelSame_empty [simp]: "pushrelSame {} = {}"
 unfolding pushrelSame_def by simp
 
-lemma pushrelAll_empty [simp]: "pushrelAll {} = {}"
-unfolding pushrelAll_def by simp
+lemma pushpredAll_empty [simp]: "pushpredAll {} = {}"
+unfolding pushpredAll_def by simp
 
 lemma poppable_empty [simp]: "poppable s {}"
   by simp
@@ -373,9 +357,6 @@ proof (intro antisym subrelI, goal_cases)
   qed
 qed
 
-lemma [simp]:
-  "pushpredAll {} = {}"
-  by (auto simp: pushpredAll_def)
 
 (* Name changes: uncap \<leftrightarrow> cap *)
 
