@@ -30,6 +30,9 @@ fun ops :: "('r,'v,'s,'a) lang \<Rightarrow> ('r,'v) op set" where
 abbreviation wr\<^sub>l where 
   "wr\<^sub>l l \<equiv> \<Union>(wr ` ops l)"
 
+abbreviation lk\<^sub>l where
+  "lk\<^sub>l l \<equiv> \<Union>(lk ` ops l)"
+
 context expression
 begin
 
