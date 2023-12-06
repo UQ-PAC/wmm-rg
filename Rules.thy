@@ -249,6 +249,12 @@ proof -
   thus ?thesis using guard_subset conseq by blast
 qed
 
+lemma choice_if:
+  assumes "R,G \<turnstile> P { c\<^sub>1 } Q"
+  assumes "R,G \<turnstile> P { c\<^sub>2 } Q"
+  shows "R,G \<turnstile> P { \<Sqinter>s. if C s then c\<^sub>1 else c\<^sub>2 } Q"
+  using assms by - (rule choice, auto)
+
 end
 
 end
