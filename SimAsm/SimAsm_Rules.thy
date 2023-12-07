@@ -61,6 +61,10 @@ fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, '
   "vm_lang_of_ts_lang (DoWhile Imix Ispec c b) = DoWhile (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) b "
 
 
+
+(*  moved these definitions to SimAsm_StateStack.thy
+
+
 subsection \<open>Correspondence from spec_state to tstack.\<close>
 
 definition tstack_base :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" where
@@ -92,7 +96,7 @@ lemma ts_is_seq_of_ts_upper [intro]: \<open>(tstack_upper m = []) \<Longrightarr
 unfolding ts_is_seq_def tstack_upper_def tstack_len_def 
 by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
 
-
+*)
 
 
 text \<open>

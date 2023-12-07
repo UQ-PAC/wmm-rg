@@ -1,5 +1,5 @@
 theory SimAsm_Security
-  imports SimAsm_WP State2 SimAsm_Rules "HOL-Algebra.Lattice"
+  imports SimAsm_WP State2 SimAsm_Rules "HOL-Algebra.Lattice" "../Security"
 begin
 
 (* Temporary definitions to set up access to the components of the tuple type 
@@ -13,8 +13,19 @@ begin
    Axiom sec_aux: aux upd does not affect ev\<^sub>S result
  
 *)
+locale vst = state st st_upd aux aux_upd
+  for st :: "('r,'v,'a) frame_scheme \<Rightarrow> 'r \<Rightarrow> 'v option"
+  and st_upd :: "('r,'v,'a) frame_scheme \<Rightarrow> 'r \<Rightarrow> 'v option \<Rightarrow> ('r,'v,'a) frame_scheme"
+  and aux :: "('r,'v,'a) frame_scheme \<Rightarrow> 'a"
+  and aux_upd :: "('r,'v,'a) frame_scheme \<Rightarrow> (('r,'v,'a) frame_scheme \<Rightarrow> 'a) \<Rightarrow> ('r,'v,'a) frame_scheme"
++                                         (* (val,sec) tuple*)
+  fixes val :: "'v option \<Rightarrow> 'val option"
+    and level :: "'v option \<Rightarrow> 'sec::bounded_lattice option"
+    and ev\<^sub>S :: "('r,'v,'a) frame_scheme \<Rightarrow> 'condSec_exp \<Rightarrow> 'sec::bounded_lattice option" (* eval of cond. Security expr *)
+    and attkLev :: "'sec::bounded_lattice"
+(*  assumes sec_aux: "ev\<^sub>S (m(aux:f)) e = ev\<^sub>S m e" *)  (* not sure how to access aux in tstack *)
 
-
+(*
 locale vst = state st st_upd aux aux_upd
   for st :: "'s \<Rightarrow> 'var \<Rightarrow> 'v option"
   and st_upd :: "'s \<Rightarrow> 'var \<Rightarrow> 'v option \<Rightarrow> 's"
@@ -26,17 +37,19 @@ locale vst = state st st_upd aux aux_upd
     and ev\<^sub>S :: "'s \<Rightarrow> 'condSec_exp \<Rightarrow> 'sec::bounded_lattice option" (* eval of cond. Security expr *)
     and attkLev :: "'sec::bounded_lattice"
 (*  assumes sec_aux: "ev\<^sub>S (m(aux:f)) e = ev\<^sub>S m e" *)
+*)
+
 begin
 
 (* compute supremum with bot over list of elements *)
 definition supl :: "'sec::bounded_lattice list \<Rightarrow> 'sec"
   where "supl l \<equiv> fold sup l bot"
 
-definition \<Gamma> :: "'s \<Rightarrow> 'var \<Rightarrow> 'sec option"
+definition \<Gamma> :: "('r,'v,'a) frame_scheme \<Rightarrow> 'r \<Rightarrow> 'sec option"
   where "\<Gamma> m  \<equiv> \<lambda>v. level(st m v)"
 
 (* since (st m) gives us tuple ('val, 'sec) *)
-definition stval :: "'s \<Rightarrow> 'var \<Rightarrow> 'val option"
+definition stval :: "('r,'v,'a) frame_scheme \<Rightarrow> 'r \<Rightarrow> 'val option"
   where "stval m \<equiv> \<lambda>v. val(st m v)"
 
 definition flow_sec
@@ -65,11 +78,11 @@ text \<open> Some access functions on trees \<close>
 
 (* last of tstack refers to base of state stack *)
 
-fun base\<Gamma> :: "('r,'v,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'sec option"
+fun base\<Gamma> :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'sec option"
   where "base\<Gamma> t var =  (\<Gamma> (last (Rep_tstack t)) var)" 
 
-fun baseSt :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'val option"
-  where "baseSt t var =  (stval (base t) var)" 
+fun baseSt :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'val option"
+  where "baseSt t var =  (stval (last (Rep_tstack t)) var)" 
 
 
 text \<open>Describe low equivalence between two memories for one \<Gamma>,
@@ -96,37 +109,51 @@ definition low_equiv
              m\<^sub>1 \<in> policy \<L> \<inter> P \<and> m\<^sub>2 \<in> policy \<L> \<inter> P \<and> m\<^sub>1 =\<^bsub>\<Gamma> m\<^sub>1\<^esub> m\<^sub>2 \<and> m\<^sub>1 =\<^bsub>\<Gamma> m\<^sub>2\<^esub> m\<^sub>2" 
 
 text \<open>S \<L> relates states which are low-equivalent and satisfy the security invariant.\<close>
-definition S :: "('b \<Rightarrow> ('b \<Rightarrow> 'a option) set) \<Rightarrow> (('a, 'b, bool, 'c) sec_state_rec_scheme) rel"
+definition S :: "('r \<Rightarrow> 'condSec_exp) \<Rightarrow> (('r, 'v, 'a) frame_scheme) rel"
   where "S \<L> \<equiv> {(m,m'). m =\<^bsub>\<L>,UNIV\<^esub> m'}"
 
 (* definitions on trees  *)
 definition low_equiv1Tree   ("_ \<approx>\<^bsub>_\<^esub> _" [70,0,70] 100)
-  where "t\<^sub>1 \<approx>\<^bsub>Gamma\<^esub> t\<^sub>2 \<equiv> (base t\<^sub>1) =\<^bsub>Gamma\<^esub> (base t\<^sub>2)" 
+  where "t\<^sub>1 \<approx>\<^bsub>Gamma\<^esub> t\<^sub>2 \<equiv> (last t\<^sub>1) =\<^bsub>Gamma\<^esub> (last t\<^sub>2)" 
 
 definition policyTree
-    where "policyTree \<L> \<equiv> {t. (base t) \<in> policy \<L>}"
+    where "policyTree \<L> \<equiv> {t. (last t) \<in> policy \<L>}"
 
 definition low_equivTree  ("_ \<approx>\<^bsub>_,_\<^esub> _" [70,0,70] 100) 
-  where "t\<^sub>1 \<approx>\<^bsub>\<L>,P\<^esub> t\<^sub>2 \<equiv> (base t\<^sub>1)  =\<^bsub>\<L>,P\<^esub> (base t\<^sub>2)"
+  where "t\<^sub>1 \<approx>\<^bsub>\<L>,P\<^esub> t\<^sub>2 \<equiv> (last t\<^sub>1)  =\<^bsub>\<L>,P\<^esub> (last t\<^sub>2)"
 
 definition STree
   where "STree \<L> \<equiv> {(t,t'). t \<approx>\<^bsub>\<L>,UNIV\<^esub> t'}"
 
 text \<open> Interpretation of abstract locale security \<close>
 
+(*
+interpretation security push 
+  and push :: "'b \<Rightarrow> 'c \<Rightarrow> 'b"  
+  assumes push_inj1: "\<And>m s m' s'. push m s = push m' s' \<Longrightarrow> m = m'" *)
+interpretation security push 
+(*begin
+definition
+   push_def: "push m s = s @ m"
+*)
+proof
+  fix m m' :: "('r,'v,'a) tstack"
+  fix s s' :: "('r,'v,'a) frame_scheme"    
+  show "push m s = push m' s' \<Longrightarrow> (m = m' \<and> s = s')" 
+    by (simp add: push_rec_def)
+qed
 
-interpretation security "someAuxOp" "someState"
-  done
+
 
 (* Simplify lemmas on sec_states *)
 
 lemma [simp]:
-  "\<Gamma> (m(aux: f)) = \<Gamma> m" 
-  by (simp add: aux_upd_def state_rec.defs \<Gamma>_def) 
+  "\<Gamma> (aux_upd m f) = \<Gamma> m" 
+  by (simp add: \<Gamma>_def) 
 
 lemma [simp]:
-  "st (m(aux: f)) = st m"
-  by (simp add: aux_upd_def)
+  "st (aux_upd m f) = st m"
+  using aux_upd_st by blast
 
 lemma [simp]:
  "(\<forall>x. the (\<Gamma> m x) \<le> the (ev\<^sub>S (m(aux: f)) (\<L> x))) = 
