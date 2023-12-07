@@ -1,5 +1,5 @@
 theory SimAsm_Semantics
-  imports "../Syntax" SimAsm SimAsm_StateStack
+  imports "../Syntax" SimAsm_StateStack
 begin
 
 section \<open> Instruction Specification Language: 
@@ -37,11 +37,44 @@ fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Righ
                                     (* (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" | *)
     "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
 
-text \<open>Lift an operation with specification\<close>
-definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn 
+
+
+
+text \<open>Operation Behaviour: 
+          the behaviour for a fence terminates the speculation (no successor state) 
+          when executed inside a cap-frame (i.e., when speculating) otherwise it maintains the state \<close>
+
+
+
+fun spec_beh\<^sub>i :: "('r,'v) op \<Rightarrow>  ('r,'v,'a)tstack rel" 
+  where
+    "spec_beh\<^sub>i (assign a e) = {(s,s'). s' =  st_upd s a (st_ev\<^sub>E s e)}" |  
+    "spec_beh\<^sub>i (cmp b) = {(s,s'). s = s' \<and> st_ev\<^sub>B s b}" |
+    "spec_beh\<^sub>i (leak Cache e) = {(s,s'). s' =  st_upd s Cache (st_ev\<^sub>E (s) e)}" | 
+    "spec_beh\<^sub>i full_fence =  {(s,s')| s s'. (if (ts_is_spec s) then False else s'=s)}" |
+    "spec_beh\<^sub>i nop =  {(s,s')| s s'.  s'=s}"
+
+ 
+
+fun beh\<^sub>a_spec :: "('r,'v,('r,'v,'a)tstack,'a) auxop \<Rightarrow>  ('r,'v,'a)tstack rel"
+  where "beh\<^sub>a_spec (\<alpha>,f) = spec_beh\<^sub>i \<alpha> O {(t,t'). t' = (aux_upd t f)}"
+
+
+text \<open>Lift an operation with specification,
+            considering whether this is called within a speculation and the op is a full_fence \<close>
+definition liftg :: "('r,'v,'a)tstack pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn 
+                                                                        \<Rightarrow> ('r,'v,'a) opbasicSt" 
+  ("\<lfloor>_,_,_\<rfloor>" 100)
+  where "liftg v \<alpha> f \<equiv> (if (\<alpha> = full_fence) 
+                           then ((\<alpha>,f), v, beh\<^sub>a_spec (\<alpha>,f))
+                           else ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f)))"
+
+(*
+definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn
                                                                         \<Rightarrow> ('r,'v,'a) opbasicSt" 
   ("\<lfloor>_,_,_\<rfloor>" 100)
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
+*)
 
 text \<open>Lift an operation without specification\<close>
 definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'a) opbasicSt" 
@@ -152,7 +185,10 @@ text \<open>Convert the language into the abstract language expected by the unde
         empty frame (and its capture set) required for the semantics of speculation;
         this set equals UNIV - {sidechannels} and should be constant per instantiation
         (note, wrs must include @{term w\<^sub>l} of the rest program r, which is a com not a lang construct which
-         precludes to derived it at this level)  \<close> 
+         precludes to derived it at this level)  
+
+      Terminating the speculation is covered in the lift(Op v a f) via the basic liftg above 
+\<close>
 
 fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com \<Rightarrow> 'r set \<Rightarrow> 
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com" 
@@ -173,6 +209,7 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a)
                                                       ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>cmp b\<rfloor>))))* ;;
             (Interrupt (Capture (emptyFrame (wrs)) (r)) . ((lift\<^sub>c c r wrs)* ;; (lift\<^sub>c c r wrs) ;; r)) . 
                                                       ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>ncmp b\<rfloor>)) ;; r)" 
+
 
 
 

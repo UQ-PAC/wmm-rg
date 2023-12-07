@@ -1,5 +1,5 @@
 theory SimAsm_Security
-  imports SimAsm_WP "HOL-Algebra.Lattice"
+  imports SimAsm_WP State2 SimAsm_Rules "HOL-Algebra.Lattice"
 begin
 
 (* Temporary definitions to set up access to the components of the tuple type 
@@ -15,23 +15,28 @@ begin
 *)
 
 
-locale vst =                                          (* (val,sec) tuple*)
+locale vst = state st st_upd aux aux_upd
+  for st :: "'s \<Rightarrow> 'var \<Rightarrow> 'v option"
+  and st_upd :: "'s \<Rightarrow> 'var \<Rightarrow> 'v option \<Rightarrow> 's"
+  and aux :: "'s \<Rightarrow> 'a"
+  and aux_upd :: "'s \<Rightarrow> ('s \<Rightarrow> 'a) \<Rightarrow> 's"
++                                         (* (val,sec) tuple*)
   fixes val :: "'v option \<Rightarrow> 'val option"
     and level :: "'v option \<Rightarrow> 'sec::bounded_lattice option"
-    and ev\<^sub>S :: "('v,'g, 'r,'a) state \<Rightarrow> 'condSec_exp \<Rightarrow> 'sec::bounded_lattice option" (* eval of cond. Security expr *)
+    and ev\<^sub>S :: "'s \<Rightarrow> 'condSec_exp \<Rightarrow> 'sec::bounded_lattice option" (* eval of cond. Security expr *)
     and attkLev :: "'sec::bounded_lattice"
-  assumes sec_aux: "ev\<^sub>S (m(aux:f)) e = ev\<^sub>S m e"
+(*  assumes sec_aux: "ev\<^sub>S (m(aux:f)) e = ev\<^sub>S m e" *)
 begin
 
 (* compute supremum with bot over list of elements *)
 definition supl :: "'sec::bounded_lattice list \<Rightarrow> 'sec"
   where "supl l \<equiv> fold sup l bot"
 
-definition \<Gamma> :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'sec option"
+definition \<Gamma> :: "'s \<Rightarrow> 'var \<Rightarrow> 'sec option"
   where "\<Gamma> m  \<equiv> \<lambda>v. level(st m v)"
 
 (* since (st m) gives us tuple ('val, 'sec) *)
-definition stval :: "('v,'g,'r,'a) state \<Rightarrow> ('g,'r) var \<Rightarrow> 'val option"
+definition stval :: "'s \<Rightarrow> 'var \<Rightarrow> 'val option"
   where "stval m \<equiv> \<lambda>v. val(st m v)"
 
 definition flow_sec
@@ -54,13 +59,14 @@ context vst
 begin
 
 print_locale vst
-print_locale security
 term \<Gamma>
 
 text \<open> Some access functions on trees \<close>
 
-fun base\<Gamma> :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'sec option"
-  where "base\<Gamma> t var =  (\<Gamma> (base t) var)" 
+(* last of tstack refers to base of state stack *)
+
+fun base\<Gamma> :: "('r,'v,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'sec option"
+  where "base\<Gamma> t var =  (\<Gamma> (last (Rep_tstack t)) var)" 
 
 fun baseSt :: "('v,'g,'r,'a) stateTree \<Rightarrow> ('g,'r) var \<Rightarrow> 'val option"
   where "baseSt t var =  (stval (base t) var)" 

@@ -1,5 +1,5 @@
 theory SimAsm_StateStack
-  imports Main 
+  imports Main SimAsm_WP
 begin
 
 section \<open>State Stacks\<close>
@@ -412,6 +412,41 @@ lemma tauxupd_len:
   "tstack_len t = tstack_len (tauxupd t f)"
   unfolding tstack_len_def tauxupd_def
   by (induct t) (auto simp add: Is_tstack_def auxupd_def)
+
+
+(* moved from SimAsm_Rules *)
+
+subsection \<open>Correspondence from spec_state to tstack.\<close>
+
+definition tstack_base :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" where
+  "tstack_base stack \<equiv> 
+    \<lparr> varmap_st = the \<circ> frame_st (last (Rep_tstack stack)), \<dots> = taux stack \<rparr>"
+
+text \<open>
+The number of frames within the tstack naturally tells us whether that state
+is speculative or sequential.
+\<close>
+
+definition ts_is_seq where 
+  "ts_is_seq ts \<equiv> tstack_len ts = 1"
+
+abbreviation ts_is_spec where 
+  "ts_is_spec ts \<equiv> \<not>ts_is_seq ts"
+
+
+definition ts_seq where
+  "ts_seq = {ts. ts_is_seq ts}"
+definition ts_spec where
+  "ts_spec = {ts. ts_is_spec ts}"
+
+lemma ts_upper_of_seq [elim]: \<open>ts_is_seq m \<Longrightarrow> (tstack_upper m = [])\<close>
+unfolding ts_is_seq_def tstack_upper_def tstack_len_def 
+by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
+
+lemma ts_is_seq_of_ts_upper [intro]: \<open>(tstack_upper m = []) \<Longrightarrow> ts_is_seq m\<close>
+unfolding ts_is_seq_def tstack_upper_def tstack_len_def 
+by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
+
 
 
 end
