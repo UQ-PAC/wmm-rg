@@ -33,15 +33,17 @@ text \<open> Noninterference over all basic commands \<close>
 definition sec_pres :: "('a,'b,'c) com \<Rightarrow> 'b rel \<Rightarrow> bool"
   where 
   "sec_pres c S \<equiv> \<forall>\<alpha> m\<^sub>1 m\<^sub>2 m\<^sub>1'. 
-     \<alpha> \<in> (obs c) \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> 
-                             (m\<^sub>1,m\<^sub>1') \<in> beh \<alpha> \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2,m\<^sub>2') \<in> beh \<alpha> \<and> (m\<^sub>1',m\<^sub>2') \<in> S)"
+     \<alpha> \<in> (obs c) \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> (m\<^sub>1,m\<^sub>1') \<in> beh \<alpha> \<longrightarrow> 
+      (\<exists>m\<^sub>2'. (m\<^sub>2,m\<^sub>2') \<in> beh \<alpha>) \<and> 
+      (\<forall>m\<^sub>2'. (m\<^sub>2,m\<^sub>2') \<in> beh \<alpha> \<longrightarrow> (m\<^sub>1',m\<^sub>2') \<in> S)"
 
 text \<open> Noninterference over all traces \<close>
 
 definition secure :: "('a,'b,'c) com \<Rightarrow> 'b set \<Rightarrow> 'b rel \<Rightarrow> bool"
   where "secure c P S \<equiv> \<forall>m\<^sub>1 m\<^sub>2 c\<^sub>1 t m\<^sub>1'. 
-        m\<^sub>1 \<in> P \<longrightarrow> \<langle>c,m\<^sub>1\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>1,m\<^sub>1'\<rangle> \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow>
-        (\<exists>m\<^sub>2' c\<^sub>2. \<langle>c,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2,m\<^sub>2'\<rangle> \<and> (m\<^sub>1',m\<^sub>2') \<in> S)"  
+        m\<^sub>1 \<in> P \<longrightarrow> (m\<^sub>1,m\<^sub>2) \<in> S \<longrightarrow> \<langle>c,m\<^sub>1\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>1,m\<^sub>1'\<rangle> \<longrightarrow> 
+        (\<exists>m\<^sub>2' c\<^sub>2. \<langle>c,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2,m\<^sub>2'\<rangle>) \<and> 
+        (\<forall>m\<^sub>2' c\<^sub>2. \<langle>c,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2,m\<^sub>2'\<rangle> \<longrightarrow> (m\<^sub>1',m\<^sub>2') \<in> S)"  
 
 lemma trace_concat [intro]:
   assumes "P\<^sub>1 \<mapsto>\<^sup>*t\<^sub>1 P\<^sub>2"
@@ -99,12 +101,12 @@ lemma bisim_exists:
   assumes "(m\<^sub>1,m\<^sub>2) \<in> S"
   assumes "\<langle>c,m\<^sub>1\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>1,m\<^sub>1'\<rangle>"
   assumes "m\<^sub>1 \<in> P"
-  obtains c\<^sub>2 m\<^sub>2' where "\<langle>c,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2,m\<^sub>2'\<rangle>" "(m\<^sub>1', m\<^sub>2') \<in> S"
+  obtains c\<^sub>2 m\<^sub>2' where "\<langle>c,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2,m\<^sub>2'\<rangle>" 
   using assms unfolding ev_def
 proof safe
   assume "trace_mem m\<^sub>1 t m\<^sub>1'" "sec_pres c S" 
     "R,G \<turnstile> P {c} Q" "(m\<^sub>1,m\<^sub>2) \<in> S" "c \<mapsto>\<^sup>*t c\<^sub>1" "m\<^sub>1 \<in> P"
-  hence "\<exists>m\<^sub>2' c\<^sub>2. (trace_mem m\<^sub>2 t m\<^sub>2' \<and> c \<mapsto>\<^sup>*t c\<^sub>2) \<and> (m\<^sub>1',m\<^sub>2') \<in> S"
+  hence "\<exists>m\<^sub>2' c\<^sub>2. (trace_mem m\<^sub>2 t m\<^sub>2' \<and> c \<mapsto>\<^sup>*t c\<^sub>2) "
   proof (induct m\<^sub>1 t m\<^sub>1' arbitrary: P m\<^sub>2 c rule: trace_mem.induct)
     case (1 m)
     then show ?case by blast
@@ -120,18 +122,68 @@ proof safe
       unfolding sec_pres_def wp_def by blast
     hence itm4: "sec_pres c' S" 
       using 2(4) itm1 itm2(2) trace_obs unfolding sec_pres_def by blast
-    hence itm5: "\<exists>m\<^sub>2'' c\<^sub>2. (trace_mem m\<^sub>2' t m\<^sub>2'' \<and> c' \<mapsto>\<^sup>*t c\<^sub>2) \<and> (m\<^sub>1'', m\<^sub>2'') \<in> S"
+    hence itm5: "\<exists>m\<^sub>2'' c\<^sub>2. (trace_mem m\<^sub>2' t m\<^sub>2'' \<and> c' \<mapsto>\<^sup>*t c\<^sub>2)"
       using 2(3)[OF itm4 itm2(1) itm3(2) itm1(2) itm6] by blast
     then show ?case using "2.prems"(4) itm3(1) by blast
-   qed
-   thus ?thesis using that by (meson ev_def)
- qed
+  qed
+  thus ?thesis using that by (meson ev_def)
+qed
+
+lemma bisim_all:
+  assumes "sec_pres c\<^sub>1 S"
+  assumes "R,G \<turnstile> P {c\<^sub>1} Q"
+  assumes "R,G \<turnstile> P {c\<^sub>2} Q"
+  assumes "(m\<^sub>1,m\<^sub>2) \<in> S"
+  assumes "\<langle>c\<^sub>1,m\<^sub>1\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>1',m\<^sub>1'\<rangle>"
+  assumes "\<langle>c\<^sub>2,m\<^sub>2\<rangle> \<rightarrow>\<^sup>*t \<langle>c\<^sub>2',m\<^sub>2'\<rangle>"
+  assumes "m\<^sub>1 \<in> P"
+  shows "(m\<^sub>1', m\<^sub>2') \<in> S"
+  using assms unfolding ev_def
+proof safe
+  assume "trace_mem m\<^sub>1 t m\<^sub>1'" "trace_mem m\<^sub>2 t m\<^sub>2'" "sec_pres c\<^sub>1 S" 
+    "R,G \<turnstile> P {c\<^sub>1} Q" "R,G \<turnstile> P {c\<^sub>2} Q" "(m\<^sub>1,m\<^sub>2) \<in> S" "c\<^sub>1 \<mapsto>\<^sup>*t c\<^sub>1'" "c\<^sub>2 \<mapsto>\<^sup>*t c\<^sub>2'" "m\<^sub>1 \<in> P"
+  hence "(m\<^sub>1', m\<^sub>2') \<in> S"
+  proof (induct m\<^sub>1 t m\<^sub>1' arbitrary: P m\<^sub>2 c\<^sub>1 c\<^sub>2 rule: trace_mem.induct)
+    case (1 m)
+    then show ?case by (auto elim: trace_mem.cases)
+  next
+    case (2 m\<^sub>1 m\<^sub>1'' g t m\<^sub>1')
+    then obtain c\<^sub>1'' where itm1: "c\<^sub>1 \<mapsto>\<^sup>*[g] c\<^sub>1''" "c\<^sub>1'' \<mapsto>\<^sup>*t c\<^sub>1'" by auto
+    then obtain c\<^sub>2'' where itm2: "c\<^sub>2 \<mapsto>\<^sup>*[g] c\<^sub>2''" "c\<^sub>2'' \<mapsto>\<^sup>*t c\<^sub>2'" using 2 by auto
+    then obtain m\<^sub>2'' where itm3: "(m\<^sub>2, m\<^sub>2'') \<in> g" "trace_mem m\<^sub>2'' t m\<^sub>2'"
+      using 2(4) by (auto elim: trace_mem.cases)
+
+    then obtain P\<^sub>1 \<alpha>  where itm4: 
+        "R,G \<turnstile> P\<^sub>1 {c\<^sub>1''} Q" "\<alpha> \<in> obs c\<^sub>1" "g = beh \<alpha>" "P \<subseteq> wp\<^sub>\<alpha> \<alpha> P\<^sub>1"  
+      using trace_rule[OF itm1(1) 2(6)] 2(11) by blast
+    then obtain P\<^sub>2 \<beta>  where itm5: 
+        "R,G \<turnstile> P\<^sub>2 {c\<^sub>2''} Q" "\<beta> \<in> obs c\<^sub>2" "g = beh \<beta>" "P \<subseteq> wp\<^sub>\<alpha> \<beta> P\<^sub>2"  
+      using trace_rule[OF itm2(1) 2(7)] 2(11) by blast
+
+    have j: "R,G \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 {c\<^sub>1''} Q" "R,G \<turnstile> P\<^sub>1 \<inter> P\<^sub>2 {c\<^sub>2''} Q"
+      using itm4 itm5 by auto
+
+    have a: "(m\<^sub>1'', m\<^sub>2'') \<in> S"
+      using 2 itm4 itm5
+      unfolding sec_pres_def wp_def
+      by (smt (verit, del_insts) Int_iff itm3(1) subset_eq)
+    have b: "m\<^sub>1'' \<in> P\<^sub>1 \<inter> P\<^sub>2" 
+      by (smt (verit) "2.hyps"(1) "2.prems"(8) Int_Collect Int_iff itm4(3,4) itm5(3,4) subset_eq wp_def)
+    have c: "sec_pres c\<^sub>1'' S" 
+      by (smt (verit, ccfv_SIG) "2.prems"(2) itm1(1) sec_pres_def subset_eq trace_obs)
+
+    show ?case using 2(3)[OF itm3(2) c j a itm1(2) itm2(2) b] .
+  qed
+  thus ?thesis .
+qed
 
 theorem secure_bisim:
   assumes "R,G \<turnstile> P { c } Q"
   assumes "sec_pres c S"
   shows "secure c P S"
-  using bisim_exists[OF assms(2) assms(1)] unfolding secure_def by metis
+  using bisim_exists[OF assms(2) assms(1)]
+  using bisim_all[OF assms(2) assms(1) assms(1)]
+  unfolding secure_def by metis
 
 end
 
