@@ -1,27 +1,43 @@
 theory SimAsm_Rules
-  imports SimAsm_WP SimAsm_Semantics "../Soundness"
+  imports SimAsm_WP SimAsm_Semantics "../Soundness" "HOL-Eisbach.Eisbach"
 begin
 
 subsection \<open>Conversion between tstack and varmap.\<close>
 
-lift_definition vm_of_ts :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
-  is "\<lambda>s. \<lparr> varmap_st = tlookup s, \<dots> = frame.more (last (Rep_tstack s))\<rparr>".
+definition vm_of_ts :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
+  where "vm_of_ts s \<equiv> \<lparr> varmap_st = tlookup s, \<dots> = taux s\<rparr>"
 
-lift_definition ts_of_vm :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) tstack" 
-  is "inv vm_of_ts".
+(*
+definition ts_of_vm :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) tstack" 
+  where "ts_of_vm \<equiv> inv vm_of_ts"
+*)
 
 lemma ts_of_vm_exists: "\<exists>ts. vm_of_ts ts = vm"
 proof
-  let ?s = "[\<lparr> frame_st = Some \<circ> varmap_st vm, frame_cap = UNIV, \<dots> = varmap_rec.more vm \<rparr>]"
-  let ?ts = "Abs_tstack ?s"
+  let ?s = "[\<lparr> frame_st = Some \<circ> varmap_st vm, frame_cap = UNIV, \<dots> = Some (varmap_rec.more vm) \<rparr>]"
   have "Is_tstack ?s" by (simp add: Is_tstack_def)
-  hence 1: "RepAbs_tstack ?s = ?s" by simp
-  show "vm_of_ts ?ts = vm" 
-    unfolding vm_of_ts_def tlookup_def 
-    apply (simp add: 1) 
-    unfolding lookup.simps by simp
-    qed
-  
+  thus "vm_of_ts (Abs_tstack ?s) = vm" unfolding vm_of_ts_def
+    by (simp add: tlookup.rep_eq taux.rep_eq Abs_tstack_inverse fun_eq_iff)
+qed
+
+lemma vm_of_ts_tauxupd [simp]:
+  "vm_of_ts (tauxupd y f) = (vm_of_ts y)\<lparr> varmap_rec.more := f y \<rparr>"
+  unfolding vm_of_ts_def by auto
+
+lemma vm_of_ts_tupdate [simp]:
+  "vm_of_ts (tupdate y x e) = (vm_of_ts y)\<lparr> varmap_st := (varmap_st (vm_of_ts y))(x := e) \<rparr>"
+  unfolding vm_of_ts_def by auto
+
+lemma vm_of_ts_varmap [simp]:
+  "varmap_st (vm_of_ts x) = tlookup x"
+  unfolding vm_of_ts_def by auto
+
+lemma vm_of_ts_tpush_empty [simp]:
+  "vm_of_ts (tstack_push m (emptyFrame w)) = vm_of_ts m"
+  by (auto simp: vm_of_ts_def emptyFrame_def)
+
+
+(*
 lemma ts_of_vm_inverse: "vm_of_ts (ts_of_vm vm) = vm"
 proof -
   have a: "ts_of_vm vm = (SOME ts. vm_of_ts ts = vm)" 
@@ -29,14 +45,17 @@ proof -
   have "varmap_st vm = tlookup (ts_of_vm vm)" 
     using a ts_of_vm_exists
     by (metis (mono_tags, lifting) varmap_rec.select_convs(1) verit_sko_ex' vm_of_ts.transfer)  
-  moreover have "varmap_rec.more vm = frame.more (last (Rep_tstack (ts_of_vm vm)))"
+  moreover have "varmap_rec.more vm = taux (ts_of_vm vm)"
     using a ts_of_vm_exists
     by (metis (mono_tags, lifting) varmap_rec.select_convs(2) verit_sko_ex' vm_of_ts.transfer)    
   ultimately show ?thesis unfolding vm_of_ts_def by simp
-qed
+qed*)
   
 lift_definition ts_pred_of_vm_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
   "\<lambda>v. vm_of_ts -` v".
+
+lift_definition vm_pred_of_ts_pred :: "('r,'v,'a) tstack pred \<Rightarrow> ('r,'v,'a) varmap' pred" is
+  "\<lambda>S. vm_of_ts ` S".
 
 lift_definition vm_rel_of_ts_rel :: "('r,'v,'a) tstack rel \<Rightarrow> ('r,'v,'a) varmap' rel" is 
   "\<lambda>x. {(vm_of_ts s,vm_of_ts s') | s s'. (s,s') \<in> x}".
@@ -52,6 +71,7 @@ fun ts_lang_of_vm_lang :: "('r,'v,('r,'v,'a)varmap','a) lang \<Rightarrow> ('r, 
   "ts_lang_of_vm_lang (While b Imix Ispec c) = While b (ts_pred_of_vm_pred Imix) (ts_pred_of_vm_pred Ispec) (ts_lang_of_vm_lang c) " |
   "ts_lang_of_vm_lang (DoWhile Imix Ispec c b) = DoWhile (ts_pred_of_vm_pred Imix) (ts_pred_of_vm_pred Ispec) (ts_lang_of_vm_lang c) b "
 
+(*
 fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) varmap', 'a) lang" where
   "vm_lang_of_ts_lang (Skip) = Skip " |
   "vm_lang_of_ts_lang (Op pred op auxfn) = Op (vm_of_ts ` pred) op (auxfn \<circ> ts_of_vm)" |
@@ -59,41 +79,12 @@ fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, '
   "vm_lang_of_ts_lang (If c t f) = If c (vm_lang_of_ts_lang t) (vm_lang_of_ts_lang f)" |
   "vm_lang_of_ts_lang (While b Imix Ispec c) = While b (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) " |
   "vm_lang_of_ts_lang (DoWhile Imix Ispec c b) = DoWhile (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) b "
-
+*)
 
 subsection \<open>Correspondence from spec_state to tstack.\<close>
 
 definition tstack_base :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" where
-  "tstack_base stack \<equiv> 
-    \<lparr> varmap_st = the \<circ> frame_st (last (Rep_tstack stack)), \<dots> = taux stack \<rparr>"
-
-text \<open>
-The number of frames within the tstack naturally tells us whether that state
-is speculative or sequential.
-\<close>
-
-definition ts_is_seq where 
-  "ts_is_seq ts \<equiv> tstack_len ts = 1"
-
-abbreviation ts_is_spec where 
-  "ts_is_spec ts \<equiv> \<not>ts_is_seq ts"
-
-
-definition ts_seq where
-  "ts_seq = {ts. ts_is_seq ts}"
-definition ts_spec where
-  "ts_spec = {ts. ts_is_spec ts}"
-
-lemma ts_upper_of_seq [elim]: \<open>ts_is_seq m \<Longrightarrow> (tstack_upper m = [])\<close>
-unfolding ts_is_seq_def tstack_upper_def tstack_len_def 
-by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
-
-lemma ts_is_seq_of_ts_upper [intro]: \<open>(tstack_upper m = []) \<Longrightarrow> ts_is_seq m\<close>
-unfolding ts_is_seq_def tstack_upper_def tstack_len_def 
-by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
-
-
-
+  "tstack_base stack \<equiv> \<lparr> varmap_st = tbase_st stack, \<dots> = tbase_aux stack \<rparr>"
 
 text \<open>
 With these definitions, we define functions to convert from spec_state's
@@ -106,15 +97,6 @@ by mapping these to the appropriate parts of the tstack structure.
 lift_definition seq_pred_of_vm_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
   "\<lambda>P. {ts \<in> ts_pred_of_vm_pred P. ts_is_seq ts}".
 
-lift_definition spec_pred_of_lvm_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
-  "\<lambda>P. {ts | ts v. 
-        v \<in> P \<and>
-        ts_is_spec ts \<and>
-        vm_of_ts ts = ul_restrict v \<and>
-        tstack_base ts = gl_restrict v}".
-(* flattening all frames of the tstack should result in the unlabelled part. *)
-(* viewing only the base frame should be equal to the globally labelled part. *)        
-
 text \<open>
 Obtains a sequential relation from a varmap relation. That is, the
 global (tstack base) state is related by the given R and
@@ -124,12 +106,6 @@ the speculative (tstack upper) state is identity.
 lift_definition seq_rel_of_vm_rel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" is
   "\<lambda>R. {(ts,ts') \<in> ts_rel_of_vm_rel R. tstack_upper ts = tstack_upper ts'}".
 
-fun nonspec :: "(('r,'v,'a) auxopSt, ('r,'v,'a) tstack, 'frame) com \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, 'frame) com" where
-"nonspec (Basic (auxop, v, b)) = Basic (auxop,{s \<in> v. ts_is_seq s},b)" |
-"nonspec x = x"                                                                                           
-(* note: additionally, we need the behaviours 'b' to not introduce speculation (i.e. not introduce additional frames).
-          we prove that this is the case for all of the behaviours which can result from beh\<^sub>a in lemma h2 below (temporary name).  *)
-
 locale simasm_rules = 
   semantics_spec 
     where st = "tlookup :: ('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v"
@@ -138,7 +114,7 @@ locale simasm_rules =
     and aux_upd = tauxupd
   + rules 
     where exists_act = "undefined :: ('r,'v,'a) auxopSt"
-    and push = "tstack_push :: ('r,'v,'a) tstack \<Rightarrow> ('r,'v) frame \<Rightarrow> ('r,'v,'a) tstack"
+    and push = "tstack_push :: ('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme \<Rightarrow> ('r,'v,'a) tstack"
   + wp_spec
     where rg = rg
     and glb = glb
@@ -147,24 +123,92 @@ locale simasm_rules =
 
 context simasm_rules
 begin
-  
-definition stabilize\<^sub>s where 
-  "stabilize\<^sub>s R P \<equiv> {m. \<forall>m'. (glb (gl_restrict m),glb m') \<in> R \<longrightarrow> rg (gl_restrict m) = rg m' \<longrightarrow> m' \<in> [P]\<^sub>;}"
 
 abbreviation rules_abv ("_,_ \<turnstile> _ {_} _" [65,0,0,0,65] 65)
   where "rules_abv R G P c Q \<equiv> rules R G P c Q"
 
-abbreviation lifted_abv ("_,_ \<turnstile>\<^sub>s _ {_} _" [20,0,0,0,20] 20)
-  where "lifted_abv R G P c Q \<equiv> 
-      (seq_rel_of_vm_rel (step\<^sub>t R)), (seq_rel_of_vm_rel (step G)) 
-        \<turnstile> (seq_pred_of_vm_pred [P]\<^sub>;) {nonspec (lift\<^sub>c c com.Nil {})} (seq_pred_of_vm_pred [Q]\<^sub>;)
-      \<and> (seq_rel_of_vm_rel (step\<^sub>t R)), UNIV 
-        \<turnstile> (spec_pred_of_lvm_pred [P]\<^sub>s) {lift\<^sub>c c com.Nil {}} (spec_pred_of_lvm_pred [Q]\<^sub>s)" 
+text \<open>
+Combine the base frame and the varmap projection into a labelled varmap, along with an invariant
+constraining the state to be speculative and fixing the captured variable set.\<close>
+lift_definition spec_pred_of_lvm_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> 'r set \<Rightarrow> ('r,'v,'a) tstack pred" is
+  "\<lambda>P w. {ts | ts. mk_lvarmap (tstack_base ts) (vm_of_ts ts) \<in> P \<and> ts_is_spec ts \<and> w = capped ts}".
+
+text \<open>Constrain the base frame of a stack with a relation\<close>
+definition base_rel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel"
+  where "base_rel R \<equiv> {(ts,ts'). (tstack_base ts,tstack_base ts') \<in> R}"
+
+text \<open>Constrain the base frame of a stack with a relation and constrain all subsequent frames with id\<close>
+definition base_rel_frame_id :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel"
+  where "base_rel_frame_id R \<equiv> {(ts,ts') \<in> base_rel R. tstack_upper ts = tstack_upper ts'}"
+
+definition id_on
+  where "id_on w \<equiv> {(m,m'). (\<forall>v \<in> w. varmap_st m v = varmap_st m' v) \<and> varmap_rec.more m = varmap_rec.more m'}"
+
+text \<open>
+Constrain the base frame of a stack with a relation and constrain the number of subsequent frames,
+but not their contents. Additionally, allow any behaviour in the event that there are not the
+expected number of frames.
+\<close>
+definition base_rel_frame_sz :: "('r,'v,'a) varmap' rel \<Rightarrow> nat \<Rightarrow> 'r set \<Rightarrow> ('r,'v,'a) tstack rel"
+  where "base_rel_frame_sz R n w \<equiv> {(ts,ts'). ((ts,ts') \<in> base_rel (R \<inter> id_on w) \<or> tstack_len ts \<noteq> n) \<and> tstack_len ts = tstack_len ts'}"
+
+definition base_rel_frame1 :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel"
+  where "base_rel_frame1 R \<equiv> {(ts,ts'). ((ts,ts') \<in> base_rel R \<or> tstack_len ts \<noteq> 1) \<and> tstack_len ts = tstack_len ts'}"
+
+(*
+  Guarantee: varmap of one frame down is in G with w fixed
+    or just the G itself 
+
+*)
+
+definition fixed ::  "('r,'v,'a) varmap' rel \<Rightarrow> 'r set \<Rightarrow> ('r,'v,'a) varmap' rel"
+  where "fixed G w \<equiv> {(m, m'\<lparr> varmap_st := \<lambda>v. if v \<in> w then varmap_st m v else varmap_st m' v \<rparr>) | m m'. (m,m') \<in> G}"
 
 
-abbreviation validity_abv  ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
- where "validity_abv c P R G Q \<equiv> validity (lift\<^sub>c c com.Nil {}) P (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_rel_of_vm_rel (step G)) Q" 
 
+definition base_rel_guar :: "('r,'v,'a) varmap' rel \<Rightarrow> 'r set \<Rightarrow> ('r,'v,'a) tstack rel"
+  where "base_rel_guar G w \<equiv> {(ts,ts'). (ts,ts') \<in> base_rel G} \<inter> {(ts,ts'). tstack_len ts = tstack_len ts'}"
+
+
+
+
+
+text \<open>
+The judgement over the sequential program behaviour, structured with:
+  \<^item> A state that has no speculation frames
+  \<^item> A rely that constrains the base frame, will not modify the stack structure, and enforces id on each frame's contents
+  \<^item> A guarantee that preserves stack structure and constrains the base frame, but will
+    do anything if there is a speculative frame.
+\<close>
+abbreviation seq_rule ("_,_ \<turnstile>\<^sub>; _ {_,_,_} _" [20,0,0,0,0,0,20] 20)
+  where "seq_rule R G P c r w Q \<equiv> 
+          (base_rel_frame_id (step\<^sub>t R)), (base_rel_guar (step G) w) \<turnstile> 
+            (seq_pred_of_vm_pred P) {lift\<^sub>c (ts_lang_of_vm_lang c) r w} (seq_pred_of_vm_pred Q)"
+
+text \<open>
+The judgement over the speculative program behaviour, structured with:
+  \<^item> A state with at least one speculative frame
+  \<^item> Predicates that constrain the base frame (globally labelled) and the stack projection (unlabelled)
+  \<^item> A rely that constrains the base frame, will not modify the stack structure, and enforces id on each frame's contents
+  \<^item> A guarantee that preserves stack structure and constrains the base frame, but will
+    do anything if there is an incorrect number of speculative frames.
+\<close>
+abbreviation spec_rule ("_,_ \<turnstile>\<^sub>s _ {_,_,_} _" [20,0,0,0,0,0,20] 20)
+  where "spec_rule R G P c r w Q \<equiv> 
+          (base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G w) \<turnstile> 
+            (spec_pred_of_lvm_pred P w) {lift\<^sub>c (ts_lang_of_vm_lang c) r w} (spec_pred_of_lvm_pred Q w)"
+
+text \<open>Combine the above into a single rule\<close>
+abbreviation lifted_abv ("_,_,_ \<turnstile> _ {_,_,_} _" [20,0,0,0,0,0,0,20] 20)
+  where "lifted_abv R G G' P c r w Q \<equiv> (seq_rule R G [P]\<^sub>; c r w [Q]\<^sub>; \<and> spec_rule R G' [P]\<^sub>s c r w [Q]\<^sub>s)"
+
+text \<open>Define validity in terms of the sequential rule\<close>
+abbreviation validity_abv ("\<Turnstile> _ SAT [_, _, _, _]" [60,0,0,0] 45) 
+  where "validity_abv c P R G Q \<equiv> 
+    validity (lift\<^sub>c (ts_lang_of_vm_lang c) com.Nil (wr\<^sub>l c)) (seq_pred_of_vm_pred P) 
+      (base_rel_frame_id (step\<^sub>t R)) (base_rel_guar (step G) (wr\<^sub>l c)) (seq_pred_of_vm_pred Q)" 
+
+(*
 text \<open>An ordering property on contexts\<close>
 definition context_order 
   ("_,_ \<turnstile>\<^sub>w _ \<ge> _" [100,0,0,100] 60)
@@ -173,59 +217,448 @@ definition context_order
 
 text \<open>The validity property we intend to show, abstracts over the preservation of wellformedness,
         i.e., wellformedness (of R and G) and guarantee check of c become assumptions for the soundness proof \<close>
-definition valid 
-  ("_,_ \<turnstile>\<^sub>w _ {_} _" [100,0,0,0,100] 60)
-  where "valid R G P c Q \<equiv>  
-     (wellformed R G \<and> stable\<^sub>t R [Q]\<^sub>; \<and> guar\<^sub>c (vm_lang_of_ts_lang c) G) 
-     \<longrightarrow> (stable\<^sub>t R [P]\<^sub>; \<and> (R,G \<turnstile>\<^sub>s P {c} Q))" 
+definition valid
+  ("_,_ \<turnstile>\<^sub>w _ {_,_,_} _" [100,0,0,0,0,0,100] 60)
+  where "valid R G P c r w Q \<equiv>  
+     (wellformed R G \<and> stable\<^sub>t R [Q]\<^sub>; \<and> stable\<^sub>L R [Q]\<^sub>s \<and> guar\<^sub>c c G \<and> 
+      (\<exists>Q'. (seq_rel_of_vm_rel (step\<^sub>t R)), UNIV \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s) {r} Q')) 
+        \<longrightarrow> (stable\<^sub>t R [P]\<^sub>; \<and> stable\<^sub>L R [P]\<^sub>s \<and> (R,G \<turnstile>\<^sub>s P {c,r,w} Q))" 
 
+*)
 
-lemma vm_of_ts_auxupd: 
-  "(vm_of_ts x)\<lparr>varmap_rec.more := f (vm_of_ts x)\<rparr> = vm_of_ts (tauxupd x (f \<circ> vm_of_ts))"
-proof -
-  have Is_tstack: "Is_tstack (auxupd (Rep_tstack x) (\<lambda>tstack. f (vm_of_ts (Abs_tstack tstack))))"
-    by auto
-  have f: "f (vm_of_ts x) = frame.more (last (Rep_tstack (tauxupd x (f \<circ> vm_of_ts))))"
-    unfolding tauxupd_def 
-    by (auto simp add: Is_tstack, simp add: auxupd_def Rep_tstack_inverse)
-  
-  show ?thesis
-  using f unfolding vm_of_ts_def by auto
+subsection \<open>@{type tstack} Projection Lemmas\<close>
+
+lemma vm_of_ts_more_upd [simp]:
+  "vm_of_ts y\<lparr>varmap_rec.more := taux y\<rparr> = vm_of_ts y"
+  by (auto simp: vm_of_ts_def)
+
+lemma vm_of_ts_in_ts_pred_of_vm_pred[simp]: 
+  "(x \<in> ts_pred_of_vm_pred P) = (vm_of_ts x \<in> P)"
+  unfolding ts_pred_of_vm_pred_def by simp
+
+lemma vm_of_ts_in_seq_pred_of_vm_pred[simp]: 
+  "(x \<in> seq_pred_of_vm_pred P) = (vm_of_ts x \<in> P \<and> ts_is_seq x)"
+  unfolding seq_pred_of_vm_pred_def by simp
+
+lemma vm_of_ts_in_spec_pred_of_vm_pred[simp]: 
+  "(x \<in> spec_pred_of_lvm_pred P w) = (mk_lvarmap (tstack_base x) (vm_of_ts x) \<in> P \<and> ts_is_spec x \<and> w = capped x)"
+  by (auto simp: spec_pred_of_lvm_pred_def)
+
+lemma seq_ts_mono:
+  assumes "P \<subseteq> Q"
+  shows "seq_pred_of_vm_pred P \<subseteq> ts_pred_of_vm_pred Q"
+  using assms by auto
+
+lemma seq_mono:
+  assumes "P \<subseteq> Q"
+  shows "seq_pred_of_vm_pred P \<subseteq> seq_pred_of_vm_pred Q"
+  using assms by auto
+
+lemma spec_mono:
+  assumes "P \<subseteq> Q"
+  shows "spec_pred_of_lvm_pred P w \<subseteq> spec_pred_of_lvm_pred Q w"
+  using assms by (auto simp: ul_lift_pred_def vm_of_ts_def)
+
+lemma spec_ts_mono:
+  assumes "P \<subseteq> Q\<^sup>L"
+  shows "spec_pred_of_lvm_pred P w \<subseteq> ts_pred_of_vm_pred Q"
+  using assms by (auto simp: ul_lift_pred_def vm_of_ts_def)
+
+subsection \<open>@{term tstack_base} Lemmas\<close>
+
+lemma tstack_base_auxupd_id [simp]:
+  "tstack_base (tauxupd y f) = (if tstack_len y = 1 then (tstack_base y)\<lparr> varmap_rec.more := f y \<rparr> else tstack_base y)"
+  unfolding tstack_base_def by auto
+
+lemma tstack_base_vm_of_ts [simp]:
+  "tstack_len y = 1 \<Longrightarrow> tstack_base y = vm_of_ts y"
+  unfolding tstack_base_def vm_of_ts_def by auto
+
+lemma tstack_base_tupdate [simp]:
+  "tstack_base (tupdate y x e) = (if tcaptured y x then tstack_base y 
+                                  else (tstack_base y)\<lparr> varmap_st := (varmap_st (tstack_base y))(x := e) \<rparr>)"
+  unfolding tstack_base_def by auto 
+
+lemma tstack_base_tpush [simp]:
+  "tstack_base (tstack_push m s) = tstack_base m"
+  unfolding tstack_base_def by simp
+
+subsection \<open>Relational @{type tstack} Projection Lemmas\<close>
+
+lemma stable\<^sub>L [intro]:
+  assumes "stable\<^sub>L R P"
+  shows "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred P w)"
+  sorry (* Problem 1: Stability in the speculative context doesn't make sense *)
+
+lemma stable_ts [intro]: 
+  "stable R P \<Longrightarrow> stable (base_rel_frame_id R) (seq_pred_of_vm_pred P)"
+  apply (auto simp: stable_def base_rel_frame_id_def base_rel_def )
+  apply (metis One_nat_def tstack_base_vm_of_ts tstack_upper_len_eq)
+  apply (metis tstack_upper_len_eq)
+  done
+
+lemma base_rel_frame_szI1:
+  assumes "tstack_len a = 1 \<Longrightarrow> (tstack_base a, tstack_base b) \<in> G" "tstack_len a = tstack_len b"
+  shows "(a,b) \<in> base_rel_frame1 G"
+  using assms unfolding base_rel_frame1_def base_rel_def
+  by auto
+
+lemma base_rel_frame_szI:
+  assumes "tstack_len a = n \<Longrightarrow> (tstack_base a, tstack_base b) \<in> G \<inter> id_on w" "tstack_len a = tstack_len b"
+  shows "(a,b) \<in> base_rel_frame_sz G n w"
+  using assms unfolding base_rel_frame_sz_def base_rel_def
+  by auto
+
+lemma base_rel_guarI:
+  assumes "(tstack_base a, tstack_base b) \<in> G"
+  assumes "tstack_len a = tstack_len b"
+  shows "(a,b) \<in> base_rel_guar G n"
+  using assms unfolding base_rel_guar_def base_rel_def
+  by auto
+
+lemma [elim!]:
+  assumes "(tstack_push m s, tstack_push ma sa) \<in> base_rel G"
+  obtains "(m, ma) \<in> base_rel G"
+  using assms unfolding base_rel_def by auto
+
+lemma [intro]:
+  assumes "tstack_upper m = tstack_upper m'"
+  shows "tstack_upper (tstack_push m s) = tstack_upper (tstack_push m' s)"
+  using assms unfolding tstack_upper_def by transfer auto
+
+lemma [simp]:
+  "tstack_len m = 1 \<Longrightarrow> tstack_upper m = []"
+  unfolding tstack_upper_def by transfer (case_tac m; simp)
+
+lemma compat_example:
+  assumes "G \<subseteq> R"
+  shows "base_rel_frame1 G \<subseteq> guard {t. tstack_len t = 1} (base_rel_frame_id R)"
+  using assms by (auto simp: base_rel_frame1_def base_rel_frame_id_def base_rel_def guard_def)
+
+subsection \<open>@{term st_beh\<^sub>i} Invariants\<close>
+
+lemma st_beh\<^sub>i_tstack_len [simp]:
+  assumes "(x, y) \<in> st_beh\<^sub>i op"
+  shows "tstack_len x = tstack_len y"
+  using assms by (cases op; auto)
+
+lemma st_beh\<^sub>i_capped [simp]:
+  assumes "(x, y) \<in> st_beh\<^sub>i op"
+  shows "capped x = capped y"
+  using assms by (cases op; auto)
+
+subsection \<open>Atomic Judgements\<close>
+
+text \<open>A method to force equivalence over two large state computations, useful when the rewrite engine gives up\<close>
+method force_eq =
+  (match conclusion in "x \<in> Q" for x Q \<Rightarrow>
+     \<open>match premises in A: "y \<in> Q" for y \<Rightarrow> 
+      \<open>rule subst[of _ _ "\<lambda>m. m \<in> Q", OF _ A]\<close>\<close>) |
+  (match conclusion in "(x :: ('x, 'y, 'z) varmap_rec_scheme) = y" for x y \<Rightarrow> 
+     \<open>rule varmap_rec.equality; simp?\<close>) |
+  (match conclusion in "(x :: 'x \<Rightarrow> 'y) = y" for x y \<Rightarrow> 
+     \<open>(clarsimp simp: fun_eq_iff split: label.splits)\<close>) |
+  (match conclusion in "f (a :: ('r, 'v, 'a) varmap_rec_scheme) = f b" for f a b \<Rightarrow>
+    \<open>rule arg_cong[where ?f=f]\<close>)
+
+lemma [simp]:
+  "tstack_len x = Suc 0 \<Longrightarrow> tcaptured x v = False"
+  sorry
+
+lemma atomic_seq:
+  assumes r: "wellformed R G"
+  assumes g: "(v \<subseteq> guar (wp\<^sub>i op o wp\<^sub>a f) (step G))"
+  assumes s: "stable (step\<^sub>t R) Q"
+  shows "R,G \<turnstile>\<^sub>; stabilize R (v \<inter> wp\<^sub>i op (wp\<^sub>a f Q)) {Op v op f,r,w} Q"
+  unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps
+proof (intro basic atomicI, goal_cases st gu spre spost)
+  case st
+  let ?lhs = "seq_pred_of_vm_pred (stabilize R (v \<inter> wp\<^sub>i op (wp\<^sub>a f Q)))"
+  have vc: "?lhs \<subseteq> vc (lift\<^sub>b (ts_pred_of_vm_pred v) op (f \<circ> vm_of_ts))"
+    using r by (cases op) (auto elim: stabilizeE intro!: seq_ts_mono simp: liftg_def)
+  have wp: "?lhs \<subseteq> {m. \<forall>m'. (m, m') \<in> beh (lift\<^sub>b (ts_pred_of_vm_pred v) op (f \<circ> vm_of_ts)) \<longrightarrow> 
+                      vm_of_ts m' \<in> Q \<and> ts_is_seq m'}"
+    using r by (cases op) (auto elim!: stabilizeE simp: liftg_def wp\<^sub>a.simps)
+  show ?case using vc wp by (auto simp: wp_def)
+next
+  case gu
+  thus ?case using g r apply (cases op) 
+        apply (auto intro!: base_rel_guarI simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def split: if_splits)
+       apply force
+    apply force
+     apply force
+
+    sorry
+next
+  case spre
+  thus ?case using r by blast
+next
+  case spost
+  thus ?case using s by blast
 qed
 
-lemma vm_of_ts_upd: 
-  "(vm_of_ts s)\<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x)\<rparr> = vm_of_ts (tupdate s v x)"
-unfolding vm_of_ts_def tlookup_def tupdate_def  
-using lookup_update2[of "Rep_tstack s" v x] by auto
+lemma atomic_spec:
+  assumes r: "reflexive R" "transitive R" "reflexive G"
+  assumes s: "stable\<^sub>L R Q"
+  assumes w: "wr op \<subseteq> w" "lk op \<inter> w = {}"
+  shows "R,G \<turnstile>\<^sub>s (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s op (wp\<^sub>a (f \<circ> ul_restrict) Q))) {Op v op f,r,w} Q"
+  unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps
+proof (intro basic impI allI conjI atomicI, goal_cases st gu spre spost)
+  case st
+  let ?lhs = "spec_pred_of_lvm_pred (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s op (wp\<^sub>a (f \<circ> ul_restrict) Q))) w"
+  have vc: "?lhs \<subseteq> vc (lift\<^sub>b (ts_pred_of_vm_pred v) op (f \<circ> vm_of_ts))"
+    using r w by (cases op) (auto elim: stabilize\<^sub>LE intro!: spec_ts_mono simp: liftg_def)
+  have wp: "?lhs \<subseteq> {m. \<forall>m'. (m, m') \<in> beh (lift\<^sub>b (ts_pred_of_vm_pred v) op (f \<circ> vm_of_ts)) \<longrightarrow>
+                mk_lvarmap (tstack_base m') (vm_of_ts m') \<in> Q \<and> ts_is_spec m' \<and> w = capped m'}"
+    using r w by (cases op; auto elim!: stabilize\<^sub>LE simp: wp\<^sub>a.simps liftg_def) force_eq+
+  show ?case using vc inv wp by (auto simp: wp_def)
+next
+  case gu
+  then show ?case using r w apply (cases op) 
+        apply  (auto intro!:  base_rel_guarI simp: wp\<^sub>a.simps guar_def liftg_def wp\<^sub>r_def)
 
-lemma vm_of_ts_bothupd:
-  "(vm_of_ts s)
-    \<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x),
-     varmap_rec.more := f ((vm_of_ts s)\<lparr>varmap_st := (varmap_st (vm_of_ts s))(v := x)\<rparr>)\<rparr>
-   = vm_of_ts (tauxupd (tupdate s v x) (f \<circ> vm_of_ts))"
-using vm_of_ts_auxupd[where ?x = "tupdate s v x"] vm_of_ts_upd[of s]
-by simp
-  
-lemma tauxupd_in_ts_pred:
-  assumes "x \<in> ts_pred_of_vm_pred {t. t\<lparr>varmap_rec.more := f t\<rparr> \<in> Q}" 
-  shows "tauxupd x (f \<circ> vm_of_ts) \<in> ts_pred_of_vm_pred Q"
-proof -
-  have "\<exists>t \<in> {t. t\<lparr>varmap_rec.more := f t\<rparr> \<in> Q}. vm_of_ts x = t" using assms ts_of_vm_exists
-    by (simp add: ts_pred_of_vm_pred.rep_eq) 
-  hence Q: "(vm_of_ts x) \<lparr> varmap_rec.more := f (vm_of_ts x) \<rparr> \<in> Q" by simp
-  show ?thesis using vm_of_ts_auxupd[where ?x = x] Q by (simp add: ts_pred_of_vm_pred.abs_eq)
+    sorry (* Problem 2: Need a guarantee / vc combo that works for leak *)
+next
+  case spre
+  thus ?case using r by blast
+next
+  case spost
+  then show ?case using s by blast
 qed
 
-lemma ts_pred_of_vm_pred_Inter [simp]: 
-  "ts_pred_of_vm_pred (P \<inter> Q) = ts_pred_of_vm_pred P \<inter> ts_pred_of_vm_pred Q"
-unfolding ts_pred_of_vm_pred_def by simp
+lemma cmp_seq:
+  assumes r: "wellformed R G"
+  assumes s: "stable\<^sub>t R Q"
+  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
+          seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) Q)) {Basic (liftl (cmp b))} seq_pred_of_vm_pred Q"
+  unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps liftl_def
+proof (intro basic conjI atomicI, goal_cases st gu  spre spost )
+  case st
+  thus ?case using r by (auto simp: wp_def elim!: stabilizeE)
+next
+  case gu
+  thus ?case using r by (auto intro!: base_rel_guarI  simp: guar_def reflexive_def step_def)
+next
+  case spre
+  thus ?case using r by blast
+next
+  case spost
+  thus ?case using s by blast
+qed
 
-lemma ts_rel_of_vm_rel_from_vm_of_ts:
-assumes "(vm_of_ts x, vm_of_ts y) \<in> Rel"
-shows "(x, y) \<in> ts_rel_of_vm_rel Rel"
-by (simp add: assms ts_rel_of_vm_rel.rep_eq)
+lemma cmp_spec:
+  assumes r: "wellformed R G"
+  assumes s: "stable\<^sub>L R Q"
+  assumes d: "d > 1"
+  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
+          spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) Q)) w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred Q w"
+  unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps liftl_def
+proof (intro basic conjI atomicI, goal_cases st gu  spre spost )
+  case st
+  thus ?case using r by (auto simp: wp_def elim!: stabilize\<^sub>LE)
+next
+  case gu
+  thus ?case using r d by (auto intro!: base_rel_guarI  simp: guar_def reflexive_def step_def id_on_def)
+next
+  case spre
+  thus ?case using r by blast
+next
+  case spost
+  thus ?case using s by blast
+qed
 
 
+lemma basic_wp:
+  assumes r: "wellformed R G" "reflexive G'"
+  assumes g: "(v \<subseteq> guar (wp\<^sub>i op o wp\<^sub>a f) (step G))"
+  assumes s: "stable (step\<^sub>t R) [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
+  assumes w: "wr op \<subseteq> s" "lk op \<inter> s = {}"
+
+  shows "R,G,G' \<turnstile> (wp R (Op v op f) Q) {Op v op f,r,s} Q"
+proof ((intro conjI; simp), goal_cases seq spec)
+  case seq
+  then show ?case using atomic_seq[OF r(1) g s(1)] by (cases Q, simp)
+next
+  case spec
+  then show ?case using atomic_spec[OF _ _ _ s(2) w] r 
+    by (cases Q, simp)
+qed
+
+subsection \<open>Frame Reasoning\<close>
+
+lemma base_rel_frame_sz_pushE:
+  assumes "(tstack_push m s, b) \<in> base_rel_frame_sz G (Suc (Suc 0)) w"
+  obtains m' s' where "b = tstack_push m' s'" "(m,m') \<in> base_rel_frame_sz G 1 w"
+  using assms 
+proof -
+  have "tstack_len (tstack_push m s) = tstack_len b" using assms by (auto simp: base_rel_frame_sz_def)
+  hence "tstack_len b \<noteq> 1" by auto
+  then obtain m' s where b: "b = tstack_push m' s" using is_spec_push by blast
+  hence "(m,m') \<in> base_rel_frame_sz G 1 w"
+    using assms unfolding base_rel_frame_sz_def base_rel_def guard_def by auto
+  thus ?thesis using b that by auto
+qed
+
+
+lemma base_rel_guarE:
+  assumes "(tstack_push m s, b) \<in> base_rel_guar G w"
+  obtains m' s' where "b = tstack_push m' s'" "(m,m') \<in> base_rel_guar G n"
+  using assms 
+proof -
+  have "tstack_len (tstack_push m s) = tstack_len b" using assms by (auto simp: base_rel_guar_def)
+  hence "tstack_len b \<noteq> 1" by auto
+  then obtain m' s where b: "b = tstack_push m' s" using is_spec_push by blast
+  hence "(m,m') \<in> base_rel_guar G n" using assms unfolding base_rel_guar_def base_rel_def by auto
+  thus ?thesis using b that by auto
+qed
+
+
+lemma mem_restrict:
+  assumes "P \<subseteq> P'\<^sup>U"
+  assumes "m \<in> P"
+  shows "mk_lvarmap m m \<in> P'"
+proof -
+  obtain x where x: "\<forall>v. varmap_st x (Gl v) = varmap_st x (Ul v)" "x \<in> P'"
+                 "m = \<lparr>varmap_st = \<lambda>v. varmap_st x (Ul v), \<dots> = varmap_rec.more x\<rparr>"
+    using assms by (auto simp: restrict_pred_def image_def)
+  have "x = mk_lvarmap m m" 
+    by (auto intro: varmap_rec.equality simp: x fun_eq_iff split: label.splits)
+  thus ?thesis using x by auto
+qed
+
+text \<open>
+Lower a speculative judgement across the introduction of an empty frame.
+\<close>
+lemma spec_to_seq:
+  assumes "base_rel_frame_id R, base_rel_guar G w \<turnstile> 
+            (spec_pred_of_lvm_pred P' w) {r} (spec_pred_of_lvm_pred Q w)"
+  assumes "P \<subseteq> P'\<^sup>U"
+  shows "pushrelSame (base_rel_frame_id R),pushrelAll (base_rel_guar G w') \<turnstile> 
+          pushpred (emptyFrame w) (seq_pred_of_vm_pred P) {r} pushpredAll UNIV"
+  using assms(1)
+proof (rule conseq, goal_cases pre rely guar post)
+  case pre
+  have "\<forall>m. vm_of_ts m \<in> P \<longrightarrow> capped m \<subseteq> w" sorry (* Problem 3: not sure what to do about these sets *)
+  then show ?case unfolding pushpred_def using mem_restrict[OF assms(2)] by force
+next
+  case rely
+  then show ?case unfolding pushrelSame_def base_rel_frame_id_def base_rel_def by auto
+next
+  case guar
+  show ?case by (auto simp: pushrelAll_def elim!: base_rel_guarE) fast
+next
+  case post
+  then show ?case by (auto intro: is_spec_push simp: pushpredAll_def mk_lvarmap_def)
+qed 
+
+lemma spec_to_spec:
+  assumes "base_rel_frame_id R, base_rel_guar G w \<turnstile> 
+            (spec_pred_of_lvm_pred P' w) {r} (spec_pred_of_lvm_pred Q w)"
+  assumes "P \<subseteq> P'"
+  shows "pushrelSame (base_rel_frame_id R),pushrelAll (base_rel_guar G w) \<turnstile> 
+          pushpred (emptyFrame w) (spec_pred_of_lvm_pred P w) {r} pushpredAll UNIV"
+  using assms(1)
+proof (rule conseq, goal_cases pre rely guar post)
+  case pre
+  then show ?case unfolding pushpred_def using assms(2) by auto
+next
+  case rely
+  then show ?case unfolding pushrelSame_def base_rel_frame_id_def base_rel_def by auto
+next
+  case guar
+  show ?case apply (auto simp: pushrelAll_def elim!: base_rel_guarE) sorry
+next
+  case post
+  then show ?case by (auto intro: is_spec_push simp: pushpredAll_def mk_lvarmap_def)
+qed 
+
+
+lemma stable_conseqI' [intro]:
+  assumes "stable R' P" "Id_on P O R \<subseteq> R'" 
+  shows "stable R P"
+  using assms rtrancl_mono unfolding stable_def by blast
+
+lemma spec_judgement:
+  assumes spec: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred P' w {r} spec_pred_of_lvm_pred Q' w"
+  assumes wf: "G' \<subseteq> step G \<inter> step\<^sub>t R"
+  assumes pred: "P \<subseteq> Q" "P \<subseteq> P'\<^sup>U"
+  assumes st: "stable\<^sub>t R Q"
+
+  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> seq_pred_of_vm_pred P {\<triangle> Capture (emptyFrame w) r} seq_pred_of_vm_pred Q"
+proof -
+  text \<open>Speculative behaviour is stronger than the concrete guarantee\<close>
+  have u: "base_rel_guar G' w \<subseteq> base_rel_guar (step G) w" 
+    using wf by (auto simp: base_rel_guar_def base_rel_def)
+
+  text \<open>Speculative behaviour is stronger than the concrete rely, given initial state is not speculative\<close>
+  have m: "\<And>P. Id_on (seq_pred_of_vm_pred P) O base_rel_guar G' w \<subseteq> base_rel_frame_id (step\<^sub>t R)" 
+    using wf by (auto simp: base_rel_guar_def base_rel_def base_rel_frame_id_def)
+
+  have st: "stable (base_rel_frame_id (step\<^sub>t R)) (seq_pred_of_vm_pred Q)"
+    using st by blast
+
+  have "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> 
+      seq_pred_of_vm_pred P {\<triangle> Capture (emptyFrame w) r} seq_pred_of_vm_pred Q"
+  proof (rule interr)
+    show "seq_pred_of_vm_pred P \<subseteq> seq_pred_of_vm_pred Q" using pred spec_mono by force
+  next
+    show "stable (base_rel_frame_id (step\<^sub>t R)) (seq_pred_of_vm_pred Q)" using st by blast
+  next
+    show "stable (base_rel_guar G' w) (seq_pred_of_vm_pred Q)" using st m
+      by (rule stable_conseqI')
+  next
+    show "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> 
+            seq_pred_of_vm_pred P {Capture (emptyFrame w) r} UNIV" 
+      using spec pred(2) by (rule capture[OF spec_to_seq])
+  qed
+
+  thus ?thesis using u by blast
+qed
+
+lemma spec_judgement':
+  assumes spec: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred P' w {r} spec_pred_of_lvm_pred Q' w"
+  assumes wf: "G' \<subseteq> step G \<inter> step\<^sub>t R"
+  assumes pred: "P \<subseteq> Q" "P \<subseteq> P'"
+  assumes st: "stable\<^sub>L R Q"
+
+  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred P w {\<triangle> Capture (emptyFrame w) r} spec_pred_of_lvm_pred Q w"
+proof -
+  text \<open>Speculative behaviour is stronger than the concrete guarantee\<close>
+  have u: "base_rel_guar G' w \<subseteq> base_rel_guar (step G) w" 
+    using wf by (auto simp: base_rel_guar_def base_rel_def)
+
+  text \<open>Speculative behaviour is stronger than the concrete rely, given initial state is not speculative\<close>
+  have m: "\<And>P. Id_on (spec_pred_of_lvm_pred P w) O base_rel_guar G' w \<subseteq> base_rel_frame_id (step\<^sub>t R)" 
+    using wf apply (auto simp: base_rel_guar_def base_rel_def base_rel_frame_id_def)
+    sorry
+
+  have st: "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Q w)"
+    using st by blast
+
+  have "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> 
+      spec_pred_of_lvm_pred P w {\<triangle> Capture (emptyFrame w) r} spec_pred_of_lvm_pred Q w"
+  proof (rule interr)
+    show "spec_pred_of_lvm_pred P w \<subseteq> spec_pred_of_lvm_pred Q w" using pred spec_mono by force
+  next
+    show "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Q w)" using st by blast
+  next
+    show "stable (base_rel_guar G' w) (spec_pred_of_lvm_pred Q w)" using st m sorry
+  next
+    show "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> 
+            spec_pred_of_lvm_pred P w {Capture (emptyFrame w) r} UNIV" 
+      using spec pred(2) by (rule capture[OF spec_to_spec])
+  qed
+
+  thus ?thesis using u by auto
+qed
+
+(*
+
+definition stabilize\<^sub>s where 
+  "stabilize\<^sub>s R P \<equiv> {m. \<forall>m'. (glb (gl_restrict m),glb m') \<in> R \<longrightarrow> rg (gl_restrict m) = rg m' \<longrightarrow> m' \<in> [P]\<^sub>;}"
+
+
+(*
 lemma vm_of_ts_wp:
   assumes "vm_of_ts x \<in> c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)"
   shows "x \<in> State.wp (ts_pred_of_vm_pred c) (st_beh\<^sub>i \<alpha> O {(t, t'). t' = tauxupd t (f \<circ> vm_of_ts)}) (ts_pred_of_vm_pred Q)"
@@ -250,7 +683,7 @@ proof -
     using x vm_of_ts_bothupd[where ?s=x and ?v=v]
     by (auto simp add: vm_of_ts_auxupd vm_of_ts.rep_eq)
   qed (simp_all add: vm_of_ts_auxupd)
-qed
+qed *)
 
 lemma wp_of_liftg:
   "\<And>x. reflexive R \<Longrightarrow> vm_of_ts x \<in> stabilize R ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg c \<alpha> f) (ts_pred_of_vm_pred Q)" 
@@ -267,6 +700,7 @@ lemma vm_of_ts_wp_liftg:
 unfolding liftg_def 
 by (simp add: ts_pred_of_vm_pred.transfer vm_of_ts_wp)
 
+(*
 lemma guar_of_liftg:
   assumes "c \<subseteq> local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G)"
   shows "guar\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) (ts_rel_of_vm_rel (step G))"
@@ -290,7 +724,7 @@ proof (clarsimp, goal_cases)
     then show ?thesis using x 1 vm_of_ts_bothupd[where ?s=x and ?v=v] 
     by (simp add: vm_of_ts.rep_eq)
   qed (auto simp add: vm_of_ts_auxupd)
-qed
+qed *)
 
 lemma guar_of_liftg':
   assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G)" 
@@ -330,14 +764,11 @@ unfolding stable_def seq_pred_of_vm_pred_def seq_rel_of_vm_rel_def
 using ts_upper_of_seq 
 by clarsimp fastforce
 
-lemma stable_seq_rel_from_stablet [elim]:
+lemma stable_seq_rel_from_stablet [intro]:
   assumes "stable\<^sub>t R Q"
   shows "State.stable (seq_rel_of_vm_rel (step\<^sub>t R)) (seq_pred_of_vm_pred Q)"
 using assms stable_seq_from_stable_ts stable_ts_rel_from_stablet by auto
 
-
-lemma vm_of_ts_in_ts_pred_of_vm_pred[simp]: "(x \<in> ts_pred_of_vm_pred P) = (vm_of_ts x \<in> P)"
-unfolding ts_pred_of_vm_pred_def by simp
 
 (* lemma stept_stept [simp]: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G"  *)
 (* unfolding step\<^sub>t_def by simp *)
@@ -377,34 +808,6 @@ lemma h1:
   shows "x \<in> State.wp {s. vm_of_ts s \<in> c \<and> ts_is_seq s} {(s, s'). (s, s') \<in> st_beh\<^sub>i \<alpha> O {(t, t'). t' = tauxupd t (f \<circ> vm_of_ts)} \<and> ts_is_seq s \<and> ts_is_seq s'} (seq_pred_of_vm_pred [Q]\<^sub>;)"
 sorry 
 
-lemma nonspec:
-  assumes "seq_rel_of_vm_rel (step\<^sub>t R),seq_rel_of_vm_rel (step G) \<turnstile> seq_pred_of_vm_pred [P]\<^sub>; {Basic ((\<alpha>, f \<circ> vm_of_ts), ts_pred_of_vm_pred c, beh\<^sub>a (\<alpha>, f \<circ> vm_of_ts))} seq_pred_of_vm_pred [Q]\<^sub>;"
-  shows "seq_rel_of_vm_rel (step\<^sub>t R),seq_rel_of_vm_rel (step G) \<turnstile> seq_pred_of_vm_pred [P]\<^sub>; {nonspec (Basic ((\<alpha>, f \<circ> vm_of_ts), ts_pred_of_vm_pred c, beh\<^sub>a (\<alpha>, f \<circ> vm_of_ts)))} seq_pred_of_vm_pred [Q]\<^sub>;"
-  sorry   
-
-lemma seq_pred_of_vm_pred_subset:
-  assumes "P' \<subseteq> P"
-  shows "seq_pred_of_vm_pred P' \<subseteq> seq_pred_of_vm_pred P"
-  unfolding seq_pred_of_vm_pred_def 
-  using assms
-  by auto
-
-lemma spec_pred_of_lvm_pred_subset:
-  assumes "P' \<subseteq> P"
-  shows "spec_pred_of_lvm_pred P' \<subseteq> spec_pred_of_lvm_pred P"
-  unfolding spec_pred_of_lvm_pred_def 
-  using assms
-  by auto
-
-lemma stabilize\<^sub>LE [elim]:
-  assumes "m \<in> spec_pred_of_lvm_pred (stabilize\<^sub>L R P)"
-  assumes "reflexive R"
-  obtains "m \<in> spec_pred_of_lvm_pred P"
-using assms
-unfolding spec_pred_of_lvm_pred_def
-using stabilizeE reflexive_def stabilize\<^sub>L_def 
-by fastforce
-
   
 lemma conseq_s:
   assumes "R,G \<turnstile>\<^sub>s P {op} Q"
@@ -416,7 +819,8 @@ lemma conseq_s:
   apply simp_all
   apply (intro spec_pred_of_lvm_pred_subset seq_pred_of_vm_pred_subset)
   by auto
-  
+
+(*
 lemma h3:
   "ts_is_seq x \<Longrightarrow> vm_of_ts x \<in> wp\<^sub>a f Q \<Longrightarrow> tauxupd x (f \<circ> vm_of_ts) \<in> seq_pred_of_vm_pred Q"
   unfolding seq_pred_of_vm_pred_def
@@ -439,7 +843,7 @@ proof -
     by (metis assms(3) tauxupd_len ts_is_seq_def tupdate_len)
   show "ts_is_seq rhs"
     unfolding rhs_def using assms(3) unfolding ts_is_seq_def using tupdate_len tauxupd_len by metis
-qed
+qed *)
 
 lemma basic_wp\<^sub>i_1_assign_spec:
   assumes "\<alpha> = assign x11 x12"
@@ -476,32 +880,17 @@ proof (clarsimp simp add: id_def, goal_cases)
     using ev apply blast 
     apply (simp add: tlookup)  apply (rule arg_cong[where ?f=f]) apply auto apply standard apply (case_tac "x11 = xa") apply auto using 1(4) unfolding vm_of_ts_def apply auto 
     sorry (* we need properties constraining the acceptable auxfns (i.e. they are minimally state-dependent). or, we need to ignore them. *)
-    show "tstack_base ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Gl va), \<dots> = varmap_rec.more (?v)\<rparr>" unfolding tstack_base_def apply auto apply standard unfolding comp_def using notnone sledgehammer
+    show "tstack_base ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Gl va), \<dots> = varmap_rec.more (?v)\<rparr>" unfolding tstack_base_def apply auto apply standard unfolding comp_def using notnone sorry
   qed
 next
   case 2
   show ?case using assms(2) tauxupd_len tupdate_len ts_is_seq_def by metis
 qed
 
+ *)
 
-lemma tstack_len_of_st_beh:
-assumes "(x, y) \<in> st_beh\<^sub>i \<alpha>"
-shows "tstack_len x = tstack_len y"
-using assms
-by (cases \<alpha>) (auto simp add: tupdate_len)
 
-lemma stable_of_stabilize_ts [intro]:
-  assumes "wellformed R G"
-  shows "State.stable (seq_rel_of_vm_rel (step\<^sub>t R)) (seq_pred_of_vm_pred (stabilize R P))"
-unfolding stable_def 
-proof (intro allI impI, goal_cases)
-  case (1 m m')
-  have "tstack_upper m = []" "tstack_upper m' = []"
-    using 1(1,2) unfolding seq_pred_of_vm_pred_def seq_rel_of_vm_rel_def by (simp_all add: ts_upper_of_seq)
-    thus ?case
-      using 1 stabilize_stable[OF assms] unfolding seq_pred_of_vm_pred_def seq_rel_of_vm_rel_def
-      by clarsimp (meson State.stable_def stable_ts_rel_from_stablet ts_is_seq_of_ts_upper vm_of_ts_in_ts_pred_of_vm_pred)
-qed
+(*
 
 text \<open>Basic Rule for operations with vc c\<close>
 lemma basic_wp\<^sub>i_1:
@@ -624,7 +1013,7 @@ proof -
       have vm_x_in_c: "vm_of_ts x \<in> c" using x_in_c unfolding ul_lift_pred_def spec_pred_of_lvm_pred_def by auto
       have "x \<in> vc (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts))" using assms(4) x_in_c vm_x_in_c by (simp add: liftg_def)
 
-      then show ?case apply (cases \<alpha>) apply auto unfolding wp_def apply auto unfolding liftg_def apply auto using   x_in_wp  apply auto unfolding wp\<^sub>a.simps apply auto 
+      then show ?case apply (cases \<alpha>) apply auto unfolding wp_def apply auto unfolding liftg_def apply auto using   x_in_wp  apply auto unfolding wp\<^sub>a.simps apply auto sorry
     next
       case (2 x)
       then show ?case sorry
@@ -648,6 +1037,7 @@ lemma basic_wp\<^sub>i_2:
           "wellformed R G" "stable\<^sub>t R [Q]\<^sub>;" 
   assumes "\<forall>m. m \<in> guar (wp\<^sub>i \<alpha>) (step G)"
   shows "R,G \<turnstile>\<^sub>s P {Op UNIV \<alpha> taux} Q"
+  sorry (*
 proof -
   have x: "vm_of_ts x \<in> wp\<^sub>i \<alpha> Q" if "x \<in> ts_pred_of_vm_pred (stabilize R (wp\<^sub>i \<alpha> Q))" for x 
     using assms(1,2) stabilizeE using that vm_of_ts_in_ts_pred_of_vm_pred by blast
@@ -677,15 +1067,41 @@ proof -
   thus ?thesis using assms(1) conseq 
   by (simp add: ts_pred_of_vm_pred.rep_eq vimage_mono)
 qed
-  oops
+  oops *)
+
+lemma lift_wp:
+  assumes "P \<subseteq> wp\<^sub>\<alpha> (c,vm_pred_of_ts_pred V,vm_rel_of_ts_rel (beh\<^sub>a R)) Q"
+  shows "seq_pred_of_vm_pred P \<subseteq> wp\<^sub>\<alpha> (c,V,beh\<^sub>a R) (seq_pred_of_vm_pred Q)"
+  using assms unfolding seq_pred_of_vm_pred_def wp_def vm_pred_of_ts_pred_def vm_rel_of_ts_rel_def
+  apply auto
+  sorry
 
 text \<open>A rule for cmp operations, used for If/While\<close>
 lemma cmp_sound [intro!]:
   assumes "wellformed R G" "stable\<^sub>t R [Q]\<^sub>;"
-  assumes "P \<subseteq>\<^sub>s (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [Q]\<^sub>s), stabilize R (wp\<^sub>i (cmp b) [Q]\<^sub>;))"
-  shows "R,G \<turnstile>\<^sub>s P {Op UNIV (cmp b) taux} Q"
-  using assms 
-  by (intro basic_wp\<^sub>i_2) (auto simp: step_def reflexive_def wp\<^sub>r_def)  
+  assumes "P \<subseteq>\<^sub>s (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [Q]\<^sub>s), stabilize R (wp\<^sub>i (cmp b) [Q]\<^sub>;))" (is "P \<subseteq>\<^sub>s ?P")
+  shows "R,G \<turnstile>\<^sub>s P {Op UNIV (cmp b) varmap_rec.more} Q"
+proof -
+  have "R,G \<turnstile>\<^sub>s ?P {Op UNIV (cmp b) varmap_rec.more} Q"
+  proof (intro conjI, goal_cases seq spec)
+    case seq
+
+    then show ?case
+      apply (simp add: liftg_def del: beh\<^sub>a.simps)
+      apply (rule basic)
+      apply (rule atomicI)
+      apply (rule lift_wp)
+
+      apply auto
+
+      apply (auto simp: wp_def liftg_def guar_def)[2]
+
+    sorry
+next
+  case spec
+  then show ?case sorry
+qed
+  
 
 subsection \<open>State Ordering\<close>
 
@@ -719,15 +1135,6 @@ lemma if_wp:
             R,G \<turnstile>\<^sub>w stabilize R P {If b c\<^sub>1 c\<^sub>2} Q"
   unfolding valid_def 
 sorry
-
-(*
-lemma if_wp:
-  "R,G \<turnstile>\<^sub>w P\<^sub>1 {c\<^sub>1} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w P\<^sub>2 {c\<^sub>2} Q \<Longrightarrow> R,G \<turnstile>\<^sub>w stabilize R (wp\<^sub>i (cmp b) P\<^sub>1 \<inter> wp\<^sub>i (ncmp b) P\<^sub>2) {If b c\<^sub>1 c\<^sub>2} Q"
-  unfolding valid_def apply clarsimp apply (intro conjI rules.choice rules.seq, auto )
-  apply (rule stabilize_entail, auto)+
-  done
-*)
-
 
 text \<open>While Rule\<close>
 lemma while_wp:
@@ -812,43 +1219,143 @@ next
   then show ?thesis by (intro false_wp, auto simp: assert_def)
 qed 
 
+
+*)
+
+
+lemma [simp]:
+  "(a \<union> b) \<inter> w = (a \<inter> w \<union> b \<inter> w)"
+  by auto
+
+
 text \<open>Com Rule\<close>
 theorem com_wp:
-  shows "R,G \<turnstile>\<^sub>w wp R c Q {c} Q" 
-proof (induct c arbitrary: Q)
+  (* Q captures the speculative implzications of r *)
+  assumes s: "(base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G' w) \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s w) {r} (spec_pred_of_lvm_pred Q' w)"
+  (* Q is stable *)
+  assumes st: "stable\<^sub>t R [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
+  (* VCs are strong enough to establish guarantee *)
+  assumes g: "guar\<^sub>c c G" "wr\<^sub>l c \<subseteq> w" "lk\<^sub>l c \<inter> w = {}"
+
+  (* Standard properties of R G *)
+  assumes wf: "wellformed R G" "reflexive G'" "G' \<subseteq> step\<^sub>t R \<inter> step G"
+
+  shows "(R,G,G' \<turnstile> wp R c Q {c,r,w} Q) \<and> (stable\<^sub>t R [wp R c Q]\<^sub>; \<and> stable\<^sub>L R [wp R c Q]\<^sub>s)"
+  using s st g
+proof (induct c arbitrary: Q' Q r w)
   case Skip
-  then show ?case by (auto simp: valid_def)
+  then show ?case by (auto)
 next
-  case (Op x1 x2)
-  then show ?case unfolding valid_def lift\<^sub>c.simps 
-    by (intro conjI impI basic_wp\<^sub>i_1) auto
+  case (Op x1 x2 x3)
+  thus ?case using wf by (intro conjI basic_wp) auto
 next
-  case (Seq c1 c2)
-  then show ?case by (auto simp: valid_def)
+  case (Seq c\<^sub>1 c\<^sub>2)
+  hence c2: "R,G,G' \<turnstile> wp R c\<^sub>2 Q {c\<^sub>2,r,w} Q" "stable\<^sub>t R [wp R c\<^sub>2 Q]\<^sub>;" "stable\<^sub>L R [wp R c\<^sub>2 Q]\<^sub>s" by simp+
+  have "(R,G,G' \<turnstile> wp R c\<^sub>1 (wp R c\<^sub>2 Q) {c\<^sub>1,lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2) r w,w} (wp R c\<^sub>2 Q))
+          \<and> (stable\<^sub>t R [wp R c\<^sub>1 (wp R c\<^sub>2 Q)]\<^sub>; \<and> stable\<^sub>L R [wp R c\<^sub>1 (wp R c\<^sub>2 Q)]\<^sub>s)"
+    using Seq(1)[OF _ c2(2,3)] c2(1) Seq(6,7,8) by auto
+  then show ?case using c2 by auto
 next
-  case (If x1 c1 c2)
-  then show ?case unfolding wp.simps by (blast intro: if_wp)
+  case (If b c\<^sub>1 c\<^sub>2)
+  hence c1: "R,G,G' \<turnstile> wp R c\<^sub>1 Q {c\<^sub>1,r,w} Q" by simp
+  hence c2: "R,G,G' \<turnstile> wp R c\<^sub>2 Q {c\<^sub>2,r,w} Q" using If by simp
+  have st: "stable\<^sub>t R [local.wp R c\<^sub>1 Q]\<^sub>;" "stable\<^sub>t R [local.wp R c\<^sub>2 Q]\<^sub>;"  
+           "stable\<^sub>L R [local.wp R c\<^sub>1 Q]\<^sub>s" "stable\<^sub>L R [local.wp R c\<^sub>2 Q]\<^sub>s"
+    using If by auto
+
+  show ?case
+  proof (clarsimp, intro choice_if conjI, goal_cases left right spec st1 st2 st3)
+    case left
+    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
+    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
+      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)) 
+        {Basic (liftl (cmp b))} 
+          seq_pred_of_vm_pred [wp R c\<^sub>1 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
+      using cmp_seq st If wf by blast
+
+    have s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
+      seq_pred_of_vm_pred 
+        (stabilize R ([local.wp R c\<^sub>2 Q]\<^sub>s \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s)\<^sup>U \<inter> stabilize R
+          ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>1 Q]\<^sub>;} \<inter> {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>;})) 
+            {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2) r w) r)} ?P"
+      apply (rule spec_judgement)
+          apply (rule seq)
+      using If apply fastforce
+      using c2 apply fastforce
+      using wf apply fastforce
+      using wf stabilize_entail apply fastforce
+      using wf stabilize_entail apply (meson inf.cobounded1 stabilizeE subsetD subsetI ul_restrict_mono)
+      using wf by blast
+
+    show ?case using c b s by (intro seq) (simp; blast)
+  next
+    case right
+    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>2 Q]\<^sub>; {c\<^sub>2,r,w} [Q]\<^sub>;" using c2 by auto
+    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
+      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;)) 
+        {Basic (liftl (ncmp b))} 
+          seq_pred_of_vm_pred [wp R c\<^sub>2 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
+      using cmp_seq st If wf by blast
+
+    have s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
+      seq_pred_of_vm_pred 
+        (stabilize R ([local.wp R c\<^sub>2 Q]\<^sub>s \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s)\<^sup>U \<inter> stabilize R
+          ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>1 Q]\<^sub>;} \<inter> {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>;})) 
+            {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>1) r w) r)} ?P"
+      apply (rule spec_judgement)
+          apply (rule seq)
+      using If apply fastforce
+      using c1 apply fastforce
+      using wf apply fastforce
+      using wf stabilize_entail apply fastforce
+      using wf stabilize_entail apply (meson inf.cobounded1 inf.cobounded2 stabilizeE subsetD subsetI ul_restrict_mono)
+      using wf by blast
+
+    show ?case using c b s by (intro seq) (simp; blast)
+  next
+    case spec
+    then show ?case
+      sorry
+  next
+    case st1
+    thus ?case sorry
+  next
+    case st2
+    thus ?case sorry
+  next
+    case st3
+    thus ?case sorry
+  qed
 next
-  case (While x1 x2 c)
-  then show ?case unfolding wp.simps by (intro assert_wp impI while_wp) (auto)
+  case (While x1 x2 x3 c)
+  then show ?case sorry
 next
-  case (DoWhile I c b)
-  thus ?case unfolding wp.simps by (intro assert_wp do_wp; rule rewrite_wp) auto
+  case (DoWhile x1 x2 c x4)
+  then show ?case sorry
 qed
+
 
 subsection \<open>High-Level Theorem\<close>
 
 text \<open>Soundness lemma for WP reasoning\<close>
 theorem simAsm_wp_sound:
-  assumes wf: "transitive R" "reflexive R" "reflexive G" 
-  assumes st: "stable\<^sub>t R Q" 
+  assumes wf: "transitive R" "reflexive R" "reflexive G" "reflexive G'" "G' \<subseteq> step\<^sub>t R \<inter> step G"
+  assumes st: "stable\<^sub>t R [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
   assumes g: "guar\<^sub>c c G"
-  assumes P: "P \<subseteq> wp R c Q"
-  shows "\<Turnstile> c SAT [P, R, G, Q]"
+  assumes P: "P \<subseteq>\<^sub>s wp R c Q"
+  assumes l: "lk\<^sub>l c \<inter> wr\<^sub>l c = {}"
+  shows "\<Turnstile> c SAT [[P]\<^sub>;, R, G, [Q]\<^sub>;]"
 proof -
-  have "R,G \<turnstile>\<^sub>s wp R c Q {c} Q" using wf st g com_wp unfolding valid_def by blast
-  hence "R,G \<turnstile>\<^sub>s P {c} Q" by (rule rules.conseq) (insert P, auto simp: )
-  thus ?thesis by (intro sound thread) auto
+  have "\<forall>d>1. base_rel_frame_id (step\<^sub>t R),base_rel_frame_sz (step G) d (wr\<^sub>l c) \<turnstile> 
+          spec_pred_of_lvm_pred [Q]\<^sub>s (wr\<^sub>l c) {com.Nil} spec_pred_of_lvm_pred [Q]\<^sub>s (wr\<^sub>l c)"
+    using st(2) by auto
+  hence "R,G,G' \<turnstile> wp R c Q {c,Nil,wr\<^sub>l c} Q" 
+    using com_wp st wf g l by blast
+  hence "R,G \<turnstile>\<^sub>; [wp R c Q]\<^sub>; {c,Nil,wr\<^sub>l c} [Q]\<^sub>;" 
+    by blast
+  hence "R,G \<turnstile>\<^sub>; [P]\<^sub>; {c,Nil,wr\<^sub>l c} [Q]\<^sub>;" 
+    using P by (meson equalityD2 rules.conseq seq_mono)
+  thus ?thesis using sound by blast
 qed
 
 end (* of context wp *)
