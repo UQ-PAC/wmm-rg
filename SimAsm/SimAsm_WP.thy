@@ -338,6 +338,7 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow>
                                 stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q)))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)
+(* TODO(PAPER): change usage of merge to be within guard conditional, matching the paper *)
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
        ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
         stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
