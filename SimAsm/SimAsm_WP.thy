@@ -277,6 +277,9 @@ text \<open> Unlabelling a predicate, such that variables with differing labels 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
+abbreviation restrict_pred_abbrev ("(_[y\<phi> sub y])" [1000] 1000) where
+  "restrict_pred_abbrev Q \<equiv> restrict_pred Q"
+
 text \<open>Build a labelled @{type varmap'} from a global and unlabelled @{type varmap'}\<close>
 definition mk_lvarmap :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'"
   where "mk_lvarmap g u \<equiv> \<lparr> varmap_st = (\<lambda>v. case v of Ul v \<Rightarrow> varmap_st u v |
@@ -349,25 +352,42 @@ abbreviation spec_subset :: "('r,'v,'a) spec_state \<Rightarrow>
                              ('r,'v,'a) spec_state \<Rightarrow> bool" (infixr "\<subseteq>\<^sub>s" 80) 
   where "spec_subset c\<^sub>1 c\<^sub>2 \<equiv> ([c\<^sub>1]\<^sub>s \<subseteq> [c\<^sub>2]\<^sub>s) \<and> ([c\<^sub>1]\<^sub>; \<subseteq> [c\<^sub>2]\<^sub>;)"
 
+fun langsize where
+  "langsize (Skip) = 2" |
+  "langsize (Op _ _ _) = 2" |
+  "langsize (SimAsm.lang.Seq a b) = 1 + langsize a + langsize b" |
+  "langsize (If _ a b) = 1 + langsize a + langsize b" |
+  "langsize (While _ _ _ c) = 1 + langsize c" |
+  "langsize (DoWhile _ _ c _) = 1 + 3 * langsize c"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
+function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ul_restrict) (fst Q))),
                                 stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
-       ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
-        stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
-    "wp R (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
-       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
-        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
-      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = wp R c (merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
-       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
-        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;))))"
+    "wp R (If b c\<^sub>1 c\<^sub>2) Q = (let (Qs1,Q1) = wp R c\<^sub>1 Q; (Qs2,Q2) = wp R c\<^sub>2 Q in
+       (stabilize\<^sub>L R (Qs1 \<inter> Qs2), 
+        stabilize R (wp\<^sub>i (cmp b) (Q1 \<inter> Qs2[y\<phi> sub y]) \<inter> wp\<^sub>i (ncmp b) (Q2 \<inter> Qs1[y\<phi> sub y]))))" |
+
+    "wp R (While b Inv\<^sub>s Inv c) Q = 
+      ((stabilize R Inv\<^sub>s)\<^sup>L,
+       stabilize R (Inv \<inter> Inv\<^sub>s 
+         \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
+         \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s)
+         \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
+    (* XXX: we need to change Inv\<^sub>s to a speculative predicate. this will need changing lang. *)
+    (* XXX: after, we need Inv\<^sub>s to become Inv\<^sub>s[y\<phi> sub y] *)
+      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = wp R (SimAsm.lang.Seq (c) (While b Inv\<^sub>s Inv c)) Q"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
+apply auto
+using ops.cases by blast
+termination 
+by (relation "measure (\<lambda>(_,c,_). langsize c)") (auto, induct_tac c, auto)
+
+
 
 text \<open>transformer over a spec_state. given two mapping functions, applies them to both
       components of the spec_state, element-wise.\<close>
