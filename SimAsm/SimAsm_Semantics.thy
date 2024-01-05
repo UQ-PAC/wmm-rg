@@ -161,33 +161,43 @@ text \<open>Convert the language into the abstract language expected by the unde
         (note, wrs must include @{term w\<^sub>l} of the rest program r, which is a com not a lang construct which
          precludes to derived it at this level)  \<close> 
 
+fun liftspec :: "'r set \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com
+                        \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com
+                        \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com"
+  where
+    "liftspec wrs cs c = Choice (\<lambda>s. if s = 0 then (Interrupt (Capture (emptyFrame wrs) (cs))) \<cdot> c else c)"
+
+
+(* remark: in this lifting, 'r' should only be appended to the command during speculation. *)
+(* XXX: more principled usage of 'r'. at which point does it get added to the command? *)
 fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com \<Rightarrow> 'r set \<Rightarrow>
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com"
   where
     "lift\<^sub>c Skip r wrs = com.Nil" |
     "lift\<^sub>c (Op v a f) r wrs = Basic (lift\<^sub>b v a f)" | 
     "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) r wrs = (lift\<^sub>c c\<^sub>1 (lift\<^sub>c c\<^sub>2 r wrs) (wrs)) ;; (lift\<^sub>c c\<^sub>2 r wrs)" |
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda> s. if (s = 0)
-                    then Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c\<^sub>2 r wrs) ;; r)) \<cdot> (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r wrs))
-                    else Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c\<^sub>1 r wrs) ;; r)) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r wrs))))"  |
+    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda>s. if s = 0
+                    then liftspec wrs (lift\<^sub>c c\<^sub>2 r wrs ;; r) (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>1 r wrs)
+                    else liftspec wrs (lift\<^sub>c c\<^sub>1 r wrs ;; r) (Basic (\<lfloor>ncmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>2 r wrs)))"  |
 (*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b]; r *)
     "lift\<^sub>c (While b Imix Ispec c) r wrs =  
-           (Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)))* ;;
-           (Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c r wrs) ;; (lift\<^sub>c c r wrs)* ) ;; r) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>) ;; r))"  |
+           (liftspec wrs r (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c r wrs))* ;;
+           liftspec wrs (lift\<^sub>c c r wrs ;; (lift\<^sub>c c r wrs)* ;; r) (Basic (\<lfloor>ncmp b\<rfloor>))"  |
 (* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b]; r ) *)
-    "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs =  
+    "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs =   
            ((Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> ((lift\<^sub>c c r wrs) ;; r))  \<cdot>
                                                       ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>cmp b\<rfloor>))))* ;;
             (Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> ((lift\<^sub>c c r wrs)* ;; (lift\<^sub>c c r wrs) ;; r))  \<cdot>
                                                       ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>ncmp b\<rfloor>)) ;; r)" 
+(* TODO: DO WHILE with liftspec *)
 
 
 
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:
-  "local (lift\<^sub>c c r {})"
-  apply (induct c) 
-  sorry
+  "local r \<Longrightarrow> local (lift\<^sub>c c r {})"
+  apply (induct c arbitrary: r) 
+  by auto
 
 end   (* end of semantics_if_spec *)
 

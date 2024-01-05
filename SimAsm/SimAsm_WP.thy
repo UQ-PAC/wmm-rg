@@ -277,6 +277,11 @@ text \<open> Unlabelling a predicate, such that variables with differing labels 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
   "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
 
+lemma restrict_pred_def2: 
+  "restrict_pred Q = {s. \<exists>s2 \<in> Q. s = gl_restrict s2 \<and> (\<forall>v. varmap_st s2 (Gl v) = varmap_st s2 (Ul v))}"
+  unfolding restrict_pred_def image_def
+  apply clarsimp apply standard apply clarsimp apply metis by blast
+
 abbreviation restrict_pred_abbrev ("(_[y\<phi> sub y])" [1000] 1000) where
   "restrict_pred_abbrev Q \<equiv> restrict_pred Q"
 

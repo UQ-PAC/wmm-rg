@@ -1230,7 +1230,7 @@ lemma [simp]:
 
 text \<open>Com Rule\<close>
 theorem com_wp:
-  (* Q captures the speculative implzications of r *)
+  (* Q captures the speculative implications of r *)
   assumes s: "(base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G' w) \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s w) {r} (spec_pred_of_lvm_pred Q' w)"
   (* Q is stable *)
   assumes st: "stable\<^sub>t R [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
@@ -1240,8 +1240,11 @@ theorem com_wp:
   (* Standard properties of R G *)
   assumes wf: "wellformed R G" "reflexive G'" "G' \<subseteq> step\<^sub>t R \<inter> step G"
 
+  (* sequential postcondition entails speculative postcondition *)
+  assumes Q: "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]"
+
   shows "(R,G,G' \<turnstile> wp R c Q {c,r,w} Q) \<and> (stable\<^sub>t R [wp R c Q]\<^sub>; \<and> stable\<^sub>L R [wp R c Q]\<^sub>s)"
-  using s st g
+  using s st g Q
 proof (induct c arbitrary: Q' Q r w)
   case Skip
   then show ?case by (auto)
@@ -1251,9 +1254,10 @@ next
 next
   case (Seq c\<^sub>1 c\<^sub>2)
   hence c2: "R,G,G' \<turnstile> wp R c\<^sub>2 Q {c\<^sub>2,r,w} Q" "stable\<^sub>t R [wp R c\<^sub>2 Q]\<^sub>;" "stable\<^sub>L R [wp R c\<^sub>2 Q]\<^sub>s" by simp+
+  have wpQ: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" sorry (* TODO: Q entailment is perserved by wp transformer *)
   have "(R,G,G' \<turnstile> wp R c\<^sub>1 (wp R c\<^sub>2 Q) {c\<^sub>1,lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2) r w,w} (wp R c\<^sub>2 Q))
           \<and> (stable\<^sub>t R [wp R c\<^sub>1 (wp R c\<^sub>2 Q)]\<^sub>; \<and> stable\<^sub>L R [wp R c\<^sub>1 (wp R c\<^sub>2 Q)]\<^sub>s)"
-    using Seq(1)[OF _ c2(2,3)] c2(1) Seq(6,7,8) by auto
+    using Seq(1)[OF _ c2(2,3)] c2(1) Seq(6,7,8,9) wpQ by auto
   then show ?case using c2 by auto
 next
   case (If b c\<^sub>1 c\<^sub>2)
@@ -1263,9 +1267,79 @@ next
            "stable\<^sub>L R [local.wp R c\<^sub>1 Q]\<^sub>s" "stable\<^sub>L R [local.wp R c\<^sub>2 Q]\<^sub>s"
     using If by auto
 
+  have spec_part_simp [simp]: "fst x = [x]\<^sub>s" for x :: "('r,'v,'a) spec_state" by (cases x) auto  
+  have seq_part_simp [simp]: "snd x = [x]\<^sub>;" for x :: "('r,'v,'a) spec_state" by (cases x) auto
+  
+  have LU[simp]: "(Q\<^sup>L)[y\<phi> sub y] = Q" for Q
+  unfolding restrict_pred_def ul_lift_pred_def image_def 
+  by auto (metis ul_restrict.simps ul_restrict_of_glul varmap_st_of_glul)
+  
+  have Udistrib[simp]: "(Q1 \<inter> Q2)\<^sup>U = Q1\<^sup>U \<inter> Q2\<^sup>U" for Q1 Q2
+  unfolding restrict_pred_def image_def
+  apply standard
+    apply fast
+  apply clarsimp
+  by (metis (no_types, opaque_lifting) ext label.exhaust varmap_rec.equality)
+
+  have y: "stabilize R Q \<subseteq> (stabilize\<^sub>L R Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for Q Qs
+  apply auto 
+  sorry
+
+  have z: "a \<in> wp\<^sub>i x2 Q \<Longrightarrow> a \<in> (wp\<^sub>i\<^sub>s x2 Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for x2 Q Qs a
+  apply (induct x2 arbitrary: Q Qs)
+  unfolding restrict_pred_def image_def
+  sorry
+
+  have [simp]: "varmap_st a\<^sup>G\<^sup>L (Ul v) = varmap_st a v" for a v
+    unfolding glul_lift_pred_def by auto
+
+  have [simp]: "varmap_rec.more a\<^sup>G\<^sup>L = varmap_rec.more a" for a
+    unfolding glul_lift_pred_def by auto
+
+  have z2: "a \<in> wp\<^sub>a x3 Q \<Longrightarrow> a \<in> (wp\<^sub>a (x3 \<circ> ul_restrict) Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for a x3 Q Qs
+  unfolding comp_def apply auto unfolding wp\<^sub>a.simps restrict_pred_def image_def apply auto
+  proof
+    let ?x6 = "a\<^sup>G\<^sup>L"    
+    note a2 = varmap_rec.surjective[symmetric]
+    assume a: "a\<lparr>varmap_rec.more := x3 a\<rparr> \<in> Q"
+    then show 
+      "(\<forall>v. varmap_st ?x6 (Gl v) = varmap_st ?x6 (Ul v)) \<and>
+        ?x6\<lparr>varmap_rec.more := x3 \<lparr>varmap_st = \<lambda>v. varmap_st ?x6 (Ul v), \<dots> = varmap_rec.more ?x6\<rparr>\<rparr> \<in> Qs \<and>
+        a = \<lparr>varmap_st = \<lambda>v. varmap_st ?x6 (Ul v), \<dots> = varmap_rec.more ?x6\<rparr>"
+    proof (intro conjI allI, goal_cases)
+      case (1 v)
+      then show ?case by (simp add: varmap_st_of_glul)
+    next
+      case 2
+      note xxx[simp] = a2[of a]
+      note aasd = that
+      let ?a' = "a\<lparr>varmap_rec.more := x3 a\<rparr>"
+      have s2: "\<exists>s2\<in>Qs. ?a' = \<lparr>varmap_st = \<lambda>v. varmap_st s2 (Gl v), \<dots> = varmap_rec.more s2\<rparr> \<and>
+                    (\<forall>v. varmap_st s2 (Gl v) = varmap_st s2 (Ul v))"
+        using that unfolding glul_lift_pred_def restrict_pred_def2 apply simp using a by blast        
+      then show ?case apply clarsimp unfolding glul_lift_pred_def apply simp
+      apply (subgoal_tac "\<lparr>varmap_st = \<lambda>v. varmap_st a (unlabel v), \<dots> = x3 a\<rparr> = s2")
+      apply simp
+      apply (intro varmap_rec.equality ext allI)
+      apply (case_tac x)
+      apply simp_all
+      using varmap_rec.ext_inject varmap_rec.update_convs(2) xxx
+      by metis+
+    next
+      case 3
+      then show ?case by (metis ul_restrict.simps ul_restrict_of_glul)
+    qed
+  qed
+
+
+  have question: "[local.wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" if "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]" for Q
+  apply (induct c)
+    sorry
+
   show ?case
-  proof (clarsimp, intro choice_if conjI, goal_cases left right spec st1 st2 st3)
-    case left
+  apply (clarsimp, intro choice_if conjI; (simp; intro choice_if)?)
+  proof (goal_cases leftspec1 left1 rightspec1 right1 leftspec2 left2 rightspec2 right2 st1 st2)
+    case leftspec1
     have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
     have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
       seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)) 
@@ -1275,57 +1349,59 @@ next
 
     have s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
       seq_pred_of_vm_pred 
-        (stabilize R ([local.wp R c\<^sub>2 Q]\<^sub>s \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s)\<^sup>U \<inter> stabilize R
-          ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>1 Q]\<^sub>;} \<inter> {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>;})) 
+        [(stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s),
+                   stabilize R
+                    ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow>
+                         s \<in> [local.wp R c\<^sub>1 Q]\<^sub>; \<and> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]} \<inter>
+                     {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
+                         s \<in> [local.wp R c\<^sub>2 Q]\<^sub>; \<and>
+                         s \<in> [local.wp R c\<^sub>1
+                                Q]\<^sub>s[y\<phi> sub y]}))]\<^sub>;
             {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2) r w) r)} ?P"
       apply (rule spec_judgement)
           apply (rule seq)
       using If apply fastforce
       using c2 apply fastforce
       using wf apply fastforce
-      using wf stabilize_entail apply fastforce
-      using wf stabilize_entail apply (meson inf.cobounded1 stabilizeE subsetD subsetI ul_restrict_mono)
-      using wf by blast
+      using wf stabilize_entail apply (clarsimp simp add: Collect_mono_iff le_infI1)
+      using wf stabilize_entail question Q apply auto[1]
+      apply (smt (z3) Collect_mem_eq If.prems(7) Int_Collect inf.orderE question stabilizeE)
+      (* this goal wants x in [wp c2 Q]s to hold in both cases b and \<not>b. we hypothesise that this
+         is possible if the sequential predicate entails the speculative predicate. *)
+      using wf sorry
 
-    show ?case using c b s by (intro seq) (simp; blast)
+    show ?case using c b s
+    unfolding prod.case_eq_if apply (simp only: spec_part_simp seq_part_simp)
+    apply auto
+    sorry    
   next
-    case right
-    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>2 Q]\<^sub>; {c\<^sub>2,r,w} [Q]\<^sub>;" using c2 by auto
-    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;)) 
-        {Basic (liftl (ncmp b))} 
-          seq_pred_of_vm_pred [wp R c\<^sub>2 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
-      using cmp_seq st If wf by blast
-
-    have s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
-      seq_pred_of_vm_pred 
-        (stabilize R ([local.wp R c\<^sub>2 Q]\<^sub>s \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s)\<^sup>U \<inter> stabilize R
-          ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>1 Q]\<^sub>;} \<inter> {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>;})) 
-            {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>1) r w) r)} ?P"
-      apply (rule spec_judgement)
-          apply (rule seq)
-      using If apply fastforce
-      using c1 apply fastforce
-      using wf apply fastforce
-      using wf stabilize_entail apply fastforce
-      using wf stabilize_entail apply (meson inf.cobounded1 inf.cobounded2 stabilizeE subsetD subsetI ul_restrict_mono)
-      using wf by blast
-
-    show ?case using c b s by (intro seq) (simp; blast)
+    case left1
+    then show ?case sorry
   next
-    case spec
-    then show ?case
-      sorry
+    case rightspec1
+    then show ?case sorry
+  next
+    case right1
+    then show ?case sorry
+  next
+    case leftspec2
+    then show ?case sorry
+  next
+    case left2
+    then show ?case sorry
+  next
+    case rightspec2
+    then show ?case sorry
+  next
+    case right2
+    then show ?case sorry
   next
     case st1
-    thus ?case sorry
+    then show ?case sorry
   next
     case st2
-    thus ?case sorry
-  next
-    case st3
-    thus ?case sorry
-  qed
+    then show ?case sorry
+    qed
 next
   case (While x1 x2 x3 c)
   then show ?case sorry
@@ -1344,13 +1420,14 @@ theorem simAsm_wp_sound:
   assumes g: "guar\<^sub>c c G"
   assumes P: "P \<subseteq>\<^sub>s wp R c Q"
   assumes l: "lk\<^sub>l c \<inter> wr\<^sub>l c = {}"
+  assumes Q: "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]"
   shows "\<Turnstile> c SAT [[P]\<^sub>;, R, G, [Q]\<^sub>;]"
 proof -
   have "\<forall>d>1. base_rel_frame_id (step\<^sub>t R),base_rel_frame_sz (step G) d (wr\<^sub>l c) \<turnstile> 
           spec_pred_of_lvm_pred [Q]\<^sub>s (wr\<^sub>l c) {com.Nil} spec_pred_of_lvm_pred [Q]\<^sub>s (wr\<^sub>l c)"
     using st(2) by auto
   hence "R,G,G' \<turnstile> wp R c Q {c,Nil,wr\<^sub>l c} Q" 
-    using com_wp st wf g l by blast
+    using com_wp st wf g l Q by blast
   hence "R,G \<turnstile>\<^sub>; [wp R c Q]\<^sub>; {c,Nil,wr\<^sub>l c} [Q]\<^sub>;" 
     by blast
   hence "R,G \<turnstile>\<^sub>; [P]\<^sub>; {c,Nil,wr\<^sub>l c} [Q]\<^sub>;" 
