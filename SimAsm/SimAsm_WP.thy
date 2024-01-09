@@ -36,6 +36,7 @@ text \<open> General WP reasoning
 locale wp =
   fixes rg :: "('r,'v,'a) varmap' \<Rightarrow> 'l"
   fixes glb :: "('r,'v,'a) varmap' \<Rightarrow> 'g"
+  assumes rgglb_injective: "\<And>x y. rg x = rg y \<Longrightarrow> glb x = glb y \<Longrightarrow> varmap_rec.more x = varmap_rec.more y \<Longrightarrow> x = y"
 
 
 
@@ -130,6 +131,7 @@ lemma refl_step [intro]:
   assumes "reflexive G"
   shows "(m,m) \<in> step G"
   using assms by (auto simp: step_def reflexive_def)
+
 
 
 section \<open>Predicate Transformations\<close>
@@ -295,14 +297,15 @@ context wp_spec
 begin
 
 text \<open> stablilizing the verification conditions in the speculated part:
-              - global variables (labelled with G, i.e., sit in the base frame) related by R
-              - local variables (labelled with G) need to be equal 
-              - all other parts of the labelled state (all unlabelled parts, i.e., frame vars)
+              - non-speculative global variables (labelled with G, i.e., sit in the base frame) related by R
+              - non-speculative local variables (labelled with G) need to be equal 
+              - all other parts of the labelled state (all unlabelled parts, i.e., speculative frame vars)
                   are unchanged \<close>
 definition stabilize\<^sub>L
   where "stabilize\<^sub>L R P \<equiv> {m. \<forall>m'. 
         (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> rg (gl_restrict m) = rg (gl_restrict m') 
-                                                       \<and> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P}"
+                                                       \<longrightarrow> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P}"
+
 
 text \<open>Specialise the stability definition based on the conditions implied by @{term stabilize\<^sub>L}\<close>
 definition stable\<^sub>L
@@ -310,8 +313,6 @@ definition stable\<^sub>L
         (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<and>
          rg (gl_restrict m) = rg (gl_restrict m') \<and>
          ul_restrict m = ul_restrict m'} P"
-
-
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
@@ -526,9 +527,34 @@ proof -
   have "\<forall>m'. (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> 
               rg (gl_restrict m) = rg (gl_restrict m') \<and> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P" 
        "(glb (gl_restrict m), glb (gl_restrict m)) \<in>  R"
-    using assms by (simp_all add: stabilize\<^sub>L_def reflexive_def)
+    using assms using stabilize\<^sub>L_def reflexive_def[of R] by auto  
   thus ?thesis using that by auto
 qed
+
+lemma lvarmap_eqI[intro]:
+  assumes "\<And>v. varmap_st x (Gl v) = varmap_st y (Gl v)"
+  assumes "\<And>v. varmap_st x (Ul v) = varmap_st y (Ul v)"
+  assumes "varmap_rec.more x = varmap_rec.more y"
+  shows "x = y"
+using assms
+proof (intro varmap_rec.equality ext, goal_cases)
+  case (1 v)
+  then show ?case by (cases v) auto
+qed simp
+
+lemma lvarmap_rgglb_eqI[intro]:
+  assumes "rg (gl_restrict x) = rg (gl_restrict y)"
+  assumes "rg (ul_restrict x) = rg (ul_restrict y)"
+  assumes "glb (gl_restrict x) = glb (gl_restrict y)"
+  assumes "glb (ul_restrict x) = glb (ul_restrict y)"
+  assumes "varmap_rec.more x = varmap_rec.more y"
+  shows "x = y"
+proof -
+  have "gl_restrict x = gl_restrict y" "ul_restrict x = ul_restrict y"
+    using assms rgglb_injective by force+
+  then show ?thesis by (intro lvarmap_eqI, (simp, meson?)+)
+qed
+
 
 end (* end of locale wp_spec *)
 
