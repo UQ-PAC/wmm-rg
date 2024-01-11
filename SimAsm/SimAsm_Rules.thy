@@ -379,7 +379,7 @@ proof (intro basic atomicI, goal_cases st gu spre spost)
   have wp: "?lhs \<subseteq> {m. \<forall>m'. (m, m') \<in> beh (lift\<^sub>b (ts_pred_of_vm_pred v) op (f \<circ> vm_of_ts)) \<longrightarrow> 
                       vm_of_ts m' \<in> Q \<and> ts_is_seq m'}"
     using r by (cases op) (auto elim!: stabilizeE simp: liftg_def wp\<^sub>a.simps)
-  show ?case using vc wp by (auto simp: wp_def)
+  show ?case using vc wp by (auto simp: State.wp_def)
 next
   case gu
   thus ?case using g r apply (cases op) 
@@ -411,7 +411,7 @@ proof (intro basic impI allI conjI atomicI, goal_cases st gu spre spost)
   have wp: "?lhs \<subseteq> {m. \<forall>m'. (m, m') \<in> beh (lift\<^sub>b (ts_pred_of_vm_pred v) op (f \<circ> vm_of_ts)) \<longrightarrow>
                 mk_lvarmap (tstack_base m') (vm_of_ts m') \<in> Q \<and> ts_is_spec m' \<and> w = capped m'}"
     using r w by (cases op; auto elim!: stabilize\<^sub>LE simp: wp\<^sub>a.simps liftg_def) force_eq+
-  show ?case using vc inv wp by (auto simp: wp_def)
+  show ?case using vc inv wp by (auto simp: State.wp_def)
 next
   case gu
   then show ?case using r w apply (cases op) 
@@ -427,14 +427,14 @@ next
 qed
 
 lemma cmp_seq:
-  assumes r: "wellformed R G"
+  assumes r: "wellformed R anything" "reflexive G"
   assumes s: "stable\<^sub>t R Q"
-  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
+  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar G w \<turnstile> 
           seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) Q)) {Basic (liftl (cmp b))} seq_pred_of_vm_pred Q"
   unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps liftl_def
 proof (intro basic conjI atomicI, goal_cases st gu  spre spost )
   case st
-  thus ?case using r by (auto simp: wp_def elim!: stabilizeE)
+  thus ?case using r by (auto simp: State.wp_def elim!: stabilizeE)
 next
   case gu
   thus ?case using r by (auto intro!: base_rel_guarI  simp: guar_def reflexive_def step_def)
@@ -447,15 +447,15 @@ next
 qed
 
 lemma cmp_spec:
-  assumes r: "wellformed R G"
+  assumes r: "wellformed R anything" "reflexive G'"
   assumes s: "stable\<^sub>L R Q"
   assumes d: "d > 1"
-  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
+  shows "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> 
           spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) Q)) w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred Q w"
   unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps liftl_def
 proof (intro basic conjI atomicI, goal_cases st gu  spre spost )
   case st
-  thus ?case using r by (auto simp: wp_def elim!: stabilize\<^sub>LE)
+  thus ?case using r by (auto simp: wp_def State.wp_def elim!: stabilize\<^sub>LE)
 next
   case gu
   thus ?case using r d by (auto intro!: base_rel_guarI  simp: guar_def reflexive_def step_def id_on_def)
@@ -642,7 +642,7 @@ proof -
   next
     show "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Q w)" using st by blast
   next
-    show "stable (base_rel_guar G' w) (spec_pred_of_lvm_pred Q w)" using st m sorry
+    show "stable (base_rel_guar G' w) (spec_pred_of_lvm_pred Q w)" using st m by blast
   next
     show "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> 
             spec_pred_of_lvm_pred P w {Capture (emptyFrame w) r} UNIV" 
@@ -1281,6 +1281,12 @@ next
   apply clarsimp
   by (metis (no_types, opaque_lifting) ext label.exhaust varmap_rec.equality)
 
+  have asd: "(x\<^sup>G\<^sup>L \<in> Q) = (x \<in> Q[y\<phi> sub y])" for x Q
+  apply standard
+  unfolding glul_lift_pred_def restrict_pred_def2 apply simp_all
+  apply (metis gl_restrict.simps gl_restrict_of_glul glul_lift_pred_def varmap_st_of_glul)
+  by (metis lvarmap_eqI unlabel.simps varmap_rec.select_convs)
+
   have y: "stabilize R Q \<subseteq> (stabilize\<^sub>L R Qs)[y\<phi> sub y]" if Q: "Q \<subseteq> Qs[y\<phi> sub y]" for Q Qs
   proof (standard; goal_cases)
     case (1 x) (* x is stabilized non-spec state *)
@@ -1292,9 +1298,9 @@ next
     apply simp
     apply standard
     proof (goal_cases)
-    let ?s2 = "x\<^sup>G\<^sup>L"
+      let ?s2 = "x\<^sup>G\<^sup>L"
 
-    case 1
+      case 1
       then show "x = \<lparr>varmap_st = \<lambda>v. varmap_st ?s2 (Gl v), \<dots> = varmap_rec.more ?s2\<rparr> \<and> 
         (\<forall>v. varmap_st ?s2 (Gl v) = varmap_st ?s2 (Ul v))"
       by (intro conjI) (auto simp  add: glul_lift_pred_def)
@@ -1314,15 +1320,16 @@ next
         have in_Q: "m' \<in> Q" if "(glb x, glb m') \<in> R" "rg x = rg m'" for m'
           using stabilized that unfolding stabilize_def by simp
 
+        have ul: "ul_restrict m' \<in> Q" using x_m' stabilized stabilizeE xQ by simp
         have gl: "gl_restrict m' \<in> Q" using 1 in_Q by auto
         have "x\<^sup>G\<^sup>L \<in> Qs" unfolding glul_lift_pred_def using 2 by (metis lvarmap_eqI unlabel.simps varmap_rec.select_convs)
 
         have "x\<^sup>G\<^sup>L = m'"
         proof (rule lvarmap_rgglb_eqI, goal_cases rg_gl rg_ul glb_gl glb_ul more)
-        case rg_gl
+          case rg_gl
           then show ?case by (metis "local.1"(3) gl_restrict.simps gl_restrict_of_glul varmap_rec.surjective)
         next
-        case rg_ul
+          case rg_ul
           then show ?case by (metis ul_restrict_of_glul x_m')
         next
           case glb_gl
@@ -1330,7 +1337,7 @@ next
             apply simp using 1 unfolding varmap_eta gl_restrict.simps[symmetric] ul_restrict.simps[symmetric]
               using gl sorry
         next
-          case glb_ul then show ?case by (metis ul_restrict_of_glul x_m')
+          case glb_ul then show ?case using ul_restrict_of_glul x_m' by (simp add: glul_lift_pred_def)
         next
           case more then show ?case by (simp add: "local.1"(4) glul_lift_pred_def)
         qed
@@ -1339,9 +1346,6 @@ next
     qed
   qed
   
-  
-  
-
   have z: "a \<in> wp\<^sub>i x2 Q \<Longrightarrow> a \<in> (wp\<^sub>i\<^sub>s x2 Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for x2 Q Qs a
   apply (induct x2 arbitrary: Q Qs a)
   unfolding image_def
@@ -1444,11 +1448,20 @@ next
 
     show ?case using c b s seq
     unfolding prod.case_eq_if
-    by (smt (verit, best) Collect_cong prod.collapse spec_part_simp wp_spec.seq_part.simps)
+    by (smt (verit, best) Collect_cong prod.collapse spec_part_simp seq_part_simp)
     
   next
     case left1
-    then show ?case sorry
+    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
+    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
+      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)) 
+        {Basic (liftl (cmp b))} 
+          seq_pred_of_vm_pred [wp R c\<^sub>1 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
+      using cmp_seq st wf by blast
+    have b': "?R,?G \<turnstile> seq_pred_of_vm_pred [wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; {?b} ?Q" using b
+      apply (rule conseq) apply (clarsimp simp add: prod.case_eq_if wp.stabilize_def wp_axioms)
+      by simp_all
+    show ?case using seq c b' by simp
   next
     case rightspec1
     then show ?case sorry
@@ -1457,23 +1470,61 @@ next
     then show ?case sorry
   next
     case leftspec2
-    then show ?case sorry
+    then show ?case 
+    proof (simp add: prod.case_eq_if, intro seq; (rule spec_judgement', rule seq)?)
+      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>1 Q]\<^sub>s {c\<^sub>1,r,w} [Q]\<^sub>s" using c1 by simp
+      show "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w 
+                  \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [wp R c\<^sub>1 Q]\<^sub>s)) w
+                    {Basic (liftl (cmp b))} 
+                    spec_pred_of_lvm_pred [local.wp R c\<^sub>1 Q]\<^sub>s w"
+                    using cmp_spec[of R] wf st by blast
+      show "(base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G' w) \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s w) {r} (spec_pred_of_lvm_pred Q' w)"
+        using s wf If.prems(1) by linarith
+      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>2 Q]\<^sub>s  {c\<^sub>2,r,w} [Q]\<^sub>s" using c2 by simp
+      show "G' \<subseteq> step G \<inter> step\<^sub>t R" using wf(3) by simp
+      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>s)" using stabilize\<^sub>L_def by auto
+      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> [local.wp R c\<^sub>2 Q]\<^sub>s" using local.wf(1) stabilize\<^sub>LE by auto
+      show "stable\<^sub>L R (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>s))" using local.wf(1) by blast
+    qed 
   next
     case left2
-    then show ?case sorry
+    then show ?case
+    apply (simp add: prod.case_eq_if, intro seq)
+      using c1 c2 apply fast
+      apply (rule conseq[OF cmp_spec[where ?Q="[wp R c\<^sub>1 Q]\<^sub>s" and ?w=w]])
+      using wf st stabilize\<^sub>L_def by auto
   next
     case rightspec2
-    then show ?case sorry
+    then show ?case 
+    proof (simp add: prod.case_eq_if, intro seq; (rule spec_judgement', rule seq)?)
+      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>1 Q]\<^sub>s  {c\<^sub>1,r,w} [Q]\<^sub>s" using c2 c1 by simp
+      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>2 Q]\<^sub>s {c\<^sub>2,r,w} [Q]\<^sub>s" using c1 c2 by simp
+      show "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w 
+                  \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [wp R c\<^sub>2 Q]\<^sub>s)) w
+                    {Basic (liftl (ncmp b))} 
+                    spec_pred_of_lvm_pred [local.wp R c\<^sub>2 Q]\<^sub>s w"
+                    using cmp_spec[where ?R=R and ?b="Neg b" and ?w=w] wf st by blast
+      show "(base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G' w) \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s w) {r} (spec_pred_of_lvm_pred Q' w)"
+        using s wf If.prems(1) by linarith
+      show "G' \<subseteq> step G \<inter> step\<^sub>t R" using wf(3) by simp
+      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>s)" using stabilize\<^sub>L_def by auto
+      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> [local.wp R c\<^sub>1 Q]\<^sub>s" using local.wf(1) stabilize\<^sub>LE by auto
+      show "stable\<^sub>L R (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>s))" using local.wf(1) by blast
+    qed 
   next
     case right2
-    then show ?case sorry
+    then show ?case
+    apply (simp add: prod.case_eq_if, intro seq)
+      using c1 c2 apply fast
+      apply (rule conseq[OF cmp_spec[where ?Q="[wp R c\<^sub>2 Q]\<^sub>s" and ?w=w]])
+      using wf st stabilize\<^sub>L_def by auto
   next
     case st1
-    then show ?case sorry
+    then show ?case apply (simp add: prod.case_eq_if) using wf by auto 
   next
     case st2
-    then show ?case sorry
-    qed
+    then show ?case apply (simp add: prod.case_eq_if) using wf by auto 
+  qed
 next
   case (While x1 x2 x3 c)
   then show ?case sorry

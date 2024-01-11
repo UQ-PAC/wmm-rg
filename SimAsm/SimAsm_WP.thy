@@ -77,6 +77,10 @@ text \<open>Lift a relational predicate and assume it preserves the thread state
 definition step :: "'g rel \<Rightarrow> ('r,'v,'a) varmap' rel"
   where "step R \<equiv> {(t,t'). (glb t, glb t') \<in> R}"
 
+lemma reflexive_step [intro]:
+  "reflexive G \<Longrightarrow> reflexive (step G)"
+unfolding reflexive_def step_def by auto
+
 
 text \<open>Define stability in terms of a relational predicate that preserves the thread state\<close>
 abbreviation stable\<^sub>t
