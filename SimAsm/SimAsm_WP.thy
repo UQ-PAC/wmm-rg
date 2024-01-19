@@ -198,7 +198,7 @@ begin
 (* create an annotation type for loops that can be just one pred for wp_WOspec, or two pred for wp_spec *)
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',unit,'a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
@@ -297,6 +297,7 @@ definition mk_lvarmap :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap' \<
                                                        Gl v \<Rightarrow> varmap_st g v),
                                    \<dots> = varmap_rec.more u \<rparr>"
 
+
 context wp_spec
 begin
 
@@ -348,11 +349,11 @@ fun spec_op :: "('r,'v) op \<Rightarrow> ('r label,'v) op" where
 fun spec_bexp :: "('r,'v) bexp \<Rightarrow> ('r label,'v) bexp" where
   "spec_bexp x = undefined"
 
-fun spec_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("[(_)]\<^sub>s") where
-  "spec_part (Qs,_) = Qs"
+abbreviation spec_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) lvarmap' pred" ("[(_)]\<^sub>s") where
+  "spec_part Pred \<equiv> fst Pred"
 
-fun seq_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) varmap' pred" ("[(_)]\<^sub>;") where
-  "seq_part (Qs,Q) = Q"
+abbreviation seq_part :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) varmap' pred" ("[(_)]\<^sub>;") where
+  "seq_part Pred \<equiv> snd Pred"
 
 abbreviation spec_inter :: "('r,'v,'a) spec_state \<Rightarrow> 
                              ('r,'v,'a) spec_state  \<Rightarrow> ('r,'v,'a) spec_state" (infixr "\<inter>\<^sub>s" 80) 
@@ -371,7 +372,7 @@ fun langsize where
   "langsize (DoWhile _ _ c _) = 1 + 3 * langsize c"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
+function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ul_restrict) (fst Q))),
@@ -382,15 +383,15 @@ function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Righta
        (stabilize\<^sub>L R (Qs1 \<inter> Qs2), 
         stabilize R (wp\<^sub>i (cmp b) (Q1 \<inter> Qs2[y\<phi> sub y]) \<inter> wp\<^sub>i (ncmp b) (Q2 \<inter> Qs1[y\<phi> sub y]))))" |
 
-    "wp R (While b Inv\<^sub>s Inv c) Q = 
-      ((stabilize R Inv\<^sub>s)\<^sup>L,
-       stabilize R (Inv \<inter> Inv\<^sub>s 
-         \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
-         \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s)
-         \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
+    "wp R (While b Inv Inv\<^sub>s c) Q = 
+      ((stabilize\<^sub>L R Inv\<^sub>s),
+       stabilize R (Inv \<inter> Inv\<^sub>s[y\<phi> sub y] 
+         \<inter> assert (Inv\<^sub>s \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
+         \<inter> assert (Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)
+         \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)))" |
     (* XXX: we need to change Inv\<^sub>s to a speculative predicate. this will need changing lang. *)
     (* XXX: after, we need Inv\<^sub>s to become Inv\<^sub>s[y\<phi> sub y] *)
-      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = wp R (SimAsm.lang.Seq (c) (While b Inv\<^sub>s Inv c)) Q"
+      "wp R (DoWhile Inv Inv\<^sub>s c b) Q = wp R (SimAsm.lang.Seq (c) (While b Inv Inv\<^sub>s c)) Q"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
 apply auto
 using ops.cases by blast
@@ -427,7 +428,7 @@ lemma varmap_st_of_glul: "varmap_st (s\<^sup>G\<^sup>L) (Gl v) = varmap_st (s\<^
 unfolding glul_lift_pred_def
 by simp
 
-lemma [simp]: "(Q\<^sup>G)\<^sup>U = Q" 
+lemma restrict_of_gl [simp]: "(Q\<^sup>G)\<^sup>U = Q" 
 unfolding gl_lift_pred_def restrict_pred_def 
 proof (standard, goal_cases)
   case 2
@@ -440,7 +441,7 @@ proof (standard, goal_cases)
   qed
 qed auto
 
-lemma [simp]: "(Q\<^sup>L)\<^sup>U = Q" 
+lemma restrict_of_ul [simp]: "(Q\<^sup>L)\<^sup>U = Q" 
 unfolding ul_lift_pred_def restrict_pred_def 
 proof (standard, goal_cases)
   case 2
@@ -452,6 +453,44 @@ proof (standard, goal_cases)
       apply (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) apply (auto simp add: glul_lift_pred_def) by (metis surjective)
   qed
 qed auto
+
+lemma restrict_pred_distrib[simp]: "(Q1 \<inter> Q2)\<^sup>U = Q1\<^sup>U \<inter> Q2\<^sup>U" for Q1 Q2
+unfolding restrict_pred_def image_def
+apply standard
+  apply fast
+apply clarsimp
+by (metis (no_types, opaque_lifting) ext label.exhaust varmap_rec.equality)
+
+lemma lvarmap_eqI[intro]:
+  assumes "\<And>v. varmap_st x (Gl v) = varmap_st y (Gl v)"
+  assumes "\<And>v. varmap_st x (Ul v) = varmap_st y (Ul v)"
+  assumes "varmap_rec.more x = varmap_rec.more y"
+  shows "x = y"
+using assms
+proof (intro varmap_rec.equality ext, goal_cases)
+  case (1 v)
+  then show ?case by (cases v) auto
+qed simp
+
+lemma lvarmap_rgglb_eqI[intro]:
+  assumes "rg (gl_restrict x) = rg (gl_restrict y)"
+  assumes "rg (ul_restrict x) = rg (ul_restrict y)"
+  assumes "glb (gl_restrict x) = glb (gl_restrict y)"
+  assumes "glb (ul_restrict x) = glb (ul_restrict y)"
+  assumes "varmap_rec.more x = varmap_rec.more y"
+  shows "x = y"
+proof -
+  have "gl_restrict x = gl_restrict y" "ul_restrict x = ul_restrict y"
+    using assms rgglb_injective by force+
+  then show ?thesis by (intro lvarmap_eqI, (simp, meson?)+)
+qed
+
+lemma glul_eq_restrict: "(x\<^sup>G\<^sup>L \<in> Q) = (x \<in> Q[y\<phi> sub y])" for x Q
+apply standard
+unfolding glul_lift_pred_def restrict_pred_def2 apply simp_all
+apply (metis gl_restrict.simps gl_restrict_of_glul glul_lift_pred_def varmap_st_of_glul)
+by (metis lvarmap_eqI select_convs(1) select_convs(2) unlabel.simps(1) unlabel.simps(2))
+
 
 lemma ul_lift_univ [simp]:
   "UNIV\<^sup>L = UNIV"
@@ -533,30 +572,6 @@ proof -
        "(glb (gl_restrict m), glb (gl_restrict m)) \<in>  R"
     using assms using stabilize\<^sub>L_def reflexive_def[of R] by auto  
   thus ?thesis using that by auto
-qed
-
-lemma lvarmap_eqI[intro]:
-  assumes "\<And>v. varmap_st x (Gl v) = varmap_st y (Gl v)"
-  assumes "\<And>v. varmap_st x (Ul v) = varmap_st y (Ul v)"
-  assumes "varmap_rec.more x = varmap_rec.more y"
-  shows "x = y"
-using assms
-proof (intro varmap_rec.equality ext, goal_cases)
-  case (1 v)
-  then show ?case by (cases v) auto
-qed simp
-
-lemma lvarmap_rgglb_eqI[intro]:
-  assumes "rg (gl_restrict x) = rg (gl_restrict y)"
-  assumes "rg (ul_restrict x) = rg (ul_restrict y)"
-  assumes "glb (gl_restrict x) = glb (gl_restrict y)"
-  assumes "glb (ul_restrict x) = glb (ul_restrict y)"
-  assumes "varmap_rec.more x = varmap_rec.more y"
-  shows "x = y"
-proof -
-  have "gl_restrict x = gl_restrict y" "ul_restrict x = ul_restrict y"
-    using assms rgglb_injective by force+
-  then show ?thesis by (intro lvarmap_eqI, (simp, meson?)+)
 qed
 
 

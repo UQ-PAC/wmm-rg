@@ -231,6 +231,17 @@ lemma aux_auxupd:
   "Is_tstack s \<Longrightarrow> aux (auxupd s f) = f s"
   by (induct rule: Is_tstack_induct) (auto simp: auxupd_def)
 
+lemma auxupd_aux:
+  "Is_tstack t \<Longrightarrow> auxupd t aux = t"
+  apply (induct rule: Is_tstack_induct) apply (auto simp: auxupd_def)
+  proof (goal_cases)
+    case (1 x xs)
+    then show ?case apply (induct xs)
+    apply auto
+    using surjective[of x]
+    sorry (* XXX: this feels obvious *)
+  qed
+
 lemma captured_auxupd:
   "Is_tstack s \<Longrightarrow> captured (auxupd s f) = captured s"
   by (induct rule: Is_tstack_induct) (auto simp: fun_eq_iff captured_def auxupd_def)
@@ -321,6 +332,10 @@ lemma tbase_st_tupdate [simp]:
 lemma tbase_aux_tupdate [simp]:
   "tbase_aux (tupdate s v e) = tbase_aux s"
   by (transfer) (auto simp: base_aux_update)
+
+lemma tauxupd_taux [simp]:
+  "tauxupd t taux = t"
+apply transfer sledgehammer
 
 subsection \<open>@{term tauxupd} Properties\<close>
 

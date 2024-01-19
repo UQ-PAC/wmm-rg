@@ -11,15 +11,15 @@ type_synonym ('r,'v,'s,'a) pred = "'s set"
 
 section \<open>Language Definition\<close>
 
-datatype ('r,'v,'s,'a) lang =
+datatype ('r,'v,'s,'ss,'a) lang =
   Skip
-  | Op "('r,'v,'s,'a) pred" "('r,'v) op" "('s,'a) auxfn"
-  | Seq "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"
-  | If "('r,'v) bexp" "('r,'v,'s,'a) lang" "('r,'v,'s,'a) lang"  
-  | While "('r,'v) bexp" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang"
-  | DoWhile "('r,'v,'s,'a) pred" "('r,'v,'s,'a) pred" "('r,'v,'s,'a) lang" "('r,'v) bexp"
+  | Op "'s set" "('r,'v) op" "('s,'a) auxfn"
+  | Seq "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"
+  | If "('r,'v) bexp" "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"  
+  | While "('r,'v) bexp" "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang"
+  | DoWhile "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang" "('r,'v) bexp"
 
-fun ops :: "('r,'v,'s,'a) lang \<Rightarrow> ('r,'v) op set" where 
+fun ops :: "('r,'v,'s,'ss,'a) lang \<Rightarrow> ('r,'v) op set" where 
   "ops Skip = {}" |
   "ops (Op _ op _) = {op}" |
   "ops (Seq a b) = ops a \<union> ops b" | 
