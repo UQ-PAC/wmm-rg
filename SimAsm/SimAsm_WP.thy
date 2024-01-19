@@ -136,6 +136,24 @@ lemma refl_step [intro]:
   shows "(m,m) \<in> step G"
   using assms by (auto simp: step_def reflexive_def)
 
+lemma stabilize_empty:
+  shows "reflexive R \<Longrightarrow> (Q = {}) \<Longrightarrow> (stabilize R Q = {})"
+unfolding stabilize_def
+using reflexive_def by fastforce  
+
+lemma stabilize_nonempty:
+  shows "reflexive R \<Longrightarrow> (stabilize R Q \<noteq> {}) \<Longrightarrow> (Q \<noteq> {}) "
+unfolding stabilize_def
+using reflexive_def by fastforce  
+
+lemma stable_stabilize_id [simp]: "reflexive R \<Longrightarrow> stable\<^sub>t R Inv \<Longrightarrow> stabilize R Inv = Inv"
+unfolding stabilize_def reflexive_def
+by (auto simp add: State.stable_def wp.step\<^sub>t_def wp_axioms)
+
+lemma stabilize_smaller [intro]:
+  "reflexive R \<Longrightarrow> stabilize R P \<subseteq> P"
+unfolding stabilize_def reflexive_def
+by auto
 
 
 section \<open>Predicate Transformations\<close>
@@ -389,8 +407,6 @@ function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarma
          \<inter> assert (Inv\<^sub>s \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
          \<inter> assert (Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)
          \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)))" |
-    (* XXX: we need to change Inv\<^sub>s to a speculative predicate. this will need changing lang. *)
-    (* XXX: after, we need Inv\<^sub>s to become Inv\<^sub>s[y\<phi> sub y] *)
       "wp R (DoWhile Inv Inv\<^sub>s c b) Q = wp R (SimAsm.lang.Seq (c) (While b Inv Inv\<^sub>s c)) Q"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
 apply auto
@@ -574,6 +590,22 @@ proof -
   thus ?thesis using that by auto
 qed
 
+text \<open>Stabilization (with L) preserves entailment\<close>
+lemma stabilize\<^sub>L_entail :
+  assumes "t \<in> stabilize\<^sub>L R P" 
+  assumes "reflexive R"
+  assumes "P \<subseteq> Q"
+  shows "t \<in> stabilize\<^sub>L R Q"
+  using assms by (auto simp: stabilize\<^sub>L_def)
+
+lemma stabilize\<^sub>L_smaller [intro]:
+  "reflexive R \<Longrightarrow> stabilize\<^sub>L R P \<subseteq> P"
+unfolding stabilize\<^sub>L_def reflexive_def
+by auto
+
+lemma stable_stabilize\<^sub>L_id [simp]: "reflexive R \<Longrightarrow> stable\<^sub>L R Inv \<Longrightarrow> stabilize\<^sub>L R Inv = Inv"
+unfolding stabilize\<^sub>L_def reflexive_def
+by (auto simp add: stable\<^sub>L_def stable_def wp.step\<^sub>t_def wp_axioms)
 
 end (* end of locale wp_spec *)
 
