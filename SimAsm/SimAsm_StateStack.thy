@@ -335,7 +335,7 @@ lemma tbase_aux_tupdate [simp]:
 
 lemma tauxupd_taux [simp]:
   "tauxupd t taux = t"
-apply transfer sledgehammer
+by transfer (simp add: auxupd_aux)
 
 subsection \<open>@{term tauxupd} Properties\<close>
 

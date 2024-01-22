@@ -1224,131 +1224,157 @@ qed
 *)
 section \<open>kait lemmas\<close>
 
-  lemma y: "stabilize R Q \<subseteq> (stabilize\<^sub>L R Qs)[y\<phi> sub y]" if Q: "Q \<subseteq> Qs[y\<phi> sub y]" "reflexive R" for Q Qs R
-  proof (standard; goal_cases)
-    case (1 x) (* x is stabilized non-spec state *)
-    note stabilized = 1
-    have xQ: "x \<in> Q" using "local.1" that stabilizeE by blast
-    have xQs: "x \<in> Qs[y\<phi> sub y]" using xQ that by auto
-    (* argue that x \<in> Qs[y\<phi> sub y] and also that its stability translates to stability\<^sub>L.*)
-    then show ?case unfolding restrict_pred_def2
-    apply simp
-    apply standard
-    proof (goal_cases)
-      let ?s2 = "x\<^sup>G\<^sup>L"
+lemma y: "stabilize R Q \<subseteq> (stabilize\<^sub>L R Qs)[y\<phi> sub y]" if Q: "Q \<subseteq> Qs[y\<phi> sub y]" "reflexive R" for Q Qs R
+proof (standard; goal_cases)
+  case (1 x) (* x is stabilized non-spec state *)
+  note stabilized = 1
+  have xQ: "x \<in> Q" using "local.1" that stabilizeE by blast
+  have xQs: "x \<in> Qs[y\<phi> sub y]" using xQ that by auto
+  (* argue that x \<in> Qs[y\<phi> sub y] and also that its stability translates to stability\<^sub>L.*)
+  then show ?case unfolding restrict_pred_def2
+  apply simp
+  apply standard
+  proof (goal_cases)
+    let ?s2 = "x\<^sup>G\<^sup>L"
 
-      case 1
-      then show "x = \<lparr>varmap_st = \<lambda>v. varmap_st ?s2 (Gl v), \<dots> = varmap_rec.more ?s2\<rparr> \<and> 
-        (\<forall>v. varmap_st ?s2 (Gl v) = varmap_st ?s2 (Ul v))"
-      by (intro conjI) (auto simp  add: glul_lift_pred_def)
-    next
-      case 2
-      note varmap_eta = varmap_rec.surjective[symmetric]
-      from 2 show "x\<^sup>G\<^sup>L \<in> stabilize\<^sub>L R Qs" 
-      unfolding glul_lift_pred_def 
-      unfolding stabilize\<^sub>L_def
-      apply simp       
-      apply (intro allI impI)
-      proof goal_cases
-      case (1 m') (* m' is spec state after environment step *)
-        have x_m': "x = ul_restrict m'" by (simp add: "local.1"(4))
-        have x_m'2: "varmap_st x v = varmap_st m' (Ul v)" for v using x_m' by simp
-        
-        have in_Q: "m' \<in> Q" if "(glb x, glb m') \<in> R" "rg x = rg m'" for m'
-          using stabilized that unfolding stabilize_def by simp
+    case 1
+    then show "x = \<lparr>varmap_st = \<lambda>v. varmap_st ?s2 (Gl v), \<dots> = varmap_rec.more ?s2\<rparr> \<and> 
+      (\<forall>v. varmap_st ?s2 (Gl v) = varmap_st ?s2 (Ul v))"
+    by (intro conjI) (auto simp  add: glul_lift_pred_def)
+  next
+    case 2
+    note varmap_eta = varmap_rec.surjective[symmetric]
+    from 2 show "x\<^sup>G\<^sup>L \<in> stabilize\<^sub>L R Qs" 
+    unfolding glul_lift_pred_def 
+    unfolding stabilize\<^sub>L_def
+    apply simp       
+    apply (intro allI impI)
+    proof goal_cases
+    case (1 m') (* m' is spec state after environment step *)
+      have x_m': "x = ul_restrict m'" by (simp add: "local.1"(4))
+      have x_m'2: "varmap_st x v = varmap_st m' (Ul v)" for v using x_m' by simp
+      
+      have in_Q: "m' \<in> Q" if "(glb x, glb m') \<in> R" "rg x = rg m'" for m'
+        using stabilized that unfolding stabilize_def by simp
 
-        have ul: "ul_restrict m' \<in> Q" using x_m' stabilized stabilizeE xQ by simp
-        have gl: "gl_restrict m' \<in> Q" using 1 in_Q by auto
-        have "x\<^sup>G\<^sup>L \<in> Qs" unfolding glul_lift_pred_def using 2 by (metis lvarmap_eqI unlabel.simps varmap_rec.select_convs)
+      have ul: "ul_restrict m' \<in> Q" using x_m' stabilized stabilizeE xQ by simp
+      have gl: "gl_restrict m' \<in> Q" using 1 in_Q by auto
+      have "x\<^sup>G\<^sup>L \<in> Qs" unfolding glul_lift_pred_def using 2 by (metis lvarmap_eqI unlabel.simps varmap_rec.select_convs)
 
-        have "x\<^sup>G\<^sup>L = m'"
-        proof (rule lvarmap_rgglb_eqI, goal_cases rg_gl rg_ul glb_gl glb_ul more)
-          case rg_gl
-          then show ?case by (metis "local.1"(3) gl_restrict.simps gl_restrict_of_glul varmap_rec.surjective)
-        next
-          case rg_ul
-          then show ?case by (metis ul_restrict_of_glul x_m')
-        next
-          case glb_gl
-          then show ?case unfolding glul_lift_pred_def 
-            apply simp using 1 unfolding varmap_eta gl_restrict.simps[symmetric] ul_restrict.simps[symmetric]
-              using gl sorry
-        next
-          case glb_ul then show ?case using ul_restrict_of_glul x_m' by (simp add: glul_lift_pred_def)
-        next
-          case more then show ?case by (simp add: "local.1"(4) glul_lift_pred_def)
-        qed
-        then show ?case using \<open>x\<^sup>G\<^sup>L \<in> Qs\<close> gl using 1 unfolding varmap_eta gl_restrict.simps[symmetric] ul_restrict.simps[symmetric] by simp
+      have "x\<^sup>G\<^sup>L = m'"
+      proof (rule lvarmap_rgglb_eqI, goal_cases rg_gl rg_ul glb_gl glb_ul more)
+        case rg_gl
+        then show ?case by (metis "local.1"(3) gl_restrict.simps gl_restrict_of_glul varmap_rec.surjective)
+      next
+        case rg_ul
+        then show ?case by (metis ul_restrict_of_glul x_m')
+      next
+        case glb_gl
+        then show ?case unfolding glul_lift_pred_def 
+          apply simp using 1 unfolding varmap_eta gl_restrict.simps[symmetric] ul_restrict.simps[symmetric]
+            using gl sorry
+      next
+        case glb_ul then show ?case using ul_restrict_of_glul x_m' by (simp add: glul_lift_pred_def)
+      next
+        case more then show ?case by (simp add: "local.1"(4) glul_lift_pred_def)
       qed
+      then show ?case using \<open>x\<^sup>G\<^sup>L \<in> Qs\<close> gl using 1 unfolding varmap_eta gl_restrict.simps[symmetric] ul_restrict.simps[symmetric] by simp
     qed
   qed
-  
-  lemma z: "a \<in> wp\<^sub>i x2 Q \<Longrightarrow> a \<in> (wp\<^sub>i\<^sub>s x2 Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for x2 Q Qs a
-  apply (induct x2 arbitrary: Q Qs a)
-  unfolding image_def
-  apply simp_all
-  unfolding restrict_pred_def2 apply auto 
-  sorry
+qed
 
-  lemma [simp]: "varmap_st a\<^sup>G\<^sup>L (Ul v) = varmap_st a v" for a v
-    unfolding glul_lift_pred_def by auto
+lemma z: "a \<in> wp\<^sub>i x2 Q \<Longrightarrow> a \<in> (wp\<^sub>i\<^sub>s x2 Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for x2 Q Qs a
+apply (induct x2 arbitrary: Q Qs a)
+unfolding image_def
+apply simp_all
+unfolding restrict_pred_def2 apply auto 
+sorry
 
-  lemma [simp]: "varmap_rec.more a\<^sup>G\<^sup>L = varmap_rec.more a" for a
-    unfolding glul_lift_pred_def by auto
+lemma [simp]: "varmap_st a\<^sup>G\<^sup>L (Ul v) = varmap_st a v" for a v
+  unfolding glul_lift_pred_def by auto
 
-  lemma z2: "a \<in> wp\<^sub>a x3 Q \<Longrightarrow> a \<in> (wp\<^sub>a (x3 \<circ> ul_restrict) Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for a x3 Q Qs
-  unfolding comp_def apply auto unfolding wp\<^sub>a.simps restrict_pred_def image_def apply auto
-  proof
-    let ?x6 = "a\<^sup>G\<^sup>L"    
-    note a2 = varmap_rec.surjective[symmetric]
-    assume a: "a\<lparr>varmap_rec.more := x3 a\<rparr> \<in> Q"
-    then show 
-      "(\<forall>v. varmap_st ?x6 (Gl v) = varmap_st ?x6 (Ul v)) \<and>
-        ?x6\<lparr>varmap_rec.more := x3 \<lparr>varmap_st = \<lambda>v. varmap_st ?x6 (Ul v), \<dots> = varmap_rec.more ?x6\<rparr>\<rparr> \<in> Qs \<and>
-        a = \<lparr>varmap_st = \<lambda>v. varmap_st ?x6 (Ul v), \<dots> = varmap_rec.more ?x6\<rparr>"
-    proof (intro conjI allI, goal_cases)
-      case (1 v)
-      then show ?case by (simp add: varmap_st_of_glul)
-    next
-      case 2
-      note xxx[simp] = a2[of a]
-      note aasd = that
-      let ?a' = "a\<lparr>varmap_rec.more := x3 a\<rparr>"
-      have s2: "\<exists>s2\<in>Qs. ?a' = \<lparr>varmap_st = \<lambda>v. varmap_st s2 (Gl v), \<dots> = varmap_rec.more s2\<rparr> \<and>
-                    (\<forall>v. varmap_st s2 (Gl v) = varmap_st s2 (Ul v))"
-        using that unfolding glul_lift_pred_def restrict_pred_def2 apply simp using a by blast        
-      then show ?case apply clarsimp unfolding glul_lift_pred_def apply simp
-      apply (subgoal_tac "\<lparr>varmap_st = \<lambda>v. varmap_st a (unlabel v), \<dots> = x3 a\<rparr> = s2")
-      apply simp
-      apply (intro varmap_rec.equality ext allI)
-      apply (case_tac x)
-      apply simp_all
-      using varmap_rec.ext_inject varmap_rec.update_convs(2) xxx
-      by metis+
-    next
-      case 3
-      then show ?case by (metis ul_restrict.simps ul_restrict_of_glul)
-    qed
+lemma [simp]: "varmap_rec.more a\<^sup>G\<^sup>L = varmap_rec.more a" for a
+  unfolding glul_lift_pred_def by auto
+
+lemma z2: "a \<in> wp\<^sub>a x3 Q \<Longrightarrow> a \<in> (wp\<^sub>a (x3 \<circ> ul_restrict) Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for a x3 Q Qs
+unfolding comp_def apply auto unfolding wp\<^sub>a.simps restrict_pred_def image_def apply auto
+proof
+  let ?x6 = "a\<^sup>G\<^sup>L"    
+  note a2 = varmap_rec.surjective[symmetric]
+  assume a: "a\<lparr>varmap_rec.more := x3 a\<rparr> \<in> Q"
+  then show 
+    "(\<forall>v. varmap_st ?x6 (Gl v) = varmap_st ?x6 (Ul v)) \<and>
+      ?x6\<lparr>varmap_rec.more := x3 \<lparr>varmap_st = \<lambda>v. varmap_st ?x6 (Ul v), \<dots> = varmap_rec.more ?x6\<rparr>\<rparr> \<in> Qs \<and>
+      a = \<lparr>varmap_st = \<lambda>v. varmap_st ?x6 (Ul v), \<dots> = varmap_rec.more ?x6\<rparr>"
+  proof (intro conjI allI, goal_cases)
+    case (1 v)
+    then show ?case by (simp add: varmap_st_of_glul)
+  next
+    case 2
+    note xxx[simp] = a2[of a]
+    note aasd = that
+    let ?a' = "a\<lparr>varmap_rec.more := x3 a\<rparr>"
+    have s2: "\<exists>s2\<in>Qs. ?a' = \<lparr>varmap_st = \<lambda>v. varmap_st s2 (Gl v), \<dots> = varmap_rec.more s2\<rparr> \<and>
+                  (\<forall>v. varmap_st s2 (Gl v) = varmap_st s2 (Ul v))"
+      using that unfolding glul_lift_pred_def restrict_pred_def2 apply simp using a by blast        
+    then show ?case apply clarsimp unfolding glul_lift_pred_def apply simp
+    apply (subgoal_tac "\<lparr>varmap_st = \<lambda>v. varmap_st a (unlabel v), \<dots> = x3 a\<rparr> = s2")
+    apply simp
+    apply (intro varmap_rec.equality ext allI)
+    apply (case_tac x)
+    apply simp_all
+    using varmap_rec.ext_inject varmap_rec.update_convs(2) xxx
+    by metis+
+  next
+    case 3
+    then show ?case by (metis ul_restrict.simps ul_restrict_of_glul)
   qed
+qed
 
 
-  lemma QUESTION: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" if "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]" "reflexive R" for Q c\<^sub>2 R
-  using that
-  proof (induct c\<^sub>2 arbitrary: Q)
-    case (Op x1 x2 x3)
-    then show ?case apply simp apply (intro y)
-    using restrict_pred_distrib restrict_of_ul[of x1] z[of _ _ _ x2] z2[of "[Q]\<^sub>;" "[Q]\<^sub>s" _ x3] by blast
-  next
-    case (If x1 c1 c2)
-    then show ?case apply (simp add: prod.case_eq_if) apply (intro y) 
-      apply auto by (meson If.hyps in_mono)+
-  next
-    case (While x1 x2 x3 c)
-    then show ?case using y that stabilize_entail subset_iff by (simp add: le_infI1)
-  next
-    case (DoWhile x1 x2 c x4)
-    then show ?case using y that stabilize_entail subset_iff by (simp add: le_infI1)
-  qed simp_all
+lemma QUESTION: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" if "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]" "reflexive R" for Q c\<^sub>2 R
+using that
+proof (induct c\<^sub>2 arbitrary: Q)
+  case (Op x1 x2 x3)
+  then show ?case apply simp apply (intro y)
+  using restrict_pred_distrib restrict_of_ul[of x1] z[of _ _ _ x2] z2[of "[Q]\<^sub>;" "[Q]\<^sub>s" _ x3] by blast
+next
+  case (If x1 c1 c2)
+  then show ?case apply (simp add: prod.case_eq_if) apply (intro y) 
+    apply auto by (meson If.hyps in_mono)+
+next
+  case (While x1 x2 x3 c)
+  then show ?case using y that stabilize_entail subset_iff by (simp add: le_infI1)
+next
+  case (DoWhile x1 x2 c x4)
+  then show ?case using y that stabilize_entail subset_iff by (simp add: le_infI1)
+qed simp_all
+
+lemma wp_stable [intro]: "stable\<^sub>t R [Q]\<^sub>; \<Longrightarrow> reflexive R \<Longrightarrow> transitive R \<Longrightarrow> stable\<^sub>t R [wp R c Q]\<^sub>;"
+using stabilize_stable
+proof (induct c arbitrary: Q)
+  case (If x1 c1 c2)
+  thus ?case by (clarsimp simp add: prod.case_eq_if)
+qed auto
+
+lemma wp_stable\<^sub>L [intro]: "stable\<^sub>L R [Q]\<^sub>s \<Longrightarrow> reflexive R \<Longrightarrow> transitive R \<Longrightarrow> stable\<^sub>L R [wp R c Q]\<^sub>s"
+using stabilize_stable
+proof (induct c arbitrary: R Q)
+  case (If x1 c1 c2)
+  thus ?case by (clarsimp simp add: prod.case_eq_if) blast
+qed (all\<open>clarsimp?; blast\<close>)
+
+lemma basic_cmpI[intro]:
+  assumes P:  "P \<subseteq> Q"
+  assumes G:  "reflexive G"
+  assumes st: "stable R P" 
+              "stable R Q"
+  shows "R,G \<turnstile>\<^sub>A P {liftl (cmp b)} Q"
+apply (rule atomicI)
+  unfolding liftl_def State.wp_def using P apply fastforce
+  unfolding guar_def using G apply (clarsimp simp add: reflexive_def; fail)
+  using st apply simp_all
+done
 
 lemma [simp]:
   "(a \<union> b) \<inter> w = (a \<inter> w \<union> b \<inter> w)"
@@ -1584,6 +1610,9 @@ next
     "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Inv\<^sub>s w)"
   sorry (* possibly assert stable Inv and stable Invs *)
 
+  have stabilize_Inv: "stabilize R Inv = Inv" "stabilize\<^sub>L R Inv\<^sub>s = Inv\<^sub>s"
+  using st_Inv wf by simp_all
+
   have c: "R,G,G' \<turnstile> wp R c Q {c,r,w} Q" using While by simp
   have st: "stable\<^sub>t R [local.wp R c Q]\<^sub>;" "stable\<^sub>L R [local.wp R c Q]\<^sub>s" 
     using While by auto
@@ -1641,7 +1670,7 @@ next
       defer defer
       using While.prems apply auto[3]
       apply (simp add: \<open>Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]\<close>)
-      using st_Inv by simp+
+      using st_Inv wf by simp_all
     thus ?thesis by (meson asserts(3) conseq exI_realizer spec_mono subset_refl)
   qed
 
@@ -1657,9 +1686,21 @@ next
     using While Inv_QUESTION apply simp_all
   done
 
+
   have Inv_b_wpcInv: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
         \<turnstile> seq_pred_of_vm_pred Inv {Basic (liftl (cmp b))} seq_pred_of_vm_pred [local.wp R c (Inv\<^sub>s, Inv)]\<^sub>;"
-  sorry
+  apply (intro basic atomicI)
+    using asserts(4) stabilize_Inv unfolding liftl_def State.wp_def apply force
+    using wf base_rel_guarI unfolding reflexive_def guar_def apply clarsimp apply blast
+    using st_Inv apply fast
+    using st_Inv wp_stable wf apply (simp add: stable_ts; fail)
+  done
+
+  have Invs_b_Invs: "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w 
+        \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred Inv\<^sub>s w"
+  using wf st_Inv
+  proof (intro basic basic_cmpI)
+  qed (auto simp add: base_rel_guarI reflexive_def)  
 
   have Inv_Iterc_Inv: "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w 
                         \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Iterw (lift\<^sub>c (ts_lang_of_vm_lang c w) r w)} spec_pred_of_lvm_pred Inv\<^sub>s w"
@@ -1709,20 +1750,33 @@ next
     apply (intro seq choice_if)
       using Invs_ncmp_Qs apply simp1
       apply (rule spec_judgement')
-        subgoal sorry
-        subgoal sorry
-        subgoal sorry
-        subgoal sorry
-        subgoal sorry
+        apply (intro seq)
+          using s' apply simp1
+          apply (rule loop)
+            using st_Inv apply simp1
+            using Invs_c_Invs apply simp1
+          using Invs_c_Invs apply simp1
+        using wf apply fast
+        using stabilize_Inv apply fast
+        using stabilize_Inv apply fast
+        using st_Inv apply simp1
       using Invs_ncmp_Qs apply simp1
       apply (simp add: stable_stabilize\<^sub>L_id[OF reflexive st_Inv(2)], rule loop) 
         using st_Inv apply simp1
         apply (rule choice_if)
           apply (rule seq, rule seq)
             using Invs_c_Invs apply simp1
-            subgoal sorry
-            subgoal sorry
-          subgoal sorry
+            defer
+            apply (rule spec_judgement')
+              using s' apply simp1
+              using wf apply fast
+              using subset_refl apply fast
+              using subset_refl apply fast
+              using st_Inv apply simp1  
+            apply (rule seq)
+              using Invs_c_Invs apply simp1
+              using Invs_b_Invs apply simp1
+            using Invs_b_Invs apply simp1
     by -
     subgoal using wf by auto 
     subgoal using wf by auto
