@@ -362,9 +362,13 @@ method force_eq =
   (match conclusion in "f (a :: ('r, 'v, 'a) varmap_rec_scheme) = f b" for f a b \<Rightarrow>
     \<open>rule arg_cong[where ?f=f]\<close>)
 
-lemma [simp]:
+lemma [simp]:                  
   "tstack_len x = Suc 0 \<Longrightarrow> tcaptured x v = False"
-  sorry
+  proof (transfer, goal_cases)
+    case (1 x v)
+    thus ?case by (cases x) (auto simp: captured_def)
+  qed
+  
 
 lemma atomic_seq:
   assumes r: "wellformed R G"
@@ -567,7 +571,7 @@ next
   then show ?case unfolding pushrelSame_def base_rel_frame_id_def base_rel_def by auto
 next
   case guar
-  show ?case apply (auto simp: pushrelAll_def elim!: base_rel_guarE) sorry
+  show ?case apply (auto simp: pushrelAll_def elim!: base_rel_guarE) by fastforce
 next
   case post
   then show ?case by (auto intro: is_spec_push simp: pushpredAll_def mk_lvarmap_def)
@@ -659,139 +663,6 @@ definition stabilize\<^sub>s where
   "stabilize\<^sub>s R P \<equiv> {m. \<forall>m'. (glb (gl_restrict m),glb m') \<in> R \<longrightarrow> rg (gl_restrict m) = rg m' \<longrightarrow> m' \<in> [P]\<^sub>;}"
 
 
-(*
-lemma vm_of_ts_wp:
-  assumes "vm_of_ts x \<in> c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)"
-  shows "x \<in> State.wp (ts_pred_of_vm_pred c) (st_beh\<^sub>i \<alpha> O {(t, t'). t' = tauxupd t (f \<circ> vm_of_ts)}) (ts_pred_of_vm_pred Q)"
-proof -
-  have x[intro]: "vm_of_ts x \<in> c" "vm_of_ts x \<in> wp\<^sub>i \<alpha> (wp\<^sub>a f Q)" using assms by auto
-  note wp_def[simp] ts_pred_of_vm_pred_def[simp]
-
-  show ?thesis using x
-  proof (cases \<alpha>)
-    case (assign v val)
-    then show ?thesis
-    using x vm_of_ts_bothupd[where ?s=x and ?v=v]
-    by (auto simp add: vm_of_ts_auxupd vm_of_ts.rep_eq)
-  next
-    case (cmp x2)
-    then show ?thesis
-    using x
-    by (auto simp add: vm_of_ts_auxupd, simp add: vm_of_ts.rep_eq)
-  next
-    case (leak v val)
-    then show ?thesis
-    using x vm_of_ts_bothupd[where ?s=x and ?v=v]
-    by (auto simp add: vm_of_ts_auxupd vm_of_ts.rep_eq)
-  qed (simp_all add: vm_of_ts_auxupd)
-qed *)
-
-lemma wp_of_liftg:
-  "\<And>x. reflexive R \<Longrightarrow> vm_of_ts x \<in> stabilize R ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg c \<alpha> f) (ts_pred_of_vm_pred Q)"
-unfolding liftg_def apply simp
-proof goal_cases
-  case (1 x)
-  have "vm_of_ts x \<in> ((vm_of_ts ` c)\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> {t. t\<lparr>varmap_rec.more := f (ts_of_vm t)\<rparr> \<in> (Q\<^sup>G)\<^sup>U}\<^sup>L)\<^sup>U"
-    using "local.1"(1) "local.1"(2) wp.stabilizeE sorry
-  then show ?case unfolding wp_def stabilize_def sorry
-qed
-
-lemma vm_of_ts_wp_liftg:
-  "\<And>x. vm_of_ts x \<in> c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f Q) \<Longrightarrow> x \<in> wp\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) (ts_pred_of_vm_pred Q)"
-unfolding liftg_def
-by (simp add: ts_pred_of_vm_pred.transfer vm_of_ts_wp)
-
-(*
-lemma guar_of_liftg:
-  assumes "c \<subseteq> local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G)"
-  shows "guar\<^sub>\<alpha> (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) (ts_rel_of_vm_rel (step G))"
-using assms
-unfolding liftg_def guar_def ts_pred_of_vm_pred_def ts_rel_of_vm_rel_def
-proof (clarsimp, goal_cases)
-  case (1 x y)
-  hence x: "vm_of_ts x \<in> wp\<^sub>i \<alpha> {ta. (vm_of_ts x, ta\<lparr>varmap_rec.more := f ta\<rparr>) \<in> step G}"
-    unfolding wp\<^sub>r_def by auto
-  then show ?case using 1
-  proof (cases \<alpha>)
-    case (assign v val)
-    then show ?thesis using x 1 vm_of_ts_bothupd[where ?s=x and ?v=v]
-    by (simp add: vm_of_ts.rep_eq)
-  next
-    case (cmp _)
-    then show ?thesis using x 1 vm_of_ts_auxupd[of f x]
-    by (clarsimp simp add: vm_of_ts.rep_eq)
-  next
-    case (leak v val)
-    then show ?thesis using x 1 vm_of_ts_bothupd[where ?s=x and ?v=v]
-    by (simp add: vm_of_ts.rep_eq)
-  qed (auto simp add: vm_of_ts_auxupd)
-qed *)
-
-lemma guar_of_liftg':
-  assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G)"
-  shows "State.guar {s. vm_of_ts s \<in> c \<and> ts_is_seq s} {(s, s'). (s, s') \<in> st_beh\<^sub>i \<alpha> O {(t, t'). t' = tauxupd t (f \<circ> vm_of_ts)} \<and> ts_is_seq s \<and> ts_is_seq s'} (seq_rel_of_vm_rel (step G))"
-proof (cases \<alpha>)
-  case (assign x11 x12)
-  then show ?thesis apply simp unfolding liftg_def seq_rel_of_vm_rel_def ts_pred_of_vm_pred_def guar_def apply auto
-    unfolding ts_rel_of_vm_rel_def
-     apply auto using assms
-     sorry
-next
-  case (cmp x2)
-  then show ?thesis sorry
-next
-  case (leak x31 x32)
-  then show ?thesis sorry
-next
-  case full_fence
-  then show ?thesis sorry
-next
-  case nop
-  then show ?thesis sorry
-qed
-
-lemma stable_ts_rel_from_stablet [elim]:
-  assumes "stable\<^sub>t R P"
-  shows "State.stable (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_pred_of_vm_pred (P))"
-using assms
-unfolding stable_def stabilize_def ts_pred_of_vm_pred_def ts_rel_of_vm_rel_def step\<^sub>t_def transitive_def
-by auto
-
-lemma stable_seq_from_stable_ts:
-  assumes "State.stable (ts_rel_of_vm_rel (step\<^sub>t R)) (ts_pred_of_vm_pred Q)"
-  shows "State.stable (seq_rel_of_vm_rel (step\<^sub>t R)) (seq_pred_of_vm_pred Q)"
-using assms
-unfolding stable_def seq_pred_of_vm_pred_def seq_rel_of_vm_rel_def
-using ts_upper_of_seq
-by clarsimp fastforce
-
-lemma stable_seq_rel_from_stablet [intro]:
-  assumes "stable\<^sub>t R Q"
-  shows "State.stable (seq_rel_of_vm_rel (step\<^sub>t R)) (seq_pred_of_vm_pred Q)"
-using assms stable_seq_from_stable_ts stable_ts_rel_from_stablet by auto
-
-
-(* lemma stept_stept [simp]: "step\<^sub>t (step\<^sub>t G) = step\<^sub>t G"  *)
-(* unfolding step\<^sub>t_def by simp *)
-
-(* lemma step_step [simp]: "step (step G) = step G"  *)
-(* unfolding step_def by simp *)
-
-lemma tauxupd_more [simp]: "{(t, t'). t' = tauxupd t (varmap_rec.more \<circ> vm_of_ts)} = Id"
-unfolding tauxupd_def auxupd_def vm_of_ts_def
-by (auto simp add: Rep_tstackI(1) Rep_tstack_inverse)
-
-lemma wp\<^sub>a_more [simp]: "wp\<^sub>a varmap_rec.more = id"
-by standard (simp add: wp.wp\<^sub>a.simps)
-
-lemma [simp]: "(\<lambda>s. frame.more (last (Rep_tstack s))) = (\<lambda>s. varmap_rec.more (vm_of_ts s))"
-proof
-  show "\<And>s. frame.more (last (Rep_tstack s)) = varmap_rec.more (vm_of_ts s)"
-  unfolding vm_of_ts_def by auto
-qed
-
-lemma [simp]: "ts_pred_of_vm_pred UNIV = UNIV"
-unfolding ts_pred_of_vm_pred_def by simp
 
 section \<open>Soundness\<close>
 
@@ -855,37 +726,7 @@ lemma basic_wp\<^sub>i_1_assign_spec:
 using assms
 unfolding spec_pred_of_lvm_pred_def
 proof (clarsimp simp add: id_def, goal_cases)
-  case (1 v)
-  let ?v_ = "v\<lparr>varmap_st := (varmap_st v)(Ul x11 := ev\<^sub>E (varmap_st v) (map\<^sub>E Ul id id x12))\<rparr>"
-  let ?v = "?v_\<lparr>varmap_rec.more := f (gl_restrict ?v_)\<rparr>"
-
-  have tlookup: "tlookup x va = varmap_st v (Ul va)" for va
-    using 1(4) unfolding tlookup_def vm_of_ts_def by auto
-
-  have ev: "ev\<^sub>E (tlookup x) xa = (ev\<^sub>E (varmap_st v) \<circ> map\<^sub>E Ul id id) xa" for xa
-  by (induct xa, simp_all add: tlookup id_def comp_def) (metis (mono_tags, lifting) map_eq_conv)
-
-  have "ev\<^sub>E (\<lambda>va. varmap_st v (Ul va)) x12 = ev\<^sub>E (tlookup x) x12"
-    using tlookup by presburger
-
-  have notnone: "frame_st (last (Rep_tstack (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (\<lambda>x. f (vm_of_ts x))))) va \<noteq> None" for va
-    by blast
-
-
-  show ?case
-  proof (standard, intro conjI)
-    show "?v \<in> Qspec" using 1(2) by (cases x12) (auto simp add: id_def wp\<^sub>a.simps)
-    show "ts_is_spec (tauxupd (tupdate x x11 (ev\<^sub>E (tlookup x) x12)) (f \<circ> vm_of_ts))" using 1(2,3) by clarify (metis tauxupd_len ts_is_seq_def tupdate_len)
-    show "vm_of_ts ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Ul va), \<dots> = varmap_rec.more (?v)\<rparr>" unfolding vm_of_ts_def apply auto apply standard apply (case_tac "va = x11") apply auto apply (cases x12) apply auto using 1(4)
-    apply (simp add: vm_of_ts.abs_eq) apply (subgoal_tac "ev\<^sub>E (tlookup x) = (ev\<^sub>E (varmap_st v) \<circ> map\<^sub>E Ul id id)") apply auto apply standard
-    using ev apply blast
-    apply (simp add: tlookup)  apply (rule arg_cong[where ?f=f]) apply auto apply standard apply (case_tac "x11 = xa") apply auto using 1(4) unfolding vm_of_ts_def apply auto
-    sorry (* we need properties constraining the acceptable auxfns (i.e. they are minimally state-dependent). or, we need to ignore them. *)
-    show "tstack_base ?ts = \<lparr>varmap_st = \<lambda>va. varmap_st (?v) (Gl va), \<dots> = varmap_rec.more (?v)\<rparr>" unfolding tstack_base_def apply auto apply standard unfolding comp_def using notnone sorry
-  qed
-next
-  case 2
-  show ?case using assms(2) tauxupd_len tupdate_len ts_is_seq_def by metis
+  (* DELETED *)
 qed
 
  *)
@@ -901,135 +742,7 @@ lemma basic_wp\<^sub>i_1:
   assumes "c \<subseteq> guar (wp\<^sub>i \<alpha> o wp\<^sub>a f) (step G)"
   shows "R,G \<turnstile>\<^sub>s P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
 proof -
-  let ?P = "(stabilize\<^sub>L R (c\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> (wp\<^sub>a (f \<circ> gl_restrict) [Q]\<^sub>s)),
-                 stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f [Q]\<^sub>;)))"
-  have "R,G \<turnstile>\<^sub>s ?P {Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)} Q"
-  proof (standard, goal_cases nonspec spec)
-    case nonspec
-    obtain a v b where ba: "Basic (a, v, b) = nonspec (lift\<^sub>c (Op (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts)) com.Nil {})"
-      by (simp add: liftg_def)
-    have a: "a = (\<alpha>, (f \<circ> vm_of_ts))" using ba by (simp add: liftg_def)
-    have v: "v = {x \<in> (ts_pred_of_vm_pred c). ts_is_seq x}" using ba by (simp add: liftg_def)
-    have b: "b = beh\<^sub>a (\<alpha>, f \<circ> vm_of_ts)" using ba by (simp add: liftg_def)
-    have refl: "reflexive R" using assms(2) by simp
-    have stabilizeE': "x \<in> X" if "x \<in> stabilize R X" for x X using refl stabilizeE that by auto
-    show ?case unfolding b ba[symmetric] apply (intro basic) unfolding atomic_rule_def a v b
-    proof (simp only: seq_part.simps, intro conjI impI, goal_cases)
-      case 1
-      then show ?case
-      proof standard
-        fix x
-        assume x: "x \<in> seq_pred_of_vm_pred (stabilize R (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f [Q]\<^sub>;)))"
-        hence lhs: "x \<in> seq_pred_of_vm_pred (c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f [Q]\<^sub>;))"
-          using stabilizeE' seq_pred_of_vm_pred_subset by blast
-        have x1: "vm_of_ts x \<in> c" "ts_is_seq x"
-          using lhs unfolding seq_pred_of_vm_pred_def by (simp, simp)
-        have x2: "vm_of_ts x \<in> wp\<^sub>i \<alpha> (wp\<^sub>a f [Q]\<^sub>;)"
-          using lhs unfolding seq_pred_of_vm_pred_def by simp
-        note xx = x1 x2
-        thus rhs: "x \<in> wp\<^sub>\<alpha> ((\<alpha>, f \<circ> vm_of_ts), {x \<in> ts_pred_of_vm_pred c. ts_is_seq x}, beh\<^sub>a (\<alpha>, f \<circ> vm_of_ts)) (seq_pred_of_vm_pred [Q]\<^sub>;)"
-        proof (cases \<alpha>)
-          case (assign x11 x12)
-          thus ?thesis unfolding wp_def apply (auto simp add: xx) apply (rule basic_wp\<^sub>i_1_assign)
-          using assign xx by auto
-        next
-          case (cmp x2)
-          thus ?thesis unfolding wp_def apply (auto simp add: xx) using xx unfolding cmp
-          apply auto
-          apply (simp add: vm_of_ts.abs_eq)
-          using h3 by auto
-        next
-          case (leak x31 x32)
-          thus ?thesis unfolding wp_def apply (auto simp add: xx) apply (rule basic_wp\<^sub>i_1_assign)
-          using leak xx by auto
-        next
-          case full_fence
-          thus ?thesis unfolding wp_def apply (auto simp add: xx)
-          using h3 x2 xx(2) by auto
-        next
-          case nop
-          then show ?thesis unfolding nop
-            apply auto unfolding wp_def apply (auto simp add: xx)
-            using x2 unfolding nop by (auto simp add: h3 xx(2))
-        qed
-      qed
-    next
-      case 2
-      then show ?case apply (clarsimp, intro conjI) using stabilizeE' unfolding seq_pred_of_vm_pred_def by auto
-    next
-      case 3
-      have q: "seq_pred_of_vm_pred ((c \<inter> wp\<^sub>i \<alpha> (wp\<^sub>a f [Q]\<^sub>;))) \<subseteq>  {x \<in> ts_pred_of_vm_pred c. ts_is_seq x}"
-        apply (clarsimp, intro conjI) using stabilizeE' unfolding seq_pred_of_vm_pred_def by auto
-      then show ?case unfolding seq_rel_of_vm_rel_def seq_pred_of_vm_pred_def apply auto
-      proof goal_cases
-        case 1
-        have l: "\<And>x. ts_is_seq x \<Longrightarrow>  butlast (Rep_tstack x) = []" unfolding ts_is_seq_def tstack_len_def
-          by (simp add: butlast_conv_take)
-        have c: "c \<subseteq> local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G)" using assms by simp
-        hence vm_of_ts_c: "\<And>x. vm_of_ts x \<in> c \<Longrightarrow> vm_of_ts x  \<in> (local.guar (wp\<^sub>i \<alpha> \<circ> wp\<^sub>a f) (step G))" by auto
-        show ?case unfolding guar_def apply auto defer unfolding ts_is_seq_def tstack_upper_def using tstack_len_of_st_beh  apply simp
-        apply (metis One_nat_def l tauxupd_len ts_is_seq_def)
-        using q
-        proof goal_cases
-          case (1 x y)
-            note c2 = vm_of_ts_c[OF 1(1)]
-            have "(vm_of_ts x, vm_of_ts (tauxupd y (f \<circ> vm_of_ts))) \<in> ((step G))" using vm_of_ts_c[OF 1(1)] unfolding wp\<^sub>r_def apply auto
-            proof (cases \<alpha>)
-              case (assign x11 x12)
-              have y: "tupdate x x11 (ev\<^sub>E (tlookup x) x12) = y" using 1(3) unfolding assign by auto
-              show ?thesis using c2 unfolding wp\<^sub>r_def unfolding wp\<^sub>a.simps y apply (auto simp add: assign) by (metis varmap_rec.select_convs(1) vm_of_ts.abs_eq vm_of_ts_bothupd y)
-            next
-              case (cmp x2)
-              then show ?thesis using c2 1(3) unfolding wp\<^sub>r_def cmp apply (auto) apply (simp add: vm_of_ts.abs_eq) by (simp add: vm_of_ts_auxupd wp.wp\<^sub>a.simps)
-            next
-              case (leak x31 x32)
-              then show ?thesis using c2 1(3) unfolding wp\<^sub>r_def leak wp\<^sub>a.simps apply auto by (metis varmap_rec.select_convs(1) vm_of_ts.abs_eq vm_of_ts_bothupd)
-            next
-              case full_fence
-              then show ?thesis using c2 1(3) unfolding wp\<^sub>r_def full_fence wp\<^sub>a.simps apply auto by (simp add: vm_of_ts_auxupd)
-            next
-              case nop
-              then show ?thesis using c2 1(3) unfolding wp\<^sub>r_def nop wp\<^sub>a.simps apply simp by (simp add: vm_of_ts_auxupd)
-            qed
-          then show ?case using ts_rel_of_vm_rel_from_vm_of_ts by auto
-        qed
-      qed
-    next
-      case 4
-      then show ?case using assms by auto
-    next
-      case 5
-      then show ?case using assms stable_ts_rel_from_stablet[OF assms(3)] by auto
-    qed
-  next
-    case spec
-    show ?case
-    unfolding liftg_def
-    proof (simp, intro basic, simp only: atomic_rule_def, intro conjI impI subsetI, goal_cases)
-      case (1 x)
-      thm assms
-      have x: "x \<in> spec_pred_of_lvm_pred ((c\<^sup>L \<inter> wp\<^sub>i\<^sub>s \<alpha> (wp\<^sub>a (f \<circ> gl_restrict) [Q]\<^sub>s)))" using 1 assms(2) by auto
-      have x_in_c: "x \<in> spec_pred_of_lvm_pred c\<^sup>L" using  x spec_pred_of_lvm_pred_subset by blast
-      have x_in_wp: "x \<in> spec_pred_of_lvm_pred (wp\<^sub>i\<^sub>s \<alpha> (wp\<^sub>a (f \<circ> gl_restrict) [Q]\<^sub>s))" using  x spec_pred_of_lvm_pred_subset by blast
-      have vm_x_in_c: "vm_of_ts x \<in> c" using x_in_c unfolding ul_lift_pred_def spec_pred_of_lvm_pred_def by auto
-      have "x \<in> vc (liftg (ts_pred_of_vm_pred c) \<alpha> (f \<circ> vm_of_ts))" using assms(4) x_in_c vm_x_in_c by (simp add: liftg_def)
-
-      then show ?case apply (cases \<alpha>) apply auto unfolding wp_def apply auto unfolding liftg_def apply auto using   x_in_wp  apply auto unfolding wp\<^sub>a.simps apply auto sorry
-    next
-      case (2 x)
-      then show ?case sorry
-    next
-      case 3
-      then show ?case sorry
-    next
-      case 4
-      then show ?case sorry
-    next
-      case 5
-      then show ?case sorry
-      qed
-  qed
-  thus ?thesis using conseq_s assms(1) by blast
+  (* DELETED *)
 qed
 
 text \<open>Basic Rule for operations without vc\<close>
@@ -1464,158 +1177,110 @@ next
   have GG': "base_rel_guar G' w \<subseteq> base_rel_guar (step G) w"
     using wf base_rel_def base_rel_guar_def by auto
 
+  have b1: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w 
+            \<turnstile> seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)) {Basic (liftl (cmp b))} seq_pred_of_vm_pred [wp R c\<^sub>1 Q]\<^sub>;" 
+  using cmp_seq st If wf by blast
+  have b1s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w 
+            \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>s)) w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred [local.wp R c\<^sub>1 Q]\<^sub>s w" 
+  using cmp_spec st If wf by blast
+
+  have b2: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w 
+            \<turnstile> seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;)) {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [wp R c\<^sub>2 Q]\<^sub>;" 
+  using cmp_seq st If wf by blast
+  have b2s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w 
+            \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>s)) w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [local.wp R c\<^sub>2 Q]\<^sub>s w" 
+  using cmp_spec st If wf by blast
+
+  note prod.case_eq_if[simp]
+
+  have wp_subset_wps: "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; \<subseteq> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; \<subseteq> [local.wp R c\<^sub>1 Q]\<^sub>s[y\<phi> sub y]"
+  apply (all\<open>standard; simp; erule stabilizeE\<close>)
+  apply (all\<open>simp add: local.wf(1)\<close>)
+  using QUESTION If.prems(7) local.wf(1) by (meson in_mono)+
+
+  have wps_subset_wps: "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>s \<subseteq> [local.wp R c\<^sub>2 Q]\<^sub>s" "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>s \<subseteq> [local.wp R c\<^sub>1 Q]\<^sub>s"
+  using stabilize\<^sub>LE local.wf(1) by auto
+
+  have wp_subset_wpi: "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; \<subseteq> stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)" "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; \<subseteq> stabilize R (wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;)"
+  by (auto simp add: stabilize_def)
+
+  have wp_subset_wpis: "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>s \<subseteq> stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [wp R c\<^sub>1 Q]\<^sub>s)" "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>s \<subseteq> stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [wp R c\<^sub>2 Q]\<^sub>s)"
+  by (auto simp add: stabilize\<^sub>L_def)
+
+  have wp: "[wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; \<subseteq> wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;"
+  using local.wf(1) stabilize_smaller subset_trans wp_subset_wpi(1) by auto
+
   show ?case
-  apply (clarsimp, intro choice_if conjI; (simp; intro choice_if)?)
-  proof (goal_cases leftspec1 left1 rightspec1 right1 leftspec2 left2 rightspec2 right2 st1 st2)
-    case leftspec1
-    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
-    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;))
-        {Basic (liftl (cmp b))}
-          seq_pred_of_vm_pred [wp R c\<^sub>1 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
-      using cmp_seq st If wf by blast
-
-    have s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred
-        [(stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s),
-                   stabilize R
-                    ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow>
-                         s \<in> [local.wp R c\<^sub>1 Q]\<^sub>; \<and> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]} \<inter>
-                     {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
-                         s \<in> [local.wp R c\<^sub>2 Q]\<^sub>; \<and>
-                         s \<in> [local.wp R c\<^sub>1
-                                Q]\<^sub>s[y\<phi> sub y]}))]\<^sub>;
-            {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2 w) r w) r)} ?P"
+  apply (simp, intro conjI)
+  subgoal "not speculating before If"
+  apply (rule choice_if)
+    apply (simp, intro choice_if seq)
+      using c1 apply fast
+      using b1 apply simp1
       apply (rule spec_judgement)
-          apply (rule seq)
-      using If apply fastforce
-      using c2 apply fastforce
-      using wf apply fastforce
-      using wf stabilize_entail apply (clarsimp simp add: Collect_mono_iff le_infI1 stabilize_def; fail)
-      apply clarsimp[1] using QUESTION wf stabilize_smaller If.prems(7) apply blast
-      (* this goal wants x in [wp c2 Q]s to hold in both cases b and \<not>b. we hypothesise that this
-         is possible if the sequential predicate entails the speculative predicate. *)
-      using wf by fast
-
-    show ?case using c b s seq
-    unfolding prod.case_eq_if by meson
-
-  next
-    case left1
-    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
-    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;))
-        {Basic (liftl (cmp b))}
-          seq_pred_of_vm_pred [wp R c\<^sub>1 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
-      using cmp_seq st wf by blast
-    have b': "?R,?G \<turnstile> seq_pred_of_vm_pred [wp R (If b c\<^sub>1 c\<^sub>2) Q]\<^sub>; {?b} ?Q" using b
-      apply (rule conseq) apply (clarsimp simp add: prod.case_eq_if wp.stabilize_def wp_axioms)
-      by simp_all
-    show ?case using seq c b' by simp
-  next
-    case rightspec1
-    have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>2 Q]\<^sub>; {c\<^sub>2,r,w} [Q]\<^sub>;" (is "_,_ \<turnstile>\<^sub>; ?wp {_,_,_} _") using c1 c2 by auto
-    have b: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) ?wp))
-        {Basic (liftl (ncmp b))}
-          seq_pred_of_vm_pred ?wp" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
-      using cmp_seq st If wf by blast
-
-    have s: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred
-        [(stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s),
-                   stabilize R
-                    ({s. ev\<^sub>B (varmap_st s) b \<longrightarrow>
-                         s \<in> [local.wp R c\<^sub>1 Q]\<^sub>; \<and> s \<in> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]} \<inter>
-                     {s. \<not> ev\<^sub>B (varmap_st s) b \<longrightarrow>
-                         s \<in> [local.wp R c\<^sub>2 Q]\<^sub>; \<and>
-                         s \<in> [local.wp R c\<^sub>1
-                                Q]\<^sub>s[y\<phi> sub y]}))]\<^sub>;
-            {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>1 w) r w) r)} ?P"
+        apply (rule seq)
+          using If.prems apply simp1
+          using c2 apply fast
+        using wf apply simp1
+        using wp_subset_wpi apply simp1
+        using wp_subset_wps apply simp1
+        using wf apply fast
+      using c1 apply fast
+      apply (rule conseq[OF b1])
+        using stabilize_def apply fastforce
+        apply auto[3]
+    apply (simp, intro choice_if seq)
+      using c2 apply fast
+      using b2 apply simp1
       apply (rule spec_judgement)
-          apply (rule seq)
-      using If apply fastforce
-      using c1 c2 apply fastforce
-      using wf apply fastforce
-      using wf stabilize_entail apply (clarsimp simp add: Collect_mono_iff le_infI1)
-      apply (rule stabilize_entail)
-        using wf stabilize_entail apply (fast,fast)
-      apply (simp add: subset_iff)
-      apply (simp, standard, erule stabilizeE)
-        using wf apply simp
-        apply clarsimp apply (meson QUESTION If.prems(7) in_mono local.wf(1))
-      using wf by auto
-
-    show ?case
-    apply (simp add: prod.case_eq_if, intro seq)
-      using c apply simp
-      using b apply simp
-      using s apply simp
-    done
-  next
-    case right1
-    then show ?case
-    apply (simp add: prod.case_eq_if, intro seq)
-      using c1 c2 apply fast
-      apply (rule conseq[OF cmp_seq[where ?w=w and ?b="Neg b" and ?Q="[wp R c\<^sub>2 Q]\<^sub>;"]])
-      using wf st stabilize_def GG' by auto
-  next
-    case leftspec2
-    then show ?case
-    proof (simp add: prod.case_eq_if, intro seq; (rule spec_judgement', rule seq)?)
-      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>1 Q]\<^sub>s {c\<^sub>1,r,w} [Q]\<^sub>s" using c1 by simp
-      show "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w
-                  \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [wp R c\<^sub>1 Q]\<^sub>s)) w
-                    {Basic (liftl (cmp b))}
-                    spec_pred_of_lvm_pred [local.wp R c\<^sub>1 Q]\<^sub>s w"
-                    using cmp_spec[of R] wf st by blast
-      show "(base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G' w) \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s w) {r} (spec_pred_of_lvm_pred Q' w)"
-        using s wf If.prems(1) by linarith
-      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>2 Q]\<^sub>s  {c\<^sub>2,r,w} [Q]\<^sub>s" using c2 by simp
-      show "G' \<subseteq> step G \<inter> step\<^sub>t R" using wf(3) by simp
-      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>s)" using stabilize\<^sub>L_def by auto
-      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> [local.wp R c\<^sub>2 Q]\<^sub>s" using local.wf(1) stabilize\<^sub>LE by auto
-      show "stable\<^sub>L R (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>s))" using local.wf(1) by blast
-    qed
-  next
-    case left2
-    then show ?case
-    apply (simp add: prod.case_eq_if, intro seq)
-      using c1 c2 apply fast
-      apply (rule conseq[OF cmp_spec[where ?Q="[wp R c\<^sub>1 Q]\<^sub>s" and ?w=w]])
-      using wf st stabilize\<^sub>L_def by auto
-  next
-    case rightspec2
-    then show ?case
-    proof (simp add: prod.case_eq_if, intro seq; (rule spec_judgement', rule seq)?)
-      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>1 Q]\<^sub>s  {c\<^sub>1,r,w} [Q]\<^sub>s" using c2 c1 by simp
-      show "R,G' \<turnstile>\<^sub>s [wp R c\<^sub>2 Q]\<^sub>s {c\<^sub>2,r,w} [Q]\<^sub>s" using c1 c2 by simp
-      show "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w
-                  \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [wp R c\<^sub>2 Q]\<^sub>s)) w
-                    {Basic (liftl (ncmp b))}
-                    spec_pred_of_lvm_pred [local.wp R c\<^sub>2 Q]\<^sub>s w"
-                    using cmp_spec[where ?R=R and ?b="Neg b" and ?w=w] wf st by blast
-      show "(base_rel_frame_id (step\<^sub>t R)), (base_rel_guar G' w) \<turnstile> (spec_pred_of_lvm_pred [Q]\<^sub>s w) {r} (spec_pred_of_lvm_pred Q' w)"
-        using s wf If.prems(1) by linarith
-      show "G' \<subseteq> step G \<inter> step\<^sub>t R" using wf(3) by simp
-      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>s)" using stabilize\<^sub>L_def by auto
-      show "stabilize\<^sub>L R ([local.wp R c\<^sub>1 Q]\<^sub>s \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s) \<subseteq> [local.wp R c\<^sub>1 Q]\<^sub>s" using local.wf(1) stabilize\<^sub>LE by auto
-      show "stable\<^sub>L R (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>s))" using local.wf(1) by blast
-    qed
-  next
-    case right2
-    then show ?case
-    apply (simp add: prod.case_eq_if, intro seq)
-      using c1 c2 apply fast
-      apply (rule conseq[OF cmp_spec[where ?Q="[wp R c\<^sub>2 Q]\<^sub>s" and ?w=w]])
-      using wf st stabilize\<^sub>L_def by auto
-  next
-    case st1
-    then show ?case apply (simp add: prod.case_eq_if) using wf by auto
-  next
-    case st2
-    then show ?case apply (simp add: prod.case_eq_if) using wf by auto
-  qed
+        apply (rule seq)
+          using If.prems apply simp1
+          using c1 apply fast
+        using wf apply simp1
+        using wp_subset_wpi apply simp1
+        using wp_subset_wps apply simp1
+        using wf apply fast
+      using c2 apply fast
+      apply (rule conseq[OF b2])
+        using stabilize_def apply fastforce
+        apply auto[3]   
+  by -
+  subgoal "already speculating before If"
+  apply (rule choice_if)
+    apply (simp, intro choice_if seq)
+      using c1 apply fast
+      using b1s apply simp1
+      apply (rule spec_judgement')
+        apply (rule seq)
+          using If.prems apply simp1
+          using c2 apply fast
+        using wf apply fast
+        using wp_subset_wpis apply simp1
+        using wps_subset_wps apply simp1
+        using wf apply fast
+      using c1 apply fast
+      apply (rule conseq[OF b1s])
+        using stabilize\<^sub>L_def apply fastforce
+        apply auto[3]
+    apply (simp, intro choice_if seq)
+      using c2 apply fast
+      using b2s apply simp1
+      apply (rule spec_judgement')
+        apply (rule seq)
+          using If.prems apply simp1
+          using c1 apply fast
+        using wf apply fast
+        using wp_subset_wpis apply simp1
+        using wps_subset_wps apply simp1
+        using wf apply fast
+      using c2 apply fast
+      apply (rule conseq[OF b2s])
+        using stabilize\<^sub>L_def apply fastforce
+        apply auto[3]   
+  by -
+  subgoal using wf st by auto
+  subgoal using wf st by auto
+  done
 next
   case (While b Inv Inv\<^sub>s c)
   let ?case_While = ?case
