@@ -1224,7 +1224,7 @@ qed
 *)
 section \<open>kait lemmas\<close>
 
-lemma y: "stabilize R Q \<subseteq> (stabilize\<^sub>L R Qs)[y\<phi> sub y]" if Q: "Q \<subseteq> Qs[y\<phi> sub y]" "reflexive R" for Q Qs R
+lemma y: "stabilize R Q \<subseteq> (stabilize\<^sub>L R Qs)[y\<phi> sub y]" if Q: "Q \<subseteq> Qs[y\<phi> sub y]" "reflexive R" "transitive R" for Q Qs R
 proof (standard; goal_cases)
   case (1 x) (* x is stabilized non-spec state *)
   note stabilized = 1
@@ -1272,7 +1272,7 @@ proof (standard; goal_cases)
         case glb_gl
         then show ?case unfolding glul_lift_pred_def
           apply simp using 1 unfolding varmap_eta gl_restrict.simps[symmetric] ul_restrict.simps[symmetric]
-            using gl sorry
+            using gl rgglb_injective that unfolding transitive_def sorry (* we cannot really say anything about the true values of global registers *)
       next
         case glb_ul then show ?case using ul_restrict_of_glul x_m' by (simp add: glul_lift_pred_def)
       next
@@ -1284,11 +1284,48 @@ proof (standard; goal_cases)
 qed
 
 lemma z: "a \<in> wp\<^sub>i x2 Q \<Longrightarrow> a \<in> (wp\<^sub>i\<^sub>s x2 Qs)[y\<phi> sub y]" if "Q \<subseteq> Qs[y\<phi> sub y]" for x2 Q Qs a
-apply (induct x2 arbitrary: Q Qs a)
-unfolding image_def
-apply simp_all
-unfolding restrict_pred_def2 apply auto
-sorry
+unfolding restrict_pred_def2
+proof (simp, standard)
+  define a' where "a' \<equiv> a\<^sup>G\<^sup>L"
+  assume assm: "a \<in> wp\<^sub>i x2 Q" 
+  show "a = \<lparr>varmap_st = \<lambda>v. varmap_st a' (Gl v), \<dots> = varmap_rec.more a'\<rparr> \<and> (\<forall>v. varmap_st a' (Gl v) = varmap_st a' (Ul v))"
+    unfolding a'_def glul_lift_pred_def by auto
+  hence a: "a = \<lparr>varmap_st = \<lambda>v. varmap_st a' (Gl v), \<dots> = varmap_rec.more a'\<rparr>" by auto
+
+  (* note assm2 = that *)
+  (* obtain s2  *)
+    (* where "s2\<in>Qs" "a = \<lparr>varmap_st = \<lambda>v. varmap_st s2 (Gl v), \<dots> = varmap_rec.more s2\<rparr>" "(\<And>v. varmap_st s2 (Gl v) = varmap_st s2 (Ul v))" *)
+  (* using assm assm2 apply auto sledgehammer *)
+
+  show "a\<^sup>G\<^sup>L \<in> wp\<^sub>i\<^sub>s x2 Qs"
+  proof (cases x2)
+    have q[simp]: "Gl (unlabel (Ul x)) = Gl x" for x by simp
+    have w[simp]: "varmap_st \<lparr>varmap_st = f, \<dots> = varmap_rec.more a\<rparr> x = f x" for x f by simp
+    have e[simp]: "unlabel (Gl x) = x" for x by simp
+
+    case (assign x11 x12)
+    thm restrict_pred_def2
+    then show ?thesis sorry
+  next
+    case (cmp x2)
+    then show ?thesis   
+    using that unfolding restrict_pred_def2 glul_lift_pred_def
+    by (simp add: comp_def, metis (mono_tags, lifting) CollectD assm glul_eq_restrict glul_lift_pred_def in_mono that wp\<^sub>i.simps(2))
+  next
+    case (leak x31 x32)
+    then show ?thesis 
+    using that unfolding restrict_pred_def2 glul_lift_pred_def using assm
+    apply (simp) unfolding a apply simp using a'_def unfolding comp_def fun_upd_def apply simp
+    by (smt (verit) a glul_lift_pred_def in_mono lvarmap_eqI mem_Collect_eq ul_restrict_of_glul unlabel.simps(1) unlabel.simps(2) varmap_rec.select_convs(1) varmap_rec.select_convs(2) varmap_st_of_glul)
+  next
+    case full_fence
+    then show ?thesis using that unfolding restrict_pred_def2 glul_lift_pred_def by simp
+  next
+    case nop
+    then show ?thesis using that unfolding restrict_pred_def2 glul_lift_pred_def using assm
+    by (metis glul_eq_restrict glul_lift_pred_def subset_iff that wp\<^sub>i.simps(5) wp\<^sub>i\<^sub>s.simps(5))
+  qed
+qed 
 
 lemma [simp]: "varmap_st a\<^sup>G\<^sup>L (Ul v) = varmap_st a v" for a v
   unfolding glul_lift_pred_def by auto
@@ -1332,12 +1369,12 @@ proof
 qed
 
 
-lemma QUESTION: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" if "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]" "reflexive R" for Q c\<^sub>2 R
+lemma QUESTION: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" if "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]" "reflexive R" "transitive R" for Q c\<^sub>2 R
 using that
 proof (induct c\<^sub>2 arbitrary: Q)
   case (Op x1 x2 x3)
   then show ?case apply simp apply (intro y)
-  using restrict_pred_distrib restrict_of_ul[of x1] z[of _ _ _ x2] z2[of "[Q]\<^sub>;" "[Q]\<^sub>s" _ x3] by blast
+  using restrict_pred_distrib restrict_of_ul[of x1] z[of _ _ _ x2] z2[of "[Q]\<^sub>;" "[Q]\<^sub>s" _ x3] by (blast, auto)
 next
   case (If x1 c1 c2)
   then show ?case apply (simp add: prod.case_eq_if) apply (intro y)
@@ -1412,7 +1449,7 @@ next
 next
   case (Seq c\<^sub>1 c\<^sub>2)
   hence c2: "R,G,G' \<turnstile> wp R c\<^sub>2 Q {c\<^sub>2,r,w} Q" "stable\<^sub>t R [wp R c\<^sub>2 Q]\<^sub>;" "stable\<^sub>L R [wp R c\<^sub>2 Q]\<^sub>s" by simp+
-  have wpQ: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" sorry (* TODO: Q entailment is perserved by wp transformer *)
+  have wpQ: "[wp R c\<^sub>2 Q]\<^sub>; \<subseteq> [wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y]" using QUESTION Seq.prems(7) local.wf(1) by auto (* TODO: Q entailment is perserved by wp transformer *)
   have "(R,G,G' \<turnstile> wp R c\<^sub>1 (wp R c\<^sub>2 Q) {c\<^sub>1,lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2 w) r w,w} (wp R c\<^sub>2 Q))
           \<and> (stable\<^sub>t R [wp R c\<^sub>1 (wp R c\<^sub>2 Q)]\<^sub>; \<and> stable\<^sub>L R [wp R c\<^sub>1 (wp R c\<^sub>2 Q)]\<^sub>s)"
     using Seq(1)[OF _ c2(2,3)] c2(1) Seq(6,7,8,9) wpQ by auto
@@ -1582,77 +1619,16 @@ next
 next
   case (While b Inv Inv\<^sub>s c)
   let ?case_While = ?case
-  have nonempty: "[wp R (While b Inv Inv\<^sub>s c) Q]\<^sub>; \<noteq> {}" (* "[wp R (While b Inv Inv\<^sub>s c) Q]\<^sub>s \<noteq> {}" *)
-  sorry (* DEFINITELY NOT THE CASE but we will use cases to separate empty and nonempty *)
+
   have reflexive: "reflexive R" using wf by simp
-
   have arg_commute: "(A \<Longrightarrow> B \<Longrightarrow> C) \<Longrightarrow> (B \<Longrightarrow> A \<Longrightarrow> C)" for A B C by simp
-
+    
   have assert_nonempty:
     "(assert a) \<noteq> {} \<Longrightarrow> a"
     "(assert a) \<inter> b \<noteq> {} \<Longrightarrow> a"
     "b \<inter> (assert a) \<noteq> {} \<Longrightarrow> a"
     "x \<in> assert (a) \<Longrightarrow> a"
     for a b x using assert_def by (force, force, force, (auto simp add: assert_def, meson empty_iff))
-
-  have asserts: "Inv\<^sub>s \<subseteq> [Q]\<^sub>s" "Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)" "Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s" "Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;"
-  using nonempty
-  apply (all\<open>simp only: wp.simps snd_def case_prod_conv\<close>)
-  apply (all\<open>simp only: snd_def[symmetric]\<close>)
-  apply (all\<open>drule stabilize_nonempty[OF reflexive]\<close>)
-  using assert_nonempty(1) by force+
-
-  have Inv_QUESTION: "Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]"
-  sorry (* possibly new assert in wp *)
-
-  have st_Inv1: "stable\<^sub>t R Inv" "stable\<^sub>L R Inv\<^sub>s"
-  sorry (* possibly assert stable Inv and stable Invs *)
-
-  hence st_Inv2: "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Inv\<^sub>s w)"
-  by auto
-
-  note st_Inv = st_Inv1 st_Inv2
-
-  have stabilize_Inv: "stabilize R Inv = Inv" "stabilize\<^sub>L R Inv\<^sub>s = Inv\<^sub>s"
-  using st_Inv wf by simp_all
-
-  have c: "R,G,G' \<turnstile> wp R c Q {c,r,w} Q" using While by simp
-  have st: "stable\<^sub>t R [local.wp R c Q]\<^sub>;" "stable\<^sub>L R [local.wp R c Q]\<^sub>s"
-    using While by auto
-  have GG': "base_rel_guar G' w \<subseteq> base_rel_guar (step G) w"
-    using wf base_rel_def base_rel_guar_def by auto
-
-  have wp_ncmp_Q: "base_rel_frame_id(step\<^sub>t R),base_rel_guar (step G) w
-                   \<turnstile> seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [Q]\<^sub>;"
-  using While.prems wf
-  proof (intro cmp_seq)
-  qed auto
-
-  have Inv_ncmp_Q: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
-                    \<turnstile> seq_pred_of_vm_pred Inv {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [Q]\<^sub>;"
-  using asserts(2) st_Inv(1) wf stabilize_Inv stabilize_def
-  proof (intro conseq[OF wp_ncmp_Q])
-  qed (all\<open>clarsimp; blast\<close>)
-
-  have wp_ncmp_Qs: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w
-                    \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [Q]\<^sub>s)) w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [Q]\<^sub>s w"
-  using While wf by (intro cmp_spec) auto
-
-  have Invs_ncmp_Qs: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w
-                      \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [Q]\<^sub>s w"
-  apply (rule conseq[OF wp_ncmp_Qs])
-    apply (rule spec_mono)
-      apply (standard, rule stabilize\<^sub>L_entail[where ?P=Inv\<^sub>s])
-        using st_Inv apply (simp add: local.wf(1); fail)
-        using wf apply fast
-        using asserts apply force
-  by simp_all
-
-  thm s
-  have s': "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred [(Inv\<^sub>s, Inv)]\<^sub>s w {r} spec_pred_of_lvm_pred Q' w"
-  using While.prems(1) asserts(1) conseq spec_mono by simp
-
-  (* have Invs_r: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {r} spec_pred_of_lvm_pred [Q]\<^sub>s w" *)
 
   have FST3: "A \<and> B \<and> C \<Longrightarrow> A" for A B C by simp
   have FST2: "A \<and> B \<Longrightarrow> A" for A B by simp
@@ -1661,120 +1637,196 @@ next
   note hyps_seq = FST2[OF FST3[OF While.hyps]]
   note hyps_spec = SND2[OF FST3[OF While.hyps]]
 
-  have Invs_c_Invs: "R,G' \<turnstile>\<^sub>s Inv\<^sub>s {c,r,w} Inv\<^sub>s"
-  using st_Inv wf While.prems \<open>Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]\<close> asserts(3)
-  proof (intro conseq[OF hyps_spec[OF s']])
-  qed auto
-
-  have wpcInv_c_Inv: "R,G \<turnstile>\<^sub>; [wp R c (Inv\<^sub>s,Inv)]\<^sub>; {c,r,w} [(Inv\<^sub>s,Inv)]\<^sub>;"
-  using s' st_Inv While Inv_QUESTION
-  proof (intro hyps_seq)
-  qed auto
-
-  have Inv_b_wpcInv: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
-        \<turnstile> seq_pred_of_vm_pred Inv {Basic (liftl (cmp b))} seq_pred_of_vm_pred [local.wp R c (Inv\<^sub>s, Inv)]\<^sub>;"
-  apply (intro basic atomicI)
-    using asserts(4) stabilize_Inv unfolding liftl_def State.wp_def apply force
-    using wf base_rel_guarI unfolding reflexive_def guar_def apply clarsimp apply blast
-    using st_Inv apply fast
-    using st_Inv wp_stable wf apply (simp add: stable_ts; fail)
-  done
-
-  have Invs_b_Invs: "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w
-        \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred Inv\<^sub>s w"
-  using wf st_Inv
-  proof (intro basic basic_cmpI)
-  qed (auto simp add: base_rel_guarI reflexive_def)
-
-  have Inv_Iterc_Inv: "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w
-                        \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Iterw (lift\<^sub>c (ts_lang_of_vm_lang c w) r w)} spec_pred_of_lvm_pred Inv\<^sub>s w"
-  apply (rule loop) using st_Inv Invs_c_Invs by auto
-
-  have Inv_IterSpec_Inv: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
-                          \<turnstile> seq_pred_of_vm_pred Inv {Iterw(\<Sqinter>s. if s = 0 then (\<triangle> Capture (emptyFrame w) r) \<cdot> Seqw (Basic (liftl (cmp b)))(lift\<^sub>c (ts_lang_of_vm_lang c w) r w)else Seqw (Basic (liftl (cmp b)))(lift\<^sub>c (ts_lang_of_vm_lang c w) r w))} seq_pred_of_vm_pred Inv"
-  apply (rule loop)
-    using st_Inv apply fast
-    apply (rule choice_if)
-      apply (rule seq)
+  show ?case
+  proof (cases "[wp R (While b Inv Inv\<^sub>s c) Q]\<^sub>; = {}")
+    case True
+    then show ?thesis
+    apply (intro conjI)
+      using True falseI apply simp apply (rule conseq[where ?P="{}" and ?Q="{}"]) 
+        apply simp1
+        apply force
+        apply force
+        apply force
+        apply force
+      defer
+      apply force
+      using While.prems(3) local.wf(1) apply blast
+      apply auto      
+      apply (intro loop choice_if seq)
+      sorry (* do we need to add assertions to speculative case too? *)
+  next
+    case False
+    note nonempty = False
+  
+    have asserts: "Inv\<^sub>s \<subseteq> [Q]\<^sub>s" "Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)" "Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s" "Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;"
+    using nonempty
+    apply (all\<open>simp only: wp.simps snd_def case_prod_conv\<close>)
+    apply (all\<open>simp only: snd_def[symmetric]\<close>)
+    apply (all\<open>drule stabilize_nonempty[OF reflexive]\<close>)
+    using assert_nonempty(1) by force+
+  
+    have Inv_QUESTION: "Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]"
+    sorry (* possibly new assert in wp *)
+  
+    have st_Inv1: "stable\<^sub>t R Inv" "stable\<^sub>L R Inv\<^sub>s"
+    sorry (* possibly assert stable Inv and stable Invs *)
+  
+    hence st_Inv2: "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Inv\<^sub>s w)"
+    by auto
+  
+    note st_Inv = st_Inv1 st_Inv2
+  
+    have stabilize_Inv: "stabilize R Inv = Inv" "stabilize\<^sub>L R Inv\<^sub>s = Inv\<^sub>s"
+    using st_Inv wf by simp_all
+  
+    have c: "R,G,G' \<turnstile> wp R c Q {c,r,w} Q" using While by simp
+    have st: "stable\<^sub>t R [local.wp R c Q]\<^sub>;" "stable\<^sub>L R [local.wp R c Q]\<^sub>s"
+      using While by auto
+    have GG': "base_rel_guar G' w \<subseteq> base_rel_guar (step G) w"
+      using wf base_rel_def base_rel_guar_def by auto
+  
+    have wp_ncmp_Q: "base_rel_frame_id(step\<^sub>t R),base_rel_guar (step G) w
+                     \<turnstile> seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [Q]\<^sub>;"
+    using While.prems wf
+    proof (intro cmp_seq)
+    qed auto
+  
+    have Inv_ncmp_Q: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
+                      \<turnstile> seq_pred_of_vm_pred Inv {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [Q]\<^sub>;"
+    using asserts(2) st_Inv(1) wf stabilize_Inv stabilize_def
+    proof (intro conseq[OF wp_ncmp_Q])
+    qed (all\<open>clarsimp; blast\<close>)
+  
+    have wp_ncmp_Qs: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w
+                      \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [Q]\<^sub>s)) w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [Q]\<^sub>s w"
+    using While wf by (intro cmp_spec) auto
+  
+    have Invs_ncmp_Qs: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w
+                        \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [Q]\<^sub>s w"
+    apply (rule conseq[OF wp_ncmp_Qs])
+      apply (rule spec_mono)
+        apply (standard, rule stabilize\<^sub>L_entail[where ?P=Inv\<^sub>s])
+          using st_Inv apply (simp add: local.wf(1); fail)
+          using wf apply fast
+          using asserts apply force
+    by simp_all
+  
+    thm s
+    have s': "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred [(Inv\<^sub>s, Inv)]\<^sub>s w {r} spec_pred_of_lvm_pred Q' w"
+    using While.prems(1) asserts(1) conseq spec_mono by simp
+  
+    (* have Invs_r: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {r} spec_pred_of_lvm_pred [Q]\<^sub>s w" *)
+  
+    have Invs_c_Invs: "R,G' \<turnstile>\<^sub>s Inv\<^sub>s {c,r,w} Inv\<^sub>s"
+    using st_Inv wf While.prems \<open>Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]\<close> asserts(3)
+    proof (intro conseq[OF hyps_spec[OF s']])
+    qed auto
+  
+    have wpcInv_c_Inv: "R,G \<turnstile>\<^sub>; [wp R c (Inv\<^sub>s,Inv)]\<^sub>; {c,r,w} [(Inv\<^sub>s,Inv)]\<^sub>;"
+    using s' st_Inv While Inv_QUESTION
+    proof (intro hyps_seq)
+    qed auto
+  
+    have Inv_b_wpcInv: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
+          \<turnstile> seq_pred_of_vm_pred Inv {Basic (liftl (cmp b))} seq_pred_of_vm_pred [local.wp R c (Inv\<^sub>s, Inv)]\<^sub>;"
+    apply (intro basic atomicI)
+      using asserts(4) stabilize_Inv unfolding liftl_def State.wp_def apply force
+      using wf base_rel_guarI unfolding reflexive_def guar_def apply clarsimp apply blast
+      using st_Inv apply fast
+      using st_Inv wp_stable wf apply (simp add: stable_ts; fail)
+    done
+  
+    have Invs_b_Invs: "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w
+          \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred Inv\<^sub>s w"
+    using wf st_Inv
+    proof (intro basic basic_cmpI)
+    qed (auto simp add: base_rel_guarI reflexive_def)
+  
+    have Inv_Iterc_Inv: "base_rel_frame_id(step\<^sub>t R),base_rel_guar G' w
+                          \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Iterw (lift\<^sub>c (ts_lang_of_vm_lang c w) r w)} spec_pred_of_lvm_pred Inv\<^sub>s w"
+    apply (rule loop) using st_Inv Invs_c_Invs by auto
+  
+    have Inv_IterSpec_Inv: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
+                            \<turnstile> seq_pred_of_vm_pred Inv {Iterw(\<Sqinter>s. if s = 0 then (\<triangle> Capture (emptyFrame w) r) \<cdot> Seqw (Basic (liftl (cmp b)))(lift\<^sub>c (ts_lang_of_vm_lang c w) r w)else Seqw (Basic (liftl (cmp b)))(lift\<^sub>c (ts_lang_of_vm_lang c w) r w))} seq_pred_of_vm_pred Inv"
+    apply (rule loop)
+      using st_Inv apply fast
+      apply (rule choice_if)
+        apply (rule seq)
+          apply (rule seq)
+            using wpcInv_c_Inv apply force
+            using Inv_b_wpcInv apply blast
+          apply (rule spec_judgement)
+            using s' apply fast
+            using wf apply fast
+            apply (simp; fail)
+            using Inv_QUESTION apply (simp; fail)
+            using st_Inv apply fast
         apply (rule seq)
           using wpcInv_c_Inv apply force
-          using Inv_b_wpcInv apply blast
+          using Inv_b_wpcInv apply fast
+    done
+  
+    show ?thesis
+    apply (simp del: wp.simps)
+    apply (intro conjI)
+      subgoal
+      apply (intro seq choice_if)
+        using Inv_ncmp_Q apply simp
         apply (rule spec_judgement)
-          using s' apply fast
-          using wf apply fast
-          apply (simp; fail)
-          using Inv_QUESTION apply (simp; fail)
-          using st_Inv apply fast
-      apply (rule seq)
-        using wpcInv_c_Inv apply force
-        using Inv_b_wpcInv apply fast
-  done
-
-  show ?case
-  apply (simp del: wp.simps)
-  apply (intro conjI)
-    subgoal
-    apply (intro seq choice_if)
-      using Inv_ncmp_Q apply simp
-      apply (rule spec_judgement)
-        apply (intro seq)
-          using s' apply simp1
-          using Inv_Iterc_Inv apply simp1
-          using Invs_c_Invs apply simp1
-        using wf apply simp1
-        using subset_refl apply fast
-        using Inv_QUESTION apply simp1
-        using st_Inv apply simp1
-      using Inv_ncmp_Q apply simp1
-      apply (rule conseq[OF Inv_IterSpec_Inv])
-        using local.wf(1) st_Inv(1) stabilize_entail apply fastforce
-        apply simp_all[3]
-    by -
-    subgoal
-    apply (intro seq choice_if)
-      using Invs_ncmp_Qs apply simp1
-      apply (rule spec_judgement')
-        apply (intro seq)
-          using s' apply simp1
-          apply (rule loop)
-            using st_Inv apply simp1
+          apply (intro seq)
+            using s' apply simp1
+            using Inv_Iterc_Inv apply simp1
             using Invs_c_Invs apply simp1
-          using Invs_c_Invs apply simp1
-        using wf apply fast
-        using stabilize_Inv apply fast
-        using stabilize_Inv apply fast
-        using st_Inv apply simp1
-      using Invs_ncmp_Qs apply simp1
-      apply (simp add: stable_stabilize\<^sub>L_id[OF reflexive st_Inv(2)], rule loop)
-        using st_Inv apply simp1
-        apply (rule choice_if)
-          apply (rule seq, rule seq)
-            using Invs_c_Invs apply simp1
-            using Invs_b_Invs apply simp1
-            apply (rule spec_judgement')
-              using s' apply simp1
-              using wf apply fast
-              using subset_refl apply fast
-              using subset_refl apply fast
+          using wf apply simp1
+          using subset_refl apply fast
+          using Inv_QUESTION apply simp1
+          using st_Inv apply simp1
+        using Inv_ncmp_Q apply simp1
+        apply (rule conseq[OF Inv_IterSpec_Inv])
+          using local.wf(1) st_Inv(1) stabilize_entail apply fastforce
+          apply simp_all[3]
+      by -
+      subgoal
+      apply (intro seq choice_if)
+        using Invs_ncmp_Qs apply simp1
+        apply (rule spec_judgement')
+          apply (intro seq)
+            using s' apply simp1
+            apply (rule loop)
               using st_Inv apply simp1
-            apply (rule seq)
+              using Invs_c_Invs apply simp1
+            using Invs_c_Invs apply simp1
+          using wf apply fast
+          using stabilize_Inv apply fast
+          using stabilize_Inv apply fast
+          using st_Inv apply simp1
+        using Invs_ncmp_Qs apply simp1
+        apply (simp add: stable_stabilize\<^sub>L_id[OF reflexive st_Inv(2)], rule loop)
+          using st_Inv apply simp1
+          apply (rule choice_if)
+            apply (rule seq, rule seq)
               using Invs_c_Invs apply simp1
               using Invs_b_Invs apply simp1
-    by -
-    subgoal using wf by auto
-    subgoal using wf by auto
-  done
-
-  thm While
-  thm loop
-  thm spec_judgement' seq While.prems(1) c
-  find_theorems Choice name: "if"
-  find_theorems Capture name: "spec"
+              apply (rule spec_judgement')
+                using s' apply simp1
+                using wf apply fast
+                using subset_refl apply fast
+                using subset_refl apply fast
+                using st_Inv apply simp1
+              apply (rule seq)
+                using Invs_c_Invs apply simp1
+                using Invs_b_Invs apply simp1
+      by -
+      subgoal using wf by auto
+      subgoal using wf by auto
+    done
+  qed
 next
   case (DoWhile x1 x2 c x4)
   then show ?case sorry
 qed
 
+thm lang.induct
 
 subsection \<open>High-Level Theorem\<close>
 
