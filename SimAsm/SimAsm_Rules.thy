@@ -1333,16 +1333,16 @@ next
     have Inv_QUESTION: "Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]"
     sorry (* possibly new assert in wp *)
   
-    have st_Inv1: "stable\<^sub>t R Inv" "stable\<^sub>L R Inv\<^sub>s"
-    sorry (* possibly assert stable Inv and stable Invs *)
+    (* have st_Inv1: "stable\<^sub>t R Inv" "stable\<^sub>L R Inv\<^sub>s" *)
+    (* sorry (* possibly assert stable Inv and stable Invs *) *)
   
-    hence st_Inv2: "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Inv\<^sub>s w)"
-    by auto
+    (* hence st_Inv2: "stable (base_rel_frame_id (step\<^sub>t R)) (spec_pred_of_lvm_pred Inv\<^sub>s w)" *)
+    (* by auto *)
   
-    note st_Inv = st_Inv1 st_Inv2
+    (* note st_Inv = st_Inv1 st_Inv2 *)
   
-    have stabilize_Inv: "stabilize R Inv = Inv" "stabilize\<^sub>L R Inv\<^sub>s = Inv\<^sub>s"
-    using st_Inv wf by simp_all
+    (* have stabilize_Inv: "stabilize R Inv = Inv" "stabilize\<^sub>L R Inv\<^sub>s = Inv\<^sub>s" *)
+    (* using st_Inv wf by simp_all *)
   
     have c: "R,G,G' \<turnstile> wp R c Q {c,r,w} Q" using While by simp
     have st: "stable\<^sub>t R [local.wp R c Q]\<^sub>;" "stable\<^sub>L R [local.wp R c Q]\<^sub>s"
@@ -1357,8 +1357,8 @@ next
     qed auto
   
     have Inv_ncmp_Q: "base_rel_frame_id (step\<^sub>t R),base_rel_guar (step G) w
-                      \<turnstile> seq_pred_of_vm_pred Inv {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [Q]\<^sub>;"
-    using asserts(2) st_Inv(1) wf stabilize_Inv stabilize_def
+                      \<turnstile> seq_pred_of_vm_pred (stabilize R Inv) {Basic (liftl (ncmp b))} seq_pred_of_vm_pred [Q]\<^sub>;"
+    using asserts(2) wf stabilize_def
     proof (intro conseq[OF wp_ncmp_Q])
     qed (all\<open>clarsimp; blast\<close>)
   
@@ -1367,25 +1367,45 @@ next
     using While wf by (intro cmp_spec) auto
   
     have Invs_ncmp_Qs: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w
-                        \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [Q]\<^sub>s w"
+                        \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R Inv\<^sub>s) w {Basic (liftl (ncmp b))} spec_pred_of_lvm_pred [Q]\<^sub>s w"
     apply (rule conseq[OF wp_ncmp_Qs])
       apply (rule spec_mono)
         apply (standard, rule stabilize\<^sub>L_entail[where ?P=Inv\<^sub>s])
-          using st_Inv apply (simp add: local.wf(1); fail)
+          apply (simp add: local.wf(1); fail)
           using wf apply fast
           using asserts apply force
     by simp_all
   
     thm s
-    have s': "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred [(Inv\<^sub>s, Inv)]\<^sub>s w {r} spec_pred_of_lvm_pred Q' w"
-    using While.prems(1) asserts(1) conseq spec_mono by simp
+    have s': "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w 
+              \<turnstile> spec_pred_of_lvm_pred [(stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv)]\<^sub>s w {r} spec_pred_of_lvm_pred Q' w"
+    using While.prems(1) asserts(1) conseq spec_mono
+    by (simp, meson local.wf(1) stabilize\<^sub>LE subset_eq)
   
     (* have Invs_r: "base_rel_frame_id (step\<^sub>t R),base_rel_guar G' w \<turnstile> spec_pred_of_lvm_pred Inv\<^sub>s w {r} spec_pred_of_lvm_pred [Q]\<^sub>s w" *)
   
-    have Invs_c_Invs: "R,G' \<turnstile>\<^sub>s Inv\<^sub>s {c,r,w} Inv\<^sub>s"
-    using st_Inv wf While.prems \<open>Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]\<close> asserts(3)
-    proof (intro conseq[OF hyps_spec[OF s']])
-    qed auto
+    have Invs_c_Invs: "R,G' \<turnstile>\<^sub>s (stabilize\<^sub>L R Inv\<^sub>s) {c,r,w} (stabilize\<^sub>L R Inv\<^sub>s)"
+    using wf While.prems \<open>Inv \<subseteq> Inv\<^sub>s[y\<phi> sub y]\<close> asserts(3)
+    thm hyps_spec
+    apply (intro conseq[OF hyps_spec[OF s']])
+    apply ((auto)[1]; fail)
+    apply ((auto)[1]; fail)
+apply ((auto)[1]; fail)
+apply ((auto)[1]; fail)
+apply ((auto)[1]; fail)
+defer
+defer
+apply ((auto)[1]; fail)
+apply ((auto)[1]; fail)
+apply ((auto)[1]; fail)
+apply (simp add: y)
+apply (rule spec_mono)
+apply standard
+apply (rule stabilize\<^sub>LE)
+apply simp1
+using wf apply simp1
+using asserts(3)
+sorry
   
     have wpcInv_c_Inv: "R,G \<turnstile>\<^sub>; [wp R c (Inv\<^sub>s,Inv)]\<^sub>; {c,r,w} [(Inv\<^sub>s,Inv)]\<^sub>;"
     using s' st_Inv While Inv_QUESTION
