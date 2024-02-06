@@ -292,8 +292,11 @@ lemma stable\<^sub>L [intro]:
   sorry (* Problem 1: Stability in the speculative context doesn't make sense *)
 
 lemma stabilize\<^sub>L_entail:
-  "t \<in> stabilize\<^sub>L R P \<Longrightarrow> reflexive R \<Longrightarrow> P \<subseteq> Q \<Longrightarrow> t \<in> stabilize\<^sub>L R Q"
-  sorry (* Problem *) 
+  "t \<in> P \<Longrightarrow> stable\<^sub>L R P \<Longrightarrow> reflexive R \<Longrightarrow> P \<subseteq> Q \<Longrightarrow> t \<in> stabilize\<^sub>L R Q"
+  unfolding stabilize\<^sub>L_def reflexive_def stable\<^sub>L_def stable_def
+  apply auto
+  done
+
 
 lemma stable_ts [intro]: 
   "stable R P \<Longrightarrow> stable (base_rel_rely R) (seq_pred_of_vm_pred P)"
@@ -472,9 +475,10 @@ lemma u_lvarmap:
   unfolding restrict_pred_def mk_lvarmap_def image_def
   apply auto
    apply force_eq+
+  apply (case_tac "varmap_rec.more xa"; simp)
   apply (rule exI)
   apply (intro conjI)
-  prefer 2
+  prefer 3
     apply blast
    apply auto
   done
@@ -498,8 +502,9 @@ lemma id_on_refl :
 lemma atomic_seq:
   assumes r: "wellformed R G"
   assumes g: "v\<^sup>U \<subseteq> guar (wp\<^sub>i op o wp\<^sub>a f) (step G)"
-  assumes g': "\<forall>m. v \<subseteq> {s. s \<in> wp\<^sub>i\<^sub>s op {t'. ((gl_restrict s)\<lparr> varmap_rec.more := m \<rparr>, gl_restrict t'\<lparr> varmap_rec.more := m \<rparr>) \<in> id_on w (step G)}}"
+  assumes g': "v \<subseteq> guar (wp\<^sub>i\<^sub>s op) (gl_lift_rel (step G))"
   assumes s: "stable (step\<^sub>t R) Q"
+  assumes w: "wr op \<subseteq> w" "lk op \<inter> w = {}"
   shows "R,G \<turnstile>\<^sub>; stabilize R (v\<^sup>U \<inter> wp\<^sub>i op (wp\<^sub>a f Q)) {Op v op f,r,w} Q"
   unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps
 proof (intro basic atomicI, goal_cases st gu spre spost)
@@ -513,21 +518,26 @@ proof (intro basic atomicI, goal_cases st gu spre spost)
   show ?case using vc wp by (auto simp: wp_def)
 next
   case gu
-  thus ?case using g r apply (cases op) 
+  thus ?case using g r w apply (cases op) 
         apply (auto intro!: base_rel_guarI id_on_refl simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def u_lvarmap split: if_splits)
 
     using g' 
     apply auto
     apply (subgoal_tac "(\<lparr>varmap_st = \<lambda>v. varmap_st (mk_lvarmap (tstack_base x) (vm_of_ts x)) (Gl v),
-                    \<dots> = varmap_rec.more ( (tstack_base x))\<rparr>,
+                    \<dots> = fst (varmap_rec.more  (mk_lvarmap (tstack_base x) (vm_of_ts x)))\<rparr>,
                  \<lparr>varmap_st =
                     \<lambda>v. if v = x31 then ev\<^sub>E (varmap_st (mk_lvarmap (tstack_base x) (vm_of_ts x)) \<circ> Ul) x32
                         else varmap_st (mk_lvarmap (tstack_base x) (vm_of_ts x)) (Gl v),
-                    \<dots> = varmap_rec.more ( (tstack_base x) )\<rparr>)
-                \<in> id_on w (step G)")
+                    \<dots> = fst (varmap_rec.more  (mk_lvarmap (tstack_base x) (vm_of_ts x)))\<rparr>)
+                \<in> (step G)")
      prefer 2
-    apply blast
+    apply (auto simp: gl_lift_rel_def guar_def wp\<^sub>r_def)[1]
     apply simp
+    unfolding id_on_def
+    apply simp
+    apply (intro exI conjI)
+    prefer 2
+
     apply force_eq
     apply simp
     apply force_eq
@@ -545,14 +555,14 @@ qed
 lemma atomic_spec:
   assumes r: "wellformed R G"
   assumes g: "v\<^sup>U \<subseteq> guar (wp\<^sub>i op o wp\<^sub>a f) (step G)"
-  assumes g': "\<forall>m. v \<subseteq> {s. s \<in> wp\<^sub>i\<^sub>s op {t'. ((gl_restrict s)\<lparr> varmap_rec.more := m \<rparr>, gl_restrict t'\<lparr> varmap_rec.more := m \<rparr>) \<in> id_on w (step G)}}"
+  assumes g': "v \<subseteq> guar (wp\<^sub>i\<^sub>s op) (gl_lift_rel (step G))"
   assumes s: "stable\<^sub>L R Q"
   assumes w: "wr op \<subseteq> w" "lk op \<inter> w = {}"
-  shows "R,G \<turnstile>\<^sub>s (stabilize\<^sub>L R (v \<inter> wp\<^sub>i\<^sub>s op (wp\<^sub>a (f \<circ> ul_restrict) Q))) {Op v op f,r,w} Q"
+  shows "R,G \<turnstile>\<^sub>s (stabilize\<^sub>L R (v \<inter> wp\<^sub>i\<^sub>s op (wp\<^sub>i\<^sub>a f Q))) {Op v op f,r,w} Q"
   unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps
 proof (intro basic impI allI conjI atomicI, goal_cases st gu spre spost)
   case st
-  let ?lhs = "spec_pred_of_lvm_pred (stabilize\<^sub>L R (v \<inter> wp\<^sub>i\<^sub>s op (wp\<^sub>a (f \<circ> ul_restrict) Q))) w"
+  let ?lhs = "spec_pred_of_lvm_pred (stabilize\<^sub>L R (v \<inter> wp\<^sub>i\<^sub>s op (wp\<^sub>i\<^sub>a f Q))) w"
   have vc: "?lhs \<subseteq> vc (lift\<^sub>b (op_vc op v) op (f \<circ> vm_of_ts))"
     using r w by (cases op) (auto elim: stabilize\<^sub>LE intro!: spec_ts_mono simp: liftg_def)
   have wp: "?lhs \<subseteq> {m. \<forall>m'. (m, m') \<in> beh (lift\<^sub>b (op_vc op v) op (f \<circ> vm_of_ts)) \<longrightarrow>
@@ -561,26 +571,33 @@ proof (intro basic impI allI conjI atomicI, goal_cases st gu spre spost)
   show ?case using vc inv wp by (auto simp: wp_def)
 next
   case gu
-  thus ?case using g r apply (cases op) 
+  thus ?case using w g r apply (cases op) 
         apply (auto intro!: base_rel_guarI id_on_refl simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def u_lvarmap split: if_splits)
+
 
     using g' 
     apply auto
     apply (subgoal_tac "(\<lparr>varmap_st = \<lambda>v. varmap_st (mk_lvarmap (tstack_base x) (vm_of_ts x)) (Gl v),
-                    \<dots> = varmap_rec.more ( (tstack_base x))\<rparr>,
+                    \<dots> = fst (varmap_rec.more  (mk_lvarmap (tstack_base x) (vm_of_ts x)))\<rparr>,
                  \<lparr>varmap_st =
                     \<lambda>v. if v = x31 then ev\<^sub>E (varmap_st (mk_lvarmap (tstack_base x) (vm_of_ts x)) \<circ> Ul) x32
                         else varmap_st (mk_lvarmap (tstack_base x) (vm_of_ts x)) (Gl v),
-                    \<dots> = varmap_rec.more ( (tstack_base x) )\<rparr>)
-                \<in> id_on w (step G)")
+                    \<dots> = fst (varmap_rec.more  (mk_lvarmap (tstack_base x) (vm_of_ts x)))\<rparr>)
+                \<in> (step G)")
      prefer 2
-    apply blast
+    apply (auto simp: gl_lift_rel_def guar_def wp\<^sub>r_def)[1]
     apply simp
+    unfolding id_on_def
+    apply simp
+    apply (intro exI conjI)
+    prefer 2
+
     apply force_eq
     apply simp
     apply force_eq
     apply force_eq
     done
+
 next
   case spre
   thus ?case using r by blast
@@ -632,15 +649,15 @@ qed
 
 lemma basic_wp:
   assumes r: "wellformed R G" 
-assumes g: "v\<^sup>U \<subseteq> guar (wp\<^sub>i op o wp\<^sub>a f) (step G)"
-  assumes g': "\<forall>m. v \<subseteq> {s. s \<in> wp\<^sub>i\<^sub>s op {t'. ((gl_restrict s)\<lparr> varmap_rec.more := m \<rparr>, gl_restrict t'\<lparr> varmap_rec.more := m \<rparr>) \<in> id_on w (step G)}}"
-assumes s: "stable (step\<^sub>t R) [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
+  assumes g: "v\<^sup>U \<subseteq> guar (wp\<^sub>i op o wp\<^sub>a f) (step G)"
+  assumes g': "v \<subseteq> guar (wp\<^sub>i\<^sub>s op) (gl_lift_rel (step G))"
+  assumes s: "stable (step\<^sub>t R) [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
   assumes w: "wr op \<subseteq> w" "lk op \<inter> w = {}"
-
   shows "R,G \<turnstile> (wp R (Op v op f) Q) {Op v op f,r,w} Q"
 proof ((intro conjI; simp), goal_cases seq spec)
   case seq
-  then show ?case using atomic_seq[OF r(1) g g' s(1)] by (cases Q, simp)
+  then show ?case using atomic_seq[OF r(1) g g' s(1) w] 
+    by (cases Q, simp)
 next
   case spec
   then show ?case using atomic_spec[OF r g g' s(2) w] 
@@ -669,11 +686,17 @@ lemma mem_restrict:
   assumes "m \<in> P"
   shows "mk_lvarmap m m \<in> P'"
 proof -
-  obtain x where x: "\<forall>v. varmap_st x (Gl v) = varmap_st x (Ul v)" "x \<in> P'"
-                 "m = \<lparr>varmap_st = \<lambda>v. varmap_st x (Ul v), \<dots> = varmap_rec.more x\<rparr>"
+  obtain x where x: 
+      "\<forall>v. varmap_st x (Gl v) = varmap_st x (Ul v)" "x \<in> P'"
+      "fst (varmap_rec.more x) = snd (varmap_rec.more x)"
+      "m = \<lparr>varmap_st = \<lambda>v. varmap_st x (Ul v), \<dots> = fst (varmap_rec.more x)\<rparr>"
     using assms by (auto simp: restrict_pred_def image_def)
   have "x = mk_lvarmap m m" 
-    by (auto intro: varmap_rec.equality simp: x fun_eq_iff split: label.splits)
+    apply (auto intro: varmap_rec.equality simp: x fun_eq_iff split: label.splits) 
+    apply force_eq+
+    using x(1) apply blast
+    apply (cases "varmap_rec.more x"; auto)
+    using x(3) by simp
   thus ?thesis using x by auto
 qed
 
@@ -820,11 +843,8 @@ text \<open>Ensure all global operations in a thread conform to its guarantee\<c
 fun guarl
   where 
     "guarl w Skip G = True" |
-    "guarl w (Op v a f) G = (v\<^sup>U \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G) \<and> (\<forall>m. v \<subseteq> {s. s \<in> wp\<^sub>i\<^sub>s a
-                     {t'.
-                      (gl_restrict s\<lparr>varmap_rec.more := m\<rparr>,
-                       gl_restrict t'\<lparr>varmap_rec.more := m\<rparr>)
-                      \<in> id_on w (step G)}}))" |
+    "guarl w (Op v a f) G = (v\<^sup>U \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G) \<and> 
+                             v \<subseteq> guar (wp\<^sub>i\<^sub>s a) (gl_lift_rel (step G)))" |
     "guarl w (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) G = (guarl w c\<^sub>1 G \<and> guarl w c\<^sub>2 G)" |
     "guarl w (If _ c\<^sub>1 c\<^sub>2) G = (guarl w c\<^sub>1 G \<and> guarl w c\<^sub>2 G)" |
     "guarl w (While _ _ _ c) G = (guarl w c G)" |
@@ -866,8 +886,11 @@ next
            "stable\<^sub>L R [local.wp R c\<^sub>1 Q]\<^sub>s" "stable\<^sub>L R [local.wp R c\<^sub>2 Q]\<^sub>s"
     using If by auto
 
+  have stl: "stable\<^sub>L R ([local.wp R c\<^sub>2 Q]\<^sub>s \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s)" 
+    using st(3) st(4) stable\<^sub>L_def by auto
+
   show ?case
-  proof (clarsimp, intro choice_if conjI, goal_cases left right spec st1 st2 st3)
+  proof (clarsimp, intro choice_if conjI, goal_cases left right spec1 spec2 st2 st3)
     case left
     have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
     have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
@@ -918,7 +941,7 @@ next
 
     show ?case using c b s by (intro seq) (simp; blast)
   next
-    case spec
+    case spec1
     have c: "R,G \<turnstile>\<^sub>s [wp R c\<^sub>1 Q]\<^sub>s {c\<^sub>1,r,w} [Q]\<^sub>s" using c1 by auto
     have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
       spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [wp R c\<^sub>1 Q]\<^sub>s)) w
@@ -938,36 +961,45 @@ next
       using c2 apply fastforce
       using If apply fastforce
       using If apply fastforce
-        apply simp
-        apply rule
-        apply (rule stabilize\<^sub>L_entail)
-          prefer 2 using wf apply blast
-      using wf stabilize\<^sub>L_entail  
-         prefer 3
+      using stl stabilize\<^sub>L_entail[OF _ stl] wf(1) 
+      apply (metis (no_types, lifting) CollectI IntD2 subsetI wp\<^sub>i\<^sub>s.simps(2))
       apply simp
-        prefer 3
-      using local.wf(1) apply blast
+      using local.wf(1) by blast
 
-      sorry (* Stability argument *)
-
-
-       show ?case
-         apply (rule seq)
-          apply (rule seq)
-         using c apply blast
-         using b apply blast
-         using s by blast
+    show ?case using c b s by (intro seq) (simp; blast)
   next
-    case st1
-    thus ?case sorry (* Duplicate the above *)
+    case spec2
+    have c: "R,G \<turnstile>\<^sub>s [wp R c\<^sub>2 Q]\<^sub>s {c\<^sub>2,r,w} [Q]\<^sub>s" using c2 by auto
+    have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
+      spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [wp R c\<^sub>2 Q]\<^sub>s)) w
+        {Basic (liftl (ncmp b))} 
+          spec_pred_of_lvm_pred [wp R c\<^sub>2 Q]\<^sub>s w" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
+      using cmp_spec st If wf by blast
+
+    have s: "?R,?G \<turnstile> spec_pred_of_lvm_pred
+                     ([local.wp R c\<^sub>2 Q]\<^sub>s \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s)
+                     w {\<triangle> Capture (emptyFrame w)
+                            (Seqw
+                              (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>1) r w)
+                              r)} ?P"
+        apply (rule spec_judgement')
+          apply (rule seq)
+      using If apply fastforce
+      using c1 apply fastforce
+      using If apply fastforce
+      using If apply fastforce
+      using stl stabilize\<^sub>L_entail[OF _ stl] wf(1) 
+      apply (metis (no_types, lifting) CollectI IntD1 subsetI wp\<^sub>i\<^sub>s.simps(2))
+      apply simp
+      using local.wf(1) by blast
+
+    show ?case using c b s by (intro seq) (simp; blast)
   next
     case st2
-    thus ?case 
-      using local.wf(1) by blast 
+    thus ?case using local.wf(1) by blast 
   next
     case st3
-    thus ?case 
-      using st(3) st(4) stable\<^sub>L_def by auto 
+    thus ?case using stl by auto 
   qed
 next
   case (While x1 x2 x3 c)
@@ -997,7 +1029,7 @@ subsection \<open>High-Level Theorem\<close>
 
 text \<open>Soundness lemma for WP reasoning\<close>
 theorem simAsm_wp_sound:
-  assumes wf: "transitive R" "reflexive R" "reflexive G" "reflexive G'" "id_on (wr\<^sub>l c) (step G) \<subseteq> step\<^sub>t R \<inter> step G"
+  assumes wf: "transitive R" "reflexive R" "reflexive G" "id_on  (wr\<^sub>l c) (step G) \<subseteq> step\<^sub>t R \<inter> step G"
   assumes st: "stable\<^sub>t R [Q]\<^sub>;" "stable\<^sub>L R [Q]\<^sub>s"
   assumes g: "guarl (wr\<^sub>l c) c G"
   assumes P: "P \<subseteq>\<^sub>s wp R c Q"
@@ -1008,7 +1040,7 @@ proof -
           spec_pred_of_lvm_pred [Q]\<^sub>s (wr\<^sub>l c) {com.Nil} spec_pred_of_lvm_pred [Q]\<^sub>s (wr\<^sub>l c)"
     using st(2) by auto
   hence "R,G \<turnstile> wp R c Q {c,Nil,wr\<^sub>l c} Q" 
-    using com_wp st wf g l by blast
+    using com_wp[OF _ st g _ l] wf by simp
   hence "R,G \<turnstile>\<^sub>; [wp R c Q]\<^sub>; {c,Nil,wr\<^sub>l c} [Q]\<^sub>;" 
     by blast
   hence "R,G \<turnstile>\<^sub>; [P]\<^sub>; {c,Nil,wr\<^sub>l c} [Q]\<^sub>;" 
