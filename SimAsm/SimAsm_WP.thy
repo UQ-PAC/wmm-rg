@@ -192,7 +192,7 @@ begin
 (* create an annotation type for loops that can be just one pred for wp_WOspec, or two pred for wp_spec *)
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
@@ -351,22 +351,23 @@ abbreviation spec_subset :: "('r,'v,'a) spec_state \<Rightarrow>
 
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) Q = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ul_restrict) (fst Q))),
-                                stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
+    "wp R (Op v a f) Q = (stabilize\<^sub>L R (v \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ul_restrict) (fst Q))),
+                                stabilize R (v\<^sup>U \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = merge R 
        ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
         stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
-    "wp R (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
-       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
-        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
-      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = wp R c (merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
-       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wp R c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
-        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;))))"
+  "wp R (While b Inv Inv\<^sub>s c) Q = 
+      ((stabilize\<^sub>L R Inv\<^sub>s),
+       stabilize R (Inv \<inter> Inv\<^sub>s\<^sup>U 
+         \<inter> assert (Inv\<^sub>s \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
+         \<inter> assert (Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)
+         \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)))" |
+      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = ({},{})"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
 
 text \<open>transformer over a spec_state. given two mapping functions, applies them to both

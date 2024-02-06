@@ -84,7 +84,7 @@ abbreviation Iterw ("_*" [90] 90)                       (* i.e., Loop c w *)
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics \<close> 
 
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com"
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v) frame) com"
   where
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | 
@@ -146,7 +146,7 @@ fun lift\<^sub>b
     (* Block speculative execution at a fence *)
     "lift\<^sub>b v full_fence f = ((full_fence,f), v, beh\<^sub>a (full_fence,f) \<inter> {(m,m'). ts_is_seq m})" |
     (* Extend vc with speculative execution implies correct capture setup *)
-    "lift\<^sub>b v a f =  liftg (v \<inter> {ts. ts_is_spec ts \<longrightarrow> (wr a \<subseteq> capped ts \<and> lk a \<inter> capped ts = {})}) a f"
+    "lift\<^sub>b v a f =  liftg (v \<inter> {ts. ts_is_spec ts \<longrightarrow> (wr a \<subseteq> topcapped ts \<and> lk a \<inter> capped ts = {})}) a f"
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics 
@@ -161,7 +161,7 @@ text \<open>Convert the language into the abstract language expected by the unde
         (note, wrs must include @{term w\<^sub>l} of the rest program r, which is a com not a lang construct which
          precludes to derived it at this level)  \<close> 
 
-fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com \<Rightarrow> 'r set \<Rightarrow>
+fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com \<Rightarrow> 'r set \<Rightarrow>
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com"
   where
     "lift\<^sub>c Skip r wrs = com.Nil" |
@@ -173,7 +173,7 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a)
 (*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b]; r *)
     "lift\<^sub>c (While b Imix Ispec c) r wrs =  
            (Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)))* ;;
-           (Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c r wrs) ;; (lift\<^sub>c c r wrs)* ) ;; r) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>) ;; r))"  |
+           (Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c r wrs) ;; (lift\<^sub>c c r wrs)* ;; r )) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>)))"  |
 (* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b]; r ) *)
     "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs =  
            ((Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> ((lift\<^sub>c c r wrs) ;; r))  \<cdot>
