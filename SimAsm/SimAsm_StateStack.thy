@@ -33,7 +33,7 @@ record ('var,'val) frame =
 (* and Q2: "Quotient R2 Abs2 Rep2 T2" *)
 (* shows "Quotient (poly_mapping_rel R1 R2) (map_poly_mapping Rep1 Abs2) (map_poly_mapping *)
 (* Abs1 Rep2) (poly_mapping_rel T1 T2)" *)
-(* sorry  *)
+(*   *)
   
 setup_lifting type_definition_frame_ext
 copy_bnf ('a,'b,'c) frame_ext

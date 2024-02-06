@@ -166,13 +166,6 @@ definition base_rel_guar :: "('r,'v,'a) varmap' rel \<Rightarrow> 'r set \<Right
                                                     topcapped ts = topcapped ts' \<and>
                                                     tstack_len ts = tstack_len ts' }"
 
-definition lift_pred :: "('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) tstack pred"
-  where "lift_pred P \<equiv> {ts. if ts_is_seq ts then ts \<in> ts_pred_of_vm_pred (snd P) 
-                             else mk_lvarmap (tstack_base ts) (vm_of_ts ts) \<in> (fst P)}"
-
-
-
-
 text \<open>
 The judgement over the sequential program behaviour, structured with:
   \<^item> A state that has no speculation frames

@@ -593,7 +593,7 @@ lemma beh_smap1 [simp]:
 (*  apply (cases \<alpha> ; auto simp: smap1_def updTree_def updTree_part_def) *)
 proof (cases \<alpha>)
   case (assign x11 x12)
-  then show ?thesis sorry
+  then show ?thesis 
 next
   case (cmp b)
   then show ?thesis 
@@ -614,7 +614,7 @@ next
     then have b3:"... = {(t,t)| t. ev\<^sub>B (updTree_part ({x} \<inter> dom M) M t) b}" using b2 beh\<^sub>i.simps(2) 
          by simp
     then have b4:"... = {(t,t)| t . ev\<^sub>B t (if (x \<in> dom M) then (subst\<^sub>B b x (Val(the (M x)))) else b)}"
-      using ev_updTreePart sorry
+      using ev_updTreePart 
     then show ?thesis using a0 a1 a2 b1 b2 b3 cmp by (smt (verit, del_insts) Collect_cong)
   qed
 qed auto
@@ -628,7 +628,7 @@ lemma beh_fold_smap1:
   using assms
 proof (induct)
   case empty
-  then show ?case apply (cases \<alpha> ; auto) sorry
+  then show ?case apply (cases \<alpha> ; auto) 
 next
   case (insert x F)
   hence f: "Finite_Set.fold (smap1 M) \<alpha> (insert x F) = 
@@ -640,7 +640,7 @@ next
     apply auto unfolding o_def 
     apply (intro exI conjI)
     apply blast
-    sorry
+    
 (*  
   apply (metis Int_Un_distrib2 Un_insert_right inf_bot_right sup_inf_absorb)
     apply (intro exI conjI)
@@ -663,7 +663,7 @@ proof -
 
   also have "... = {(m\<^sub>1, upd_part (wr \<alpha>) (st m) m\<^sub>1) |m m\<^sub>1. (upd (dom M) (the \<circ> M) m\<^sub>1, m) \<in> beh\<^sub>i \<alpha>}"
     apply (cases \<alpha>; auto)
- sorry
+ 
   finally show ?thesis unfolding smap_def .
 qed
 *)

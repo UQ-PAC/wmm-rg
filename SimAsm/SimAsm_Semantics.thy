@@ -182,12 +182,12 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
                                                       ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>ncmp b\<rfloor>)) ;; r)" 
 
 
-
+(*
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:
   "local (lift\<^sub>c c r {})"
   apply (induct c) 
-  sorry
+   *)
 
 end   (* end of semantics_if_spec *)
 

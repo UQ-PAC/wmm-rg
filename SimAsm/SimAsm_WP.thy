@@ -501,9 +501,10 @@ subsection \<open>@{term stabilize\<^sub>L} Properties\<close>
 lemma stabilize\<^sub>L [intro]:
   assumes "wellformed R G"
   shows "stable\<^sub>L R (stabilize\<^sub>L R P)"
-  unfolding stable\<^sub>L_def stabilize\<^sub>L_def
-  using State.stable_def assms transitive_def sorry
-
+  unfolding stable\<^sub>L_def stabilize\<^sub>L_def State.stable_def
+  using  assms transitive_def
+  by force
+ 
 lemma stabilize\<^sub>LE:
   assumes "m \<in> stabilize\<^sub>L R P"
   assumes "reflexive R"
