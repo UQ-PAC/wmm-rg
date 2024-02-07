@@ -170,7 +170,7 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda> s. if (s = 0)
                     then Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c\<^sub>2 r wrs) ;; r)) \<cdot> (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1 r wrs))
                     else Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c\<^sub>1 r wrs) ;; r)) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2 r wrs))))"  |
-(*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b]; r *)
+(*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b] *)
     "lift\<^sub>c (While b Imix Ispec c) r wrs =  
            (Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)))* ;;
            (Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c r wrs) ;; (lift\<^sub>c c r wrs)* ;; r )) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>)))"  |

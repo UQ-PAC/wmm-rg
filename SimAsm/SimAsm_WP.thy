@@ -354,9 +354,11 @@ abbreviation spec_subset :: "('r,'v,'a) spec_state \<Rightarrow>
                              ('r,'v,'a) spec_state \<Rightarrow> bool" (infixr "\<subseteq>\<^sub>s" 80) 
   where "spec_subset c\<^sub>1 c\<^sub>2 \<equiv> ([c\<^sub>1]\<^sub>s \<subseteq> [c\<^sub>2]\<^sub>s) \<and> ([c\<^sub>1]\<^sub>; \<subseteq> [c\<^sub>2]\<^sub>;)"
 
-
 fun wp\<^sub>i\<^sub>a
   where "wp\<^sub>i\<^sub>a f Q = {t. t\<lparr>more := (fst (more t), f (ul_restrict t))\<rparr> \<in> Q}"
+
+definition assert\<^sub>s
+  where "assert\<^sub>s b \<equiv> ({m. b},{m. b})"
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
@@ -370,12 +372,11 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarmap','a
        ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
         stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
   "wp R (While b Inv Inv\<^sub>s c) Q = 
-      ((stabilize\<^sub>L R Inv\<^sub>s),
-       stabilize R (Inv \<inter> Inv\<^sub>s\<^sup>U 
-         \<inter> assert (Inv\<^sub>s \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
-         \<inter> assert (Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)
-         \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)))" |
-      "wp R (DoWhile Inv\<^sub>s Inv c b) Q = ({},{})"
+      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv \<subseteq> Inv\<^sub>s\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv\<^sub>s \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)) \<inter>\<^sub>s
+      (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv)" |
+  "wp R (DoWhile Inv\<^sub>s Inv c b) Q = ({},{})"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
 
 text \<open>transformer over a spec_state. given two mapping functions, applies them to both
@@ -496,6 +497,30 @@ lemma label_fupd_comp [simp]:
   "f(Ul x := e) \<circ> Ul = (f o Ul)(x := e)"
   by (auto simp: comp_def)
 
+lemma u_lvarmap:
+  "v\<^sup>U = {x. mk_lvarmap x x \<in> v}"
+proof auto
+  fix x assume "x \<in> v\<^sup>U" 
+  then obtain y where y:
+      "\<forall>v. varmap_st y (Gl v) = varmap_st y (Ul v)"
+      "fst (more y) = snd (more y)" "y \<in> v"
+      "x = \<lparr>varmap_st = \<lambda>v. varmap_st y (Ul v), \<dots> = snd (more y)\<rparr>"
+    unfolding restrict_pred_def image_def by auto
+  hence "y = mk_lvarmap x x"
+    unfolding mk_lvarmap_def
+    by (auto intro!: varmap_rec.equality split: label.splits) (cases "more y"; auto)
+  thus "mk_lvarmap x x \<in> v" using y(3) by blast
+next
+  fix x assume "mk_lvarmap x x \<in> v" (is "?x \<in> v")
+  moreover have "(\<forall>v. varmap_st ?x (Gl v) = varmap_st ?x (Ul v))"
+    by auto
+  moreover have "fst (more ?x) = snd (more ?x)"
+    by auto
+  moreover have "x = \<lparr>varmap_st = \<lambda>v. varmap_st ?x (Ul v), \<dots> = snd (more ?x)\<rparr>"
+    by auto
+  ultimately show "x \<in> v\<^sup>U" unfolding restrict_pred_def image_def by force
+qed
+
 subsection \<open>@{term stabilize\<^sub>L} Properties\<close>
 
 lemma stabilize\<^sub>L [intro]:
@@ -516,6 +541,11 @@ proof -
     using assms by (simp_all add: stabilize\<^sub>L_def reflexive_def)
   thus ?thesis using that by auto
 qed
+
+lemma stabilize\<^sub>L_entail:
+  "t \<in> P \<Longrightarrow> stable\<^sub>L R P \<Longrightarrow> reflexive R \<Longrightarrow> P \<subseteq> Q \<Longrightarrow> t \<in> stabilize\<^sub>L R Q"
+  unfolding stabilize\<^sub>L_def reflexive_def stable\<^sub>L_def stable_def
+  by auto
 
 end (* end of locale wp_spec *)
 
