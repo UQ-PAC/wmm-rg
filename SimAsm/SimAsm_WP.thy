@@ -372,9 +372,9 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarmap','a
        ([wp R c\<^sub>2 Q]\<^sub>s \<inter> [wp R c\<^sub>1 Q]\<^sub>s, 
         stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;))" |
   "wp R (While b Inv Inv\<^sub>s c) Q = 
-      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)) \<inter>\<^sub>s
-      (assert\<^sub>s (Inv \<subseteq> Inv\<^sub>s\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter>\<^sub>s
-      (assert\<^sub>s (Inv\<^sub>s \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv \<subseteq> (stabilize\<^sub>L R Inv\<^sub>s)\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv\<^sub>s \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>s)) \<inter>\<^sub>s
       (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv)" |
   "wp R (DoWhile Inv\<^sub>s Inv c b) Q = ({},{})"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)

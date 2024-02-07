@@ -7,11 +7,6 @@ subsection \<open>Conversion between tstack and varmap.\<close>
 definition vm_of_ts :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) varmap'" 
   where "vm_of_ts s \<equiv> \<lparr> varmap_st = tlookup s, \<dots> = taux s\<rparr>"
 
-(*
-definition ts_of_vm :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) tstack" 
-  where "ts_of_vm \<equiv> inv vm_of_ts"
-*)
-
 lemma ts_of_vm_exists: "\<exists>ts. vm_of_ts ts = vm"
 proof
   let ?s = "[\<lparr> frame_st = Some \<circ> varmap_st vm, frame_cap = UNIV, \<dots> = Some (varmap_rec.more vm) \<rparr>]"
@@ -35,21 +30,6 @@ lemma vm_of_ts_varmap [simp]:
 lemma vm_of_ts_tpush_empty [simp]:
   "vm_of_ts (tstack_push m (emptyFrame w)) = vm_of_ts m"
   by (auto simp: vm_of_ts_def emptyFrame_def)
-
-
-(*
-lemma ts_of_vm_inverse: "vm_of_ts (ts_of_vm vm) = vm"
-proof -
-  have a: "ts_of_vm vm = (SOME ts. vm_of_ts ts = vm)" 
-    by (simp add: inv_def ts_of_vm.abs_eq)
-  have "varmap_st vm = tlookup (ts_of_vm vm)" 
-    using a ts_of_vm_exists
-    by (metis (mono_tags, lifting) varmap_rec.select_convs(1) verit_sko_ex' vm_of_ts.transfer)  
-  moreover have "varmap_rec.more vm = taux (ts_of_vm vm)"
-    using a ts_of_vm_exists
-    by (metis (mono_tags, lifting) varmap_rec.select_convs(2) verit_sko_ex' vm_of_ts.transfer)    
-  ultimately show ?thesis unfolding vm_of_ts_def by simp
-qed*)
   
 lift_definition ts_pred_of_vm_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) tstack pred" is
   "\<lambda>v. vm_of_ts -` v".
@@ -62,19 +42,6 @@ lift_definition vm_rel_of_ts_rel :: "('r,'v,'a) tstack rel \<Rightarrow> ('r,'v,
 
 lift_definition ts_rel_of_vm_rel :: "('r,'v,'a) varmap' rel \<Rightarrow> ('r,'v,'a) tstack rel" is 
   "\<lambda>x. {(s,s') | s s'. (vm_of_ts s,vm_of_ts s') \<in> x}".
-  
-
-
-
-(*
-fun vm_lang_of_ts_lang :: "('r,'v,('r,'v,'a)tstack,'a) lang \<Rightarrow> ('r, 'v, ('r, 'v, 'a) varmap', 'a) lang" where
-  "vm_lang_of_ts_lang (Skip) = Skip " |
-  "vm_lang_of_ts_lang (Op pred op auxfn) = Op (vm_of_ts ` pred) op (auxfn \<circ> ts_of_vm)" |
-  "vm_lang_of_ts_lang (lang.Seq a b) = lang.Seq (vm_lang_of_ts_lang a) (vm_lang_of_ts_lang b) " |
-  "vm_lang_of_ts_lang (If c t f) = If c (vm_lang_of_ts_lang t) (vm_lang_of_ts_lang f)" |
-  "vm_lang_of_ts_lang (While b Imix Ispec c) = While b (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) " |
-  "vm_lang_of_ts_lang (DoWhile Imix Ispec c b) = DoWhile (vm_of_ts ` Imix) (vm_of_ts ` Ispec) (vm_lang_of_ts_lang c) b "
-*)
 
 subsection \<open>Correspondence from spec_state to tstack.\<close>
 
@@ -278,8 +245,7 @@ lemma  butlast_topcap:
        Is_tstack m' \<Longrightarrow>
        butlast m = butlast m' \<Longrightarrow>
        Collect (topcap m) = Collect (topcap m')"
-  sorry
-
+  by (auto split: if_splits list.splits simp: topcap_def)
 
 lemma tstack_upper_captured_eq:
   "tstack_upper m = tstack_upper m' \<Longrightarrow> capped m = capped m'"
@@ -844,18 +810,28 @@ fun guarl
     "guarl w (While _ _ _ c) G = (guarl w c G)" |
     "guarl w (DoWhile _ _ c _) G = (guarl w c G)"
 
-lemma loopI:
+lemma loop_post:
   assumes "R,G \<turnstile> I { c } I"
+  assumes "stable R I"
   assumes "P \<subseteq> I"
   shows "R,G \<turnstile> P { Iterw c } I"
-  sorry
-
+  using assms by auto
 
 lemma loop_pre:
   assumes "R,G \<turnstile> I { c } I"
+  assumes "stable R I"
   assumes "I \<subseteq> Q"
   shows "R,G \<turnstile> I { Iterw c } Q"
-  sorry
+  using assms by auto
+
+lemma [simp]: "seq_pred_of_vm_pred {} = {}" 
+  by (auto simp: seq_pred_of_vm_pred_def)
+
+lemma [simp]: "spec_pred_of_lvm_pred {} w = {}" 
+  by (auto simp: spec_pred_of_lvm_pred_def)
+
+lemma [simp]: "stable\<^sub>L R {}"
+  by (auto simp: stable\<^sub>L_def)
 
 text \<open>Com Rule\<close>
 theorem com_wp:
@@ -1014,13 +990,9 @@ next
   hence s: "stable\<^sub>t R [local.wp R (While b I Is c) Q]\<^sub>;" 
            "stable\<^sub>L R [local.wp R (While b I Is c) Q]\<^sub>s"
     using local.wf(1) by (auto simp: assert\<^sub>s_def)
-  let ?a = "(I \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (Is, (stabilize R I)))]\<^sub>;) \<and>
-            (I \<subseteq> Is\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;) \<and> (Is \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (Is, I))]\<^sub>s)"
-
-  have [simp]: "seq_pred_of_vm_pred {} = {}" 
-    by (auto simp: seq_pred_of_vm_pred_def)
-  have [simp]: "spec_pred_of_lvm_pred {} w = {}" 
-    by (auto simp: spec_pred_of_lvm_pred_def)
+  let ?a = "(I \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Is, stabilize R I))]\<^sub>;) \<and>
+            (I \<subseteq> (stabilize\<^sub>L R Is)\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;) \<and> 
+            (Is \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (stabilize\<^sub>L R Is, stabilize R I))]\<^sub>s)"
 
   show ?case 
   proof (cases ?a)
@@ -1029,12 +1001,17 @@ next
     let ?I = "(stabilize\<^sub>L R Is, stabilize R I)"
     have st: "stable\<^sub>t R [?I]\<^sub>;" "stable\<^sub>L R [?I]\<^sub>s" using local.wf(1) by auto 
 
+    text \<open>Normal judgment over r in terms of the postcondition Q\<close>
+    have rq: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
+              spec_pred_of_lvm_pred [Q]\<^sub>s w {r} spec_pred_of_lvm_pred Q' w"
+      using While(2) by simp
+
     text \<open>Strengthen precondition on speculative judgement over r to the invariant\<close>
     have "stabilize\<^sub>L R Is \<subseteq> [Q]\<^sub>s" using True 
       by (meson Int_lower1 local.wf(1) stabilize\<^sub>LE subsetI subset_trans)
     hence r: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
               spec_pred_of_lvm_pred [?I]\<^sub>s w {r} spec_pred_of_lvm_pred Q' w"
-      using While(2) by (simp add: conseq spec_mono)
+      using rq by (simp add: conseq spec_mono)
 
     text \<open>Get the inductive hypothesis, establishing judgements over c\<close>
     have "(R,G \<turnstile> local.wp R c ?I {c,r,w} ?I) \<and> stable\<^sub>t R [local.wp R c ?I]\<^sub>; \<and> stable\<^sub>L R [local.wp R c ?I]\<^sub>s"
@@ -1045,7 +1022,8 @@ next
 
     text \<open>Speculative execution of c in an invariant context\<close>
     have cspec: "R,G \<turnstile>\<^sub>s [?I]\<^sub>s {c,r,w} [?I]\<^sub>s"
-      using hyp(2) True sorry
+      apply (rule conseq[OF hyp(2)], rule spec_mono, auto)
+      using True by (metis Int_iff inf.absorb_iff2 local.wf(1) stabilize\<^sub>LE) 
 
     text \<open>Sequential judgment over the exit condition\<close>
     have ncmp: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
@@ -1060,8 +1038,10 @@ next
                           (Seqw
                             (Iterw
                               (lift\<^sub>c (ts_lang_of_vm_lang c) r w)) r))} seq_pred_of_vm_pred ?P"
-      apply (intro spec_judgement seq loopI)
-      apply (rule r, rule cspec, rule subset_refl, rule cspec)
+      apply (intro spec_judgement seq loop_post)
+      apply (rule r, rule cspec)
+      using st(2) apply fastforce
+      apply (rule subset_refl, rule cspec)
       using While apply fastforce
       using While apply fastforce
       using While apply fastforce
@@ -1080,10 +1060,14 @@ next
             (lift\<^sub>c (ts_lang_of_vm_lang c) r
               w))} seq_pred_of_vm_pred  (?P \<inter> [?I]\<^sub>s\<^sup>U)"
       apply (intro loop_pre seq)
-      apply (rule hyp(1), rule cmp, rule spec_judgement, rule r)
+      apply (rule hyp(1), rule cmp, rule spec_judgement, rule rq)
       using While apply fastforce
       using While apply fastforce
-      sorry
+      using True wf apply (simp add: stabilize_entail subsetI)
+      using True wf apply (simp, meson stabilizeE subset_iff)
+      using wf apply blast
+      using st(1) apply fastforce
+      using True wf stabilizeE stabilize_entail by fastforce
 
     text \<open>Speculative judgment over the exit condition\<close>
     have ncmps: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
@@ -1098,8 +1082,10 @@ next
                           (Seqw
                             (Iterw
                               (lift\<^sub>c (ts_lang_of_vm_lang c) r w)) r))} spec_pred_of_lvm_pred ?P w"
-      apply (intro spec_judgement' seq loopI)
-      apply (rule r, rule cspec, rule subset_refl, rule cspec)
+      apply (intro spec_judgement' seq loop_post)
+      apply (rule r, rule cspec)
+      using st(2) apply fastforce
+      apply (rule subset_refl, rule cspec)
       using While apply fastforce
       using While apply fastforce
       using While apply fastforce
@@ -1121,7 +1107,11 @@ next
       apply (rule hyp(2), rule cmps, rule spec_judgement', rule r)
       using While apply fastforce
       using While apply fastforce
-      sorry
+      using True wf stabilize\<^sub>L_def apply force
+      apply simp
+      using wf apply blast
+      using st(2) apply fastforce
+      using True stabilize\<^sub>L_def by force
 
     show ?thesis
       using s apply auto
@@ -1153,7 +1143,7 @@ next
   qed
 next
   case (DoWhile x1 x2 c x4)
-  then show ?case sorry
+  then show ?case by auto (meson conseq empty_subsetI falseI subset_refl)+
 qed
 
 
