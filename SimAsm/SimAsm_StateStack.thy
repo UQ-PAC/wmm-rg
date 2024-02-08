@@ -450,5 +450,161 @@ lemma more_emptyFrame [simp]:
   "more (emptyFrame w) = None"
   by (auto simp: emptyFrame_def)
 
+lemma  butlast_captured:
+"Is_tstack m \<Longrightarrow>
+       Is_tstack m' \<Longrightarrow>
+       butlast m = butlast m' \<Longrightarrow>
+       Collect (captured m) = Collect (captured m')"
+proof (induct arbitrary: m' rule: Is_tstack_induct)
+  case (Base x)
+  then show ?case by (cases m'; auto split: if_splits simp: captured_def)
+next
+  case (Frame x xs)
+  then show ?case by (cases m'; auto split: if_splits simp: captured_def)
+qed
+
+lemma  butlast_topcap:
+  "Is_tstack m \<Longrightarrow>
+       Is_tstack m' \<Longrightarrow>
+       butlast m = butlast m' \<Longrightarrow>
+       Collect (topcap m) = Collect (topcap m')"
+  by (auto split: if_splits list.splits simp: topcap_def)
+
+lemma tstack_upper_captured_eq:
+  "tstack_upper m = tstack_upper m' \<Longrightarrow> capped m = capped m'"
+  unfolding tstack_upper_def apply transfer using butlast_captured by auto
+
+lemma tstack_upper_topcapped_eq:
+  "tstack_upper m = tstack_upper m' \<Longrightarrow> topcapped m = topcapped m'"
+  unfolding tstack_upper_def apply transfer using butlast_topcap by auto
+
+fun written
+  where 
+    "written (a#b#c) v = ( (frame_st a v \<noteq> None \<and> v \<in> frame_cap a) \<or> written (b#c) v)" |
+    "written _ v = False"
+
+fun auxwritten
+  where 
+    "auxwritten (a#b#c) = (more a \<noteq> None \<or> auxwritten (b#c))" |
+    "auxwritten _ = False"
+
+lift_definition twritten ::  "('b, 'c, 'd) tstack \<Rightarrow> 'b \<Rightarrow> bool"  is "written" .
+lift_definition tauxwritten ::  "('b, 'c, 'd) tstack \<Rightarrow> bool"  is "auxwritten" .
+
+lemma upper_written:
+  "Is_tstack m \<Longrightarrow>
+       Is_tstack m' \<Longrightarrow> butlast m = butlast m' \<Longrightarrow> written m x = written m' x"
+proof (induct arbitrary: m' rule: Is_tstack_induct)
+  case (Base x)
+  then show ?case by (cases m'; auto split: if_splits)
+next
+  case (Frame x xs)
+  then show ?case
+    apply (cases m'; auto split: if_splits)
+     apply (cases xs)
+      apply simp
+     apply (metis Is_tstack_ConsE list.exhaust written.simps(1))
+     apply (cases xs)
+     apply simp
+     apply (metis Is_tstack_ConsE list.exhaust written.simps(1))
+    done
+qed
+
+lemma tupper_written:
+  "tstack_upper m = tstack_upper m' \<Longrightarrow> twritten m x = twritten m' x"
+  unfolding tstack_upper_def
+  apply transfer
+  using upper_written .
+
+(* MOVE *)
+lemma [intro]:
+  assumes "tstack_upper m = tstack_upper m'"
+  shows "tstack_upper (tstack_push m s) = tstack_upper (tstack_push m' s)"
+  using assms unfolding tstack_upper_def by transfer auto
+
+lemma [simp]:
+  "tstack_len m = 1 \<Longrightarrow> tstack_upper m = []"
+  unfolding tstack_upper_def by transfer (case_tac m; simp)
+
+lemma [simp]:
+  "tstack_len x = Suc 0 \<Longrightarrow> tcaptured x v = False"
+  by transfer (case_tac x; auto simp: captured_def)
+
+lemma [intro]:
+  "ttopcap x x11 \<Longrightarrow> tcaptured x x11"
+  by transfer (case_tac x; auto simp: captured_def topcap_def split: list.splits)
+
+lemma [simp]:
+  "ttopcap (tauxupd x f) = ttopcap x"
+  apply transfer
+  unfolding topcap_def auxupd_def
+  by (auto split: list.splits simp: fun_eq_iff)
+
+lemma [simp]:
+  "ttopcap (tupdate x  y e) = ttopcap x"
+  apply transfer
+  unfolding topcap_def auxupd_def
+  by (auto split: list.splits simp: fun_eq_iff)
+
+lemma upper_mid:
+  "tstack_upper a = tstack_upper b \<Longrightarrow>
+           tstack_mid a = tstack_mid b"
+  by (auto simp: tstack_upper_def tstack_mid_def split: list.splits if_splits)
+
+lemma tstack_mid_tauxupd [simp]:
+  "tstack_mid (tauxupd x f) = tstack_mid x"
+  unfolding tstack_mid_def
+  by transfer (auto simp: fun_eq_iff auxupd_def split: list.splits)
+
+lemma tstack_mid_tupdate_base[simp]:
+  "tstack_len x = Suc 0 \<Longrightarrow> tstack_mid (tupdate x y e) = tstack_mid x"
+  unfolding tstack_mid_def
+  by transfer (auto split: list.splits)
+
+lemma stack_mid_update_nocap:
+  "Is_tstack (x21 # x22) \<Longrightarrow>
+       \<not> captured (x21 # x22) y \<Longrightarrow>
+       butlast (update x22 y e) = butlast x22"
+proof (induct "x21 # x22" arbitrary: x21 x22 rule: Is_tstack_induct)
+  case (Base x)
+  then show ?case by auto
+next
+  case (Frame x xs)
+  then show ?case by (cases xs; auto simp: captured_def)
+qed
+
+lemma tstack_mid_tupdate_nocap[simp]:
+  "\<not>tcaptured x y \<Longrightarrow> tstack_mid (tupdate x y e) = tstack_mid x"
+  unfolding tstack_mid_def
+  apply transfer 
+  apply (auto split: list.splits)
+  using stack_mid_update_nocap by force
+
+lemma tstack_mid_tupdate_topcap[simp]:
+  "ttopcap x y \<Longrightarrow> tstack_mid (tupdate x y e) = tstack_mid x"
+  unfolding tstack_mid_def
+  by transfer (auto split: list.splits simp: topcap_def)
+
+
+lemma [simp]:
+  "tstack_mid (tstack_push m s) = tstack_upper m"
+  unfolding tstack_mid_def tstack_upper_def
+  apply transfer
+  apply (auto split: list.splits)
+  done
+
+lemma [simp]:
+  "ttopcap (tstack_push m (emptyFrame w)) x = (x \<in> w)"
+  by transfer
+   (auto simp: topcap_def split: list.splits)
+
+lemma [elim!]:
+  assumes "[] = tstack_upper b"
+  obtains "tstack_len b = 1"
+  using assms unfolding tstack_upper_def apply (transfer)
+  apply (case_tac b; auto split: if_splits)
+  done
+
+
 end
 

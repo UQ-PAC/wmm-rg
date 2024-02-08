@@ -224,36 +224,15 @@ lemma tstack_base_tpush [simp]:
   unfolding tstack_base_def by simp
 
 subsection \<open>Labelled Predicate Stability\<close>
-text \<open>A complete mess.\<close>
 
-lemma  butlast_captured:
-"Is_tstack m \<Longrightarrow>
-       Is_tstack m' \<Longrightarrow>
-       butlast m = butlast m' \<Longrightarrow>
-       Collect (captured m) = Collect (captured m')"
-proof (induct arbitrary: m' rule: Is_tstack_induct)
-  case (Base x)
-  then show ?case by (cases m'; auto split: if_splits simp: captured_def)
-next
-  case (Frame x xs)
-  then show ?case by (cases m'; auto split: if_splits simp: captured_def)
-qed
-
-lemma  butlast_topcap:
-  "Is_tstack m \<Longrightarrow>
-       Is_tstack m' \<Longrightarrow>
-       butlast m = butlast m' \<Longrightarrow>
-       Collect (topcap m) = Collect (topcap m')"
-  by (auto split: if_splits list.splits simp: topcap_def)
-
-lemma tstack_upper_captured_eq:
-  "tstack_upper m = tstack_upper m' \<Longrightarrow> capped m = capped m'"
-  unfolding tstack_upper_def apply transfer using butlast_captured by auto
-
-lemma tstack_upper_topcapped_eq:
-  "tstack_upper m = tstack_upper m' \<Longrightarrow> topcapped m = topcapped m'"
-  unfolding tstack_upper_def apply transfer using butlast_topcap by auto
-
+text \<open>
+This is a complete mess, forced through simply to be done with it.
+Stability of a labelled variable is unclear, as the variable could
+be referring to either a global value or a stack value.
+This demands that the rely be closed under the preservation of
+some arbitrary subset of its variables.
+This property is added into the wellformedness notion that is carried throughout the proof.
+\<close>
 
 definition closed_under_partial_id
   where "closed_under_partial_id R \<equiv> \<forall>w m a b. 
@@ -265,21 +244,6 @@ definition closed_under_partial_id
 abbreviation wellformed'
   where "wellformed' R G \<equiv> closed_under_partial_id (step\<^sub>t R) \<and> wellformed R G"
 
-fun written
-  where 
-    "written (a#b#c) v = ( (frame_st a v \<noteq> None \<and> v \<in> frame_cap a) \<or> written (b#c) v)" |
-    "written _ v = False"
-
-fun auxwritten
-  where 
-    "auxwritten (a#b#c) = (more a \<noteq> None \<or> auxwritten (b#c))" |
-    "auxwritten _ = False"
-
-lift_definition twritten ::  "('b, 'c, 'd) tstack \<Rightarrow> 'b \<Rightarrow> bool"  is "written"
-  .
-
-lift_definition tauxwritten ::  "('b, 'c, 'd) tstack \<Rightarrow> bool"  is "auxwritten"
-  .
 
 lemma base_lookup:
   "Is_tstack m \<Longrightarrow>
@@ -321,30 +285,6 @@ next
     by blast
 qed
 
-lemma upper_written:
-  "Is_tstack m \<Longrightarrow>
-       Is_tstack m' \<Longrightarrow> butlast m = butlast m' \<Longrightarrow> written m x = written m' x"
-proof (induct arbitrary: m' rule: Is_tstack_induct)
-  case (Base x)
-  then show ?case by (cases m'; auto split: if_splits)
-next
-  case (Frame x xs)
-  then show ?case
-    apply (cases m'; auto split: if_splits)
-     apply (cases xs)
-      apply simp
-     apply (metis Is_tstack_ConsE list.exhaust written.simps(1))
-     apply (cases xs)
-     apply simp
-     apply (metis Is_tstack_ConsE list.exhaust written.simps(1))
-    done
-qed
-
-lemma tupper_written:
-  "tstack_upper m = tstack_upper m' \<Longrightarrow> twritten m x = twritten m' x"
-  unfolding tstack_upper_def
-  apply transfer
-  using upper_written .
 
 lemma eq_aux:
   "Is_tstack m \<Longrightarrow> \<not> auxwritten m \<Longrightarrow> aux m = base_aux m"
@@ -494,10 +434,7 @@ subsection \<open>Relational @{type tstack} Projection Lemmas\<close>
 
 lemma stable_ts [intro]: 
   "stable R P \<Longrightarrow> stable (base_rel_rely R) (seq_pred_of_vm_pred P)"
-  apply (auto simp: stable_def base_rel_rely_def base_rel_def )
-  apply (metis One_nat_def tstack_base_vm_of_ts tstack_upper_len_eq)
-  apply (metis tstack_upper_len_eq)
-  done
+  by (auto simp: stable_def base_rel_rely_def base_rel_def)
 
 lemma base_rel_guarI:
   assumes "ts_is_seq a \<Longrightarrow> ts_is_seq b \<Longrightarrow> (tstack_base a, tstack_base b) \<in> G"
@@ -514,97 +451,6 @@ lemma [elim!]:
   obtains "(m, ma) \<in> base_rel G"
   using assms unfolding base_rel_def by auto
 
-(* MOVE *)
-lemma [intro]:
-  assumes "tstack_upper m = tstack_upper m'"
-  shows "tstack_upper (tstack_push m s) = tstack_upper (tstack_push m' s)"
-  using assms unfolding tstack_upper_def by transfer auto
-
-lemma [simp]:
-  "tstack_len m = 1 \<Longrightarrow> tstack_upper m = []"
-  unfolding tstack_upper_def by transfer (case_tac m; simp)
-
-lemma [simp]:
-  "tstack_len x = Suc 0 \<Longrightarrow> tcaptured x v = False"
-  by transfer (case_tac x; auto simp: captured_def)
-
-lemma [intro]:
-  "ttopcap x x11 \<Longrightarrow> tcaptured x x11"
-  by transfer (case_tac x; auto simp: captured_def topcap_def split: list.splits)
-
-lemma [simp]:
-  "ttopcap (tauxupd x f) = ttopcap x"
-  apply transfer
-  unfolding topcap_def auxupd_def
-  by (auto split: list.splits simp: fun_eq_iff)
-
-lemma [simp]:
-  "ttopcap (tupdate x  y e) = ttopcap x"
-  apply transfer
-  unfolding topcap_def auxupd_def
-  by (auto split: list.splits simp: fun_eq_iff)
-
-lemma upper_mid:
-  "tstack_upper a = tstack_upper b \<Longrightarrow>
-           tstack_mid a = tstack_mid b"
-  by (auto simp: tstack_upper_def tstack_mid_def split: list.splits if_splits)
-
-lemma tstack_mid_tauxupd [simp]:
-  "tstack_mid (tauxupd x f) = tstack_mid x"
-  unfolding tstack_mid_def
-  by transfer (auto simp: fun_eq_iff auxupd_def split: list.splits)
-
-lemma tstack_mid_tupdate_base[simp]:
-  "tstack_len x = Suc 0 \<Longrightarrow> tstack_mid (tupdate x y e) = tstack_mid x"
-  unfolding tstack_mid_def
-  by transfer (auto split: list.splits)
-
-lemma stack_mid_update_nocap:
-  "Is_tstack (x21 # x22) \<Longrightarrow>
-       \<not> captured (x21 # x22) y \<Longrightarrow>
-       butlast (update x22 y e) = butlast x22"
-proof (induct "x21 # x22" arbitrary: x21 x22 rule: Is_tstack_induct)
-  case (Base x)
-  then show ?case by auto
-next
-  case (Frame x xs)
-  then show ?case by (cases xs; auto simp: captured_def)
-qed
-
-lemma tstack_mid_tupdate_nocap[simp]:
-  "\<not>tcaptured x y \<Longrightarrow> tstack_mid (tupdate x y e) = tstack_mid x"
-  unfolding tstack_mid_def
-  apply transfer 
-  apply (auto split: list.splits)
-  using stack_mid_update_nocap by force
-
-lemma tstack_mid_tupdate_topcap[simp]:
-  "ttopcap x y \<Longrightarrow> tstack_mid (tupdate x y e) = tstack_mid x"
-  unfolding tstack_mid_def
-  by transfer (auto split: list.splits simp: topcap_def)
-
-
-lemma [simp]:
-  "tstack_mid (tstack_push m s) = tstack_upper m"
-  unfolding tstack_mid_def tstack_upper_def
-  apply transfer
-  apply (auto split: list.splits)
-  done
-
-lemma [simp]:
-  "ttopcap (tstack_push m (emptyFrame w)) x = (x \<in> w)"
-  by transfer
-   (auto simp: topcap_def split: list.splits)
-
-lemma [elim!]:
-  assumes "[] = tstack_upper b"
-  obtains "tstack_len b = 1"
-  using assms unfolding tstack_upper_def apply (transfer)
-  apply (case_tac b; auto split: if_splits)
-  done
-
-(* MOVE *)
-
 lemma compat_example:
   assumes "G \<subseteq> R"
   shows "base_rel_guar G w \<subseteq> guard {t. tstack_len t = 1} (base_rel_rely R)"
@@ -614,21 +460,9 @@ lemma base_rel:
   assumes "id_on w G \<subseteq> G"
   shows "base_rel_rely (id_on w G) \<subseteq> base_rel_guar G w"
   using assms
-  apply (auto simp: base_rel_rely_def base_rel_guar_def)
-               apply (simp add: base_rel_def subsetD)
-  using upper_mid apply blast
-  using tstack_upper_topcapped_eq apply force
-  using tstack_upper_topcapped_eq apply force
-  using tstack_upper_len_eq apply blast
-    using upper_mid apply blast
-  using tstack_upper_topcapped_eq apply force
-  using tstack_upper_topcapped_eq apply force
-  using tstack_upper_len_eq apply blast
-    using upper_mid apply blast
-  using tstack_upper_topcapped_eq apply force
-  using tstack_upper_topcapped_eq apply force
-  using tstack_upper_len_eq apply blast
-  done
+  apply (auto simp: base_rel_rely_def base_rel_guar_def base_rel_def subsetD)
+  using upper_mid tstack_upper_topcapped_eq tstack_upper_len_eq 
+  by fast+
 
 subsection \<open>@{term st_beh\<^sub>i} Invariants\<close>
 
@@ -649,14 +483,14 @@ lemma st_beh\<^sub>i_ttopcap [simp]:
 lemma id_on_refl :
   assumes "(x,x) \<in> R"
   shows "(x,x) \<in> (id_on w R)"
-  using assms unfolding id_on_def 
-  apply auto
-  apply (rule exI)
-  apply (intro conjI)
-  prefer 2
-   apply blast
-  apply auto
-  done
+proof -
+  have "\<lparr>varmap_st =
+             \<lambda>v. if v \<in> w then varmap_st x v
+                 else varmap_st x v,
+             \<dots> = varmap_rec.more x\<rparr> = x"
+    by auto
+  thus ?thesis using assms unfolding id_on_def by force
+qed
 
 subsection \<open>Atomic Judgements\<close>
 
