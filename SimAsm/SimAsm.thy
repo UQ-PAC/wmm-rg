@@ -13,19 +13,19 @@ section \<open>Language Definition\<close>
 
 datatype ('r,'v,'s,'ss,'a) lang =
   Skip
-  | Op "'s set" "('r,'v) op" "('s,'a) auxfn"
+  | Op "'ss set" "('r,'v) op" "('s,'a) auxfn"
   | Seq "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"
   | If "('r,'v) bexp" "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"  
   | While "('r,'v) bexp" "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang"
-  | DoWhile "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang" "('r,'v) bexp"
+  (*| DoWhile "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang" "('r,'v) bexp"*)
 
 fun ops :: "('r,'v,'s,'ss,'a) lang \<Rightarrow> ('r,'v) op set" where 
   "ops Skip = {}" |
   "ops (Op _ op _) = {op}" |
   "ops (Seq a b) = ops a \<union> ops b" | 
   "ops (If _ a b) = ops a \<union> ops b" | 
-  "ops (While _ _ _ a) = ops a" |
-  "ops (DoWhile _ _ a _) = ops a"
+  "ops (While _ _ _ a) = ops a" 
+  (*"ops (DoWhile _ _ a _) = ops a" *)
 
 abbreviation wr\<^sub>l where 
   "wr\<^sub>l l \<equiv> \<Union>(wr ` ops l)"

@@ -33,7 +33,7 @@ record ('var,'val) frame =
 (* and Q2: "Quotient R2 Abs2 Rep2 T2" *)
 (* shows "Quotient (poly_mapping_rel R1 R2) (map_poly_mapping Rep1 Abs2) (map_poly_mapping *)
 (* Abs1 Rep2) (poly_mapping_rel T1 T2)" *)
-(* sorry  *)
+(*   *)
   
 setup_lifting type_definition_frame_ext
 copy_bnf ('a,'b,'c) frame_ext
@@ -160,7 +160,7 @@ fun lookup :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> 'val" where
 (* it is important that lookup ignores values from frames where v is not captured. *)
   
 fun update :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val,'a) stack" where 
-  "update [] _ _ = undefined" |
+  "update [] _ _ = []" |
   "update (f#fs) v x = (if (v \<in> frame_cap f) then (f\<lparr>frame_st := (frame_st f)(v \<mapsto> x)\<rparr>)#fs else f#update fs v x)"
 
 fun aux :: "('var,'val,'a) stack \<Rightarrow> 'a"
@@ -168,11 +168,21 @@ fun aux :: "('var,'val,'a) stack \<Rightarrow> 'a"
     "aux [] = undefined" |
     "aux (h#ts) = (case more h of None \<Rightarrow> aux ts | Some v \<Rightarrow> v)"
 
+fun wf_transition :: "('var,'val,'a) stack \<Rightarrow> ('var,'val,'a) stack \<Rightarrow> bool"
+  where
+    "wf_transition (f#fs) (s#ss) = (butlast fs = butlast ss \<and> length fs = length ss)" |
+    "wf_transition [] [] = True" |
+    "wf_transition _ _ = False"
+
 definition auxupd :: "('var,'val,'a) stack \<Rightarrow> (('var,'val,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) stack" where 
   "auxupd s f \<equiv> case s of h#t \<Rightarrow> (h\<lparr> more := Some (f s)\<rparr>)#t | _ \<Rightarrow> []"
 
+
 definition captured :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> bool"
   where "captured s v \<equiv> \<exists>frame \<in> set (butlast s). v \<in> frame_cap frame"
+
+definition topcap :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> bool"
+  where "topcap s v \<equiv> case s of h#_#t \<Rightarrow> v \<in> frame_cap h | _ \<Rightarrow> False"
 
 definition base_st :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> 'val"
   where "base_st s \<equiv> the \<circ> frame_st (last s)"
@@ -204,7 +214,7 @@ lemma lookup_update:
 
 lemma captured_update:
   "Is_tstack s \<Longrightarrow> captured (update s v e) = captured s"
-  by (induct rule: Is_tstack_induct) (auto simp: fun_eq_iff captured_def)
+  by (induct rule: Is_tstack_induct) (auto simp: fun_eq_iff captured_def split: list.splits)
 
 lemma base_st_update:
   "Is_tstack s \<Longrightarrow> base_st (update s v e) = (if captured s v then base_st s else (base_st s)(v := e))"
@@ -230,17 +240,6 @@ lemma lookup_auxupd:
 lemma aux_auxupd:
   "Is_tstack s \<Longrightarrow> aux (auxupd s f) = f s"
   by (induct rule: Is_tstack_induct) (auto simp: auxupd_def)
-
-lemma auxupd_aux:
-  "Is_tstack t \<Longrightarrow> auxupd t aux = t"
-  apply (induct rule: Is_tstack_induct) apply (auto simp: auxupd_def)
-  proof (goal_cases)
-    case (1 x xs)
-    then show ?case apply (induct xs)
-    apply auto
-    using surjective[of x]
-    sorry (* XXX: this feels obvious *)
-  qed
 
 lemma captured_auxupd:
   "Is_tstack s \<Longrightarrow> captured (auxupd s f) = captured s"
@@ -275,10 +274,12 @@ lemma base_aux_aux:
 
 lift_definition tlookup :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val" is "lookup" .
 lift_definition tcaptured :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> bool" is "captured" .
+lift_definition ttopcap :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> bool" is "topcap" .
 lift_definition taux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is "aux" .
 lift_definition tstack_len :: "('r,'v,'a) tstack \<Rightarrow> nat" is "length" .
 lift_definition tbase_st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v" is "base_st" .
 lift_definition tbase_aux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is "base_aux" .
+(*lift_definition twf_transition :: "('var,'val,'a) tstack \<Rightarrow> ('var,'val,'a) tstack \<Rightarrow> bool" is "wf_transition" . *)
 
 lift_definition tupdate :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val,'a) tstack" is "update"
   using Is_tstack_update by force
@@ -293,8 +294,14 @@ lift_definition tstack_push :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option
 abbreviation capped :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
   "capped ts \<equiv> Collect (tcaptured ts)"
 
+abbreviation topcapped :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
+  "topcapped ts \<equiv> Collect (ttopcap ts)"
+
 definition tstack_upper :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme list"
   where "tstack_upper ts = butlast (Rep_tstack ts)"
+
+definition tstack_mid :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme list"
+  where "tstack_mid ts = (case Rep_tstack ts of h#t \<Rightarrow> butlast t | _ \<Rightarrow> [])"
 
 text \<open>
 The number of frames within the tstack naturally tells us whether that state
@@ -332,10 +339,6 @@ lemma tbase_st_tupdate [simp]:
 lemma tbase_aux_tupdate [simp]:
   "tbase_aux (tupdate s v e) = tbase_aux s"
   by (transfer) (auto simp: base_aux_update)
-
-lemma tauxupd_taux [simp]:
-  "tauxupd t taux = t"
-by transfer (simp add: auxupd_aux)
 
 subsection \<open>@{term tauxupd} Properties\<close>
 
@@ -379,7 +382,7 @@ lemma taux_tpush [simp]:
 
 lemma tcaptured_tpush [simp]:
   "tcaptured (tstack_push x s) = (\<lambda>v. v \<in> frame_cap s \<or> tcaptured x v)"
-  by (transfer)  (auto simp: captured_def fun_eq_iff)
+  by (transfer) (auto simp: captured_def fun_eq_iff split: list.splits)
 
 lemma tbase_st_tpush [simp]:
   "tbase_st (tstack_push m s) = tbase_st m"
@@ -446,125 +449,6 @@ lemma st_emptyFrame [simp]:
 lemma more_emptyFrame [simp]:
   "more (emptyFrame w) = None"
   by (auto simp: emptyFrame_def)
-
-
-(*
-lemma ts_upper_of_seq [elim]: \<open>ts_is_seq m \<Longrightarrow> (tstack_upper m = [])\<close>
-unfolding  tstack_upper_def tstack_len_def 
-by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
-
-lemma ts_is_seq_of_ts_upper [intro]: \<open>(tstack_upper m = []) \<Longrightarrow> ts_is_seq m\<close>
-unfolding  tstack_upper_def tstack_len_def 
-by (simp_all only: id_def) (simp_all add: butlast_conv_take Rep_tstackI(1) le_Suc_eq)
-*)
-
-(*
-lemma length_butlast:
-  assumes "length m = 1" "butlast m = butlast m'"
-  shows "length m' = 1 \<or> length m' = 0"
-  using assms by (cases m; cases m'; auto split: if_splits)
-
-lemma ts_is_seq_upper:
-  assumes "ts_is_seq m" "tstack_upper m = tstack_upper m'"
-  shows "ts_is_seq m'"
-  using assms using length_butlast Rep_tstack
-  unfolding  tstack_len_def tstack_upper_def Is_tstack_def
-  by auto *)
-
-
-(*
-lemma [intro!, simp]: "Is_tstack (Rep_tstack s)" 
-  using Rep_tstack by auto
-*)
-(*
-lemma Is_tstack_update2 [intro!,simp]: "Is_tstack (update (Rep_tstack fs) v x)" 
-  by (simp add: Is_tstack_update)
-*)
-
-(*
-lemma aux_tupdate [simp]:
-  shows "more (last (Rep_tstack (tupdate s v x))) = more (last (Rep_tstack s))"
-
-proof (induct s rule: tstack_induct)
-  case (Base s)
-  hence "Is_tstack (update [s] v x)" by (rule Is_tstack_update)
-  thus ?case unfolding tupdate_def using Base by auto
-next
-  case (Frame x xs)
-  hence "Is_tstack (x#xs)" by auto
-  thus ?case unfolding tupdate_def using Frame 
-    by (simp_all add: Is_tstackE(1) Is_tstack_ConsI Is_tstack_update aux_update)
-qed
-
-lemma aux_tauxupd [simp]:
-  shows "more (last (Rep_tstack (tauxupd s f))) = f s"
-proof (induct s rule: tstack_induct)
-  case (Base s)
-  hence "Is_tstack (auxupd [s] (\<lambda>tstack. f (Abs_tstack tstack)))" by auto
-  thus ?case unfolding tauxupd_def auxupd_def using Base by auto
-next
-  case (Frame x xs)
-  hence "Is_tstack (x#xs)" by auto
-  thus ?case unfolding tauxupd_def auxupd_def using Frame
-  by (auto simp add: Is_tstack_ConsI Is_tstack_snoc_moreupd)
-qed *)
-
-
-(*
-lemma tauxupd_id [simp]: 
-  "tauxupd s taux = s"
-  by transfer (auto simp: auxupd_def split: list.splits)
-*)
-
-(*
-interpretation stack: state
-  "tlookup"
-  tupdate
-  "taux" 
-  "tauxupd"
-(*  "id"  *)
-proof (unfold_locales, goal_cases)
-  case (1 s var val var2)
-  have "lookup (update (Rep_tstack s) var val) var2 = (if var2 = var then val else lookup (Rep_tstack s) var2)" 
-    using lookup_update2[of "Rep_tstack s"] by simp
-  moreover have "Rep_tstack (Abs_tstack (update (Rep_tstack s) var val)) = update (Rep_tstack s) var val" 
-    using Abs_tstack_inverse Is_tstack_update by blast
-  ultimately show ?case 
-  unfolding tlookup_def tupdate_def by simp
-next                                          
-  case (2 s v x)
-  then show ?case 
-  proof (induct s rule: tstack_induct)
-    case (Base x')
-    hence "RepAbs_tstack [x'] = [x']" by auto
-    moreover have "Is_tstack (update [x'] v x)" using Is_tstack_update[OF Base].
-    moreover hence "RepAbs_tstack (update [x'] v x) = update [x'] v x" by auto
-    ultimately show ?case 
-      unfolding taux_def tupdate_def using Base 
-      by auto
-  qed simp
-next
-  case (3 s f)
-  then show ?case 
-  proof (induct s rule: tstack_induct)
-    case (Base x)
-    hence auxupd: "Is_tstack (auxupd [x] (\<lambda>x. f (Abs_tstack x)))" by auto
-    have "more (last (auxupd [x] (\<lambda>x. f (Abs_tstack x)))) = f (Abs_tstack [x])"
-      unfolding auxupd_def by auto
-    then show ?case
-      unfolding taux_def tauxupd_def by (simp add: Base auxupd)
-  next
-    case (Frame x xs)
-    hence "Is_tstack (x#xs)" by auto
-    moreover hence "RepAbs_tstack (x#xs) = x#xs" by auto
-    moreover have "Is_tstack (auxupd (x#xs) (\<lambda>x. f (Abs_tstack x)))" using Frame by auto
-    ultimately show ?case unfolding taux_def tauxupd_def auxupd_def by auto
-  qed
-next
-  case (4 s f v)
-  then show ?case by simp
-qed 
-*)
 
 end
 

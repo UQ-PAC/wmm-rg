@@ -92,8 +92,8 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> s. if (s=0)
                                  then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
                                  else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | 
-    "lift\<^sub>c (While b Ispec Imix c) =  (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" | 
-    "lift\<^sub>c (DoWhile Ispec Imix  c b) =  (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)" 
+    "lift\<^sub>c (While b Ispec Imix c) =  (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" (* | 
+    "lift\<^sub>c (DoWhile Ispec Imix  c b) =  (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)"  *)
 
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:
@@ -146,7 +146,7 @@ fun lift\<^sub>b
     (* Block speculative execution at a fence *)
     "lift\<^sub>b v full_fence f = ((full_fence,f), v, beh\<^sub>a (full_fence,f) \<inter> {(m,m'). ts_is_seq m})" |
     (* Extend vc with speculative execution implies correct capture setup *)
-    "lift\<^sub>b v a f =  liftg (v \<inter> {ts. ts_is_spec ts \<longrightarrow> (wr a \<subseteq> capped ts \<and> lk a \<inter> capped ts = {})}) a f"
+    "lift\<^sub>b v a f =  liftg (v \<inter> {ts. ts_is_spec ts \<longrightarrow> (wr a \<subseteq> topcapped ts \<and> lk a \<inter> capped ts = {})}) a f"
 
 text \<open>Convert the language into the abstract language expected by the underlying logic
       this relates the syntax to its semantics 
@@ -161,15 +161,17 @@ text \<open>Convert the language into the abstract language expected by the unde
         (note, wrs must include @{term w\<^sub>l} of the rest program r, which is a com not a lang construct which
          precludes to derived it at this level)  \<close> 
 
+
 fun liftspec :: "'r set \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com
                         \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com
                         \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com"
   where
-    "liftspec wrs cs c = Choice (\<lambda>s. if s = 0 then (Interrupt (Capture (emptyFrame wrs) (cs))) \<cdot> c else c)"
+    "liftspec wrs cs c = (Interrupt (Capture (emptyFrame wrs) (cs))) \<cdot> c"
 
 
 (* remark: in this lifting, 'r' should only be appended to the command during speculation. *)
 (* XXX: more principled usage of 'r'. at which point does it get added to the command? *)
+
 fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Rightarrow> (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com \<Rightarrow> 'r set \<Rightarrow>
                                                        (('r,'v,'a) auxopSt, ('r,'v,'a) tstack, ('r,'v,'a option) frame_scheme) com"
   where
@@ -179,12 +181,12 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
     "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda>s. if s = 0
                     then liftspec wrs (lift\<^sub>c c\<^sub>2 r wrs ;; r) (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>1 r wrs)
                     else liftspec wrs (lift\<^sub>c c\<^sub>1 r wrs ;; r) (Basic (\<lfloor>ncmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>2 r wrs)))"  |
-(*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b]; r *)
+(*(while b then c); r = (spec(r); [b]; c )\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b] *)
     "lift\<^sub>c (While b Ispec Imix c) r wrs =  
-           ( liftspec wrs r (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c r wrs) )* ;;
-           liftspec wrs (lift\<^sub>c c r wrs ;; (lift\<^sub>c c r wrs)* ;; r) (Basic (\<lfloor>ncmp b\<rfloor>))"  |
-(* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b]; r ) *)
-    "lift\<^sub>c (DoWhile Ispec Imix c b) r wrs =   
+           (liftspec wrs r (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c ((lift\<^sub>c c r wrs)* ;; r) wrs) )* ;;
+           liftspec wrs (lift\<^sub>c c r wrs ;; (lift\<^sub>c c r wrs)* ;; r) (Basic (\<lfloor>ncmp b\<rfloor>))" 
+(* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b] ) *)
+    (*"lift\<^sub>c (DoWhile Ispec Imix c b) r wrs =   
             (liftspec wrs 
               ( lift\<^sub>c c r wrs  ;; r )
               ( lift\<^sub>c c r wrs  ;; Basic (\<lfloor>cmp b\<rfloor>))
@@ -192,7 +194,22 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
             ;;
             (liftspec wrs
               ((lift\<^sub>c c r wrs)*;; lift\<^sub>c c r wrs ;; r)
-              ( lift\<^sub>c c r wrs  ;; Basic (\<lfloor>ncmp b\<rfloor>) ))" 
+              ( lift\<^sub>c c r wrs  ;; Basic (\<lfloor>ncmp b\<rfloor>) ))"  *)
+
+(*
+(*(while b then c); r = (spec(r ); [b]; c)\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b] *)
+    "lift\<^sub>c (While b Imix Ispec c) r wrs =  
+           (Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c r wrs)))* ;;
+           (Interrupt (Capture (emptyFrame (wrs)) ((lift\<^sub>c c r wrs) ;; (lift\<^sub>c c r wrs)* ;; r )) \<cdot> (Basic (\<lfloor>ncmp b\<rfloor>)))"  |
+(* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b]; r ) *)
+    "lift\<^sub>c (DoWhile Imix Ispec c b) r wrs =  
+           ((Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> ((lift\<^sub>c c r wrs) ;; r))  \<cdot>
+                                                      ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>cmp b\<rfloor>))))* ;;
+            (Interrupt (Capture (emptyFrame (wrs)) (r))  \<cdot> ((lift\<^sub>c c r wrs)* ;; (lift\<^sub>c c r wrs) ;; r))  \<cdot>
+                                                      ((lift\<^sub>c c r wrs) ;; (Basic (\<lfloor>ncmp b\<rfloor>)) ;; r)" 
+
+*)
+
 
 text \<open>The language is always thread-local\<close>
 lemma local_lift [intro]:

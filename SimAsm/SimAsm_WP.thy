@@ -23,7 +23,7 @@ type_synonym ('r,'v,'a) varmap' = "('r,'v,'a) varmap_rec_scheme"
 type_synonym ('r,'v,'a) auxop' = "('r,'v,('r,'v,'a) varmap','a) auxop"
 
 text \<open>Labelled state (record) in which every variable appears in its Gl and UL variation \<close>
-type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a) varmap'"
+type_synonym ('r,'v,'a) lvarmap' = "('r label,'v,'a \<times> 'a) varmap'"
 type_synonym ('r,'v,'a) lauxop = "('r,'v,('r,'v,'a) lvarmap','a) auxop"
 
 type_synonym ('r,'v,'a) spec_state = "('r,'v,'a) lvarmap' set \<times> ('r,'v,'a) varmap' set"
@@ -178,7 +178,7 @@ fun wp\<^sub>a :: "(('r','v','a') varmap','a') auxfn \<Rightarrow> ('r','v','a')
 declare wp\<^sub>a.simps[simp del]
 
 text \<open>Convert a predicate transformer into a relational predicate transformer\<close>
-definition wp\<^sub>r :: "('r,'v,'a) varmap' trans \<Rightarrow> ('r,'v,'a) varmap' rtrans"
+definition wp\<^sub>r :: "'b trans \<Rightarrow> 'b rtrans"
   where "wp\<^sub>r f G \<equiv> {(s,s'). s' \<in> f {t'. (s,t') \<in> G}}"
 
 
@@ -195,8 +195,8 @@ fun guar\<^sub>c
     "guar\<^sub>c (Op v a f) G = (v \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
     "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" |
-    "guar\<^sub>c (DoWhile _ _ c _) G = (guar\<^sub>c c G)"
+    "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" (*|
+    "guar\<^sub>c (DoWhile _ _ c _) G = (guar\<^sub>c c G)" *)
 
 end  (* of locale wp *)
 
@@ -216,16 +216,16 @@ begin
 (* create an annotation type for loops that can be just one pred for wp_WOspec, or two pred for wp_spec *)
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',unit,'a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
+fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) varmap','a) lang \<Rightarrow> ('r,'v,'a) varmap' set \<Rightarrow> ('r,'v,'a) varmap' set"
   where
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
      "wp R (While b I _ c) Q = (stabilize R I \<inter> 
-       assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
+       assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" (* |
     "wp R (DoWhile I _ c b) Q = (stabilize R I \<inter> 
-       assert (I \<subseteq>  wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
+       assert (I \<subseteq>  wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"*)
 
 end (* end of locale wp_WOspec *)
 
@@ -273,11 +273,11 @@ text \<open> Producing a labelled predicate from an unlabelled predicate \<close
 
 text \<open>Restricts the given predicate to its unlabelled part.\<close>
 fun ul_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "ul_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Ul v)), \<dots> = more s \<rparr>"
+  "ul_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Ul v)), \<dots> = snd (more s) \<rparr>"
 
 text \<open>Restricts the given predicate to its globally labelled part.\<close>
 fun gl_restrict :: "('r,'v,'a) lvarmap' \<Rightarrow> ('r,'v,'a) varmap'" where 
-  "gl_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Gl v)), \<dots> = more s \<rparr>"
+  "gl_restrict s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (Gl v)), \<dots> = fst (more s) \<rparr>"
 
 text \<open>Lifts a predicate into a labelled predicate, treating the state as Global 
                                             and without constraining Unlabelled.\<close>
@@ -292,19 +292,21 @@ definition ul_lift_pred :: "('r,'v,'a) varmap' pred \<Rightarrow> ('r,'v,'a) lva
 text \<open>Lifts a predicate into a labelled predicate, requiring the local and
       global states to both be equal to s.\<close>
 definition glul_lift_pred :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'" ("(_\<^sup>G\<^sup>L)" [1000] 1000) where
-  "glul_lift_pred s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (unlabel v)), \<dots> = more s \<rparr> " 
+  "glul_lift_pred s = \<lparr> varmap_st = (\<lambda>v. varmap_st s (unlabel v)), \<dots> = (more s, more s) \<rparr> " 
 
 
 text \<open> Unlabelling a predicate, such that variables with differing labels need to be equal 
          as they become indistinguishable without their label \<close>
 
 definition restrict_pred :: "('r,'v,'a) lvarmap' pred \<Rightarrow> ('r,'v,'a) varmap' pred"   ("(_\<^sup>U)" [1000] 1000) where
-  "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> s \<in> Q}"
+  "restrict_pred Q = gl_restrict ` {s. (\<forall>v. varmap_st s(Gl v) = varmap_st s (Ul v)) \<and> fst (more s) = snd (more s) \<and> s \<in> Q}"
 
+(*
 lemma restrict_pred_def2: 
   "restrict_pred Q = {s. \<exists>s2 \<in> Q. s = gl_restrict s2 \<and> (\<forall>v. varmap_st s2 (Gl v) = varmap_st s2 (Ul v))}"
   unfolding restrict_pred_def image_def
   apply clarsimp apply standard apply clarsimp apply metis by blast
+*)
 
 abbreviation restrict_pred_abbrev ("(_[y\<phi> sub y])" [1000] 1000) where
   "restrict_pred_abbrev Q \<equiv> restrict_pred Q"
@@ -313,7 +315,12 @@ text \<open>Build a labelled @{type varmap'} from a global and unlabelled @{type
 definition mk_lvarmap :: "('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) varmap' \<Rightarrow> ('r,'v,'a) lvarmap'"
   where "mk_lvarmap g u \<equiv> \<lparr> varmap_st = (\<lambda>v. case v of Ul v \<Rightarrow> varmap_st u v |
                                                        Gl v \<Rightarrow> varmap_st g v),
-                                   \<dots> = varmap_rec.more u \<rparr>"
+                                   \<dots> = (varmap_rec.more g, varmap_rec.more u) \<rparr>"
+
+text \<open>Lifts a relation into a labelled predicate, treating the state as Global 
+                                            and without constraining Unlabelled.\<close>
+definition gl_lift_rel
+  where "gl_lift_rel G \<equiv> {(s,t). (gl_restrict s, gl_restrict t) \<in> G}"
 
 
 context wp_spec
@@ -326,16 +333,18 @@ text \<open> stablilizing the verification conditions in the speculated part:
                   are unchanged \<close>
 definition stabilize\<^sub>L
   where "stabilize\<^sub>L R P \<equiv> {m. \<forall>m'. 
-        (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> rg (gl_restrict m) = rg (gl_restrict m') 
-                                                       \<longrightarrow> ul_restrict m = ul_restrict m' \<longrightarrow> m' \<in> P}"
-
+        (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<longrightarrow> 
+          rg (gl_restrict m) = rg (gl_restrict m') \<longrightarrow> 
+         (glb (ul_restrict m),glb (ul_restrict m')) \<in> R \<longrightarrow> 
+          rg (ul_restrict m) = rg (ul_restrict m') \<longrightarrow> m' \<in> P}"
 
 text \<open>Specialise the stability definition based on the conditions implied by @{term stabilize\<^sub>L}\<close>
 definition stable\<^sub>L
   where "stable\<^sub>L R P \<equiv> stable {(m,m').
         (glb (gl_restrict m),glb (gl_restrict m')) \<in> R \<and>
          rg (gl_restrict m) = rg (gl_restrict m') \<and>
-         ul_restrict m = ul_restrict m'} P"
+         (glb (ul_restrict m),glb (ul_restrict m')) \<in> R \<and>
+         rg (ul_restrict m) = rg (ul_restrict m')} P"
 
 text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
@@ -381,38 +390,43 @@ abbreviation spec_subset :: "('r,'v,'a) spec_state \<Rightarrow>
                              ('r,'v,'a) spec_state \<Rightarrow> bool" (infixr "\<subseteq>\<^sub>s" 80) 
   where "spec_subset c\<^sub>1 c\<^sub>2 \<equiv> ([c\<^sub>1]\<^sub>s \<subseteq> [c\<^sub>2]\<^sub>s) \<and> ([c\<^sub>1]\<^sub>; \<subseteq> [c\<^sub>2]\<^sub>;)"
 
+fun wp\<^sub>i\<^sub>a
+  where "wp\<^sub>i\<^sub>a f Q = {t. t\<lparr>more := (fst (more t), f (ul_restrict t))\<rparr> \<in> Q}"
+
+definition assert\<^sub>s
+  where "assert\<^sub>s b \<equiv> ({m. b},{m. b})"
+
 fun langsize where
   "langsize (Skip) = 2" |
   "langsize (Op _ _ _) = 2" |
   "langsize (SimAsm.lang.Seq a b) = 1 + langsize a + langsize b" |
   "langsize (If _ a b) = 1 + langsize a + langsize b" |
-  "langsize (While _ _ _ c) = 1 + langsize c" |
-  "langsize (DoWhile _ _ c _) = 1 + 3 * langsize c"
+  "langsize (While _ _ _ c) = 1 + langsize c" (*|
+  "langsize (DoWhile _ _ c _) = 1 + 3 * langsize c"*)
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
 function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarmap','a) lang \<Rightarrow> ('r,'v,'a) spec_state \<Rightarrow> ('r,'v,'a) spec_state"
   where
     "wp R Skip Q = Q" |
-    "wp R (Op v a f) Q = (stabilize\<^sub>L R (v\<^sup>L \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> ul_restrict) (fst Q))),
-                                stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
+    "wp R (Op v a f) Q = (stabilize\<^sub>L R (v \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>i\<^sub>a f (fst Q))),
+                                stabilize R (v\<^sup>U \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)
     "wp R (If b c\<^sub>1 c\<^sub>2) Q = (let (Qs1,Q1) = wp R c\<^sub>1 Q; (Qs2,Q2) = wp R c\<^sub>2 Q in
-       (stabilize\<^sub>L R (Qs1 \<inter> Qs2), 
-        stabilize R (wp\<^sub>i (cmp b) (Q1 \<inter> Qs2[y\<phi> sub y]) \<inter> wp\<^sub>i (ncmp b) (Q2 \<inter> Qs1[y\<phi> sub y]))))" |
+       (Qs1 \<inter> Qs2, 
+        stabilize R (wp\<^sub>i (cmp b) Q1 \<inter> Qs2[y\<phi> sub y] \<inter> wp\<^sub>i (ncmp b) Q2 \<inter> Qs1[y\<phi> sub y])))" |
+  "wp R (While b Inv Inv\<^sub>s c) Q = 
+      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv \<subseteq> (stabilize\<^sub>L R Inv\<^sub>s)\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv\<^sub>s \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>s)) \<inter>\<^sub>s
+      (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv)" (*|
+  "wp R (DoWhile Inv Inv\<^sub>s c b) Q = wp R (SimAsm.lang.Seq (c) (While b Inv Inv\<^sub>s c)) Q"*)
 
-    "wp R (While b Inv Inv\<^sub>s c) Q = 
-      ((stabilize\<^sub>L R Inv\<^sub>s),
-       stabilize R (Inv \<inter> Inv\<^sub>s[y\<phi> sub y] 
-         \<inter> assert (Inv\<^sub>s \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;))
-         \<inter> assert (Inv\<^sub>s \<subseteq> [(wp R c (Inv\<^sub>s, Inv))]\<^sub>s)
-         \<inter> assert (Inv \<subseteq> wp\<^sub>i (cmp b) [(wp R c (Inv\<^sub>s, (stabilize R Inv)))]\<^sub>;)))" |
-      "wp R (DoWhile Inv Inv\<^sub>s c b) Q = wp R (SimAsm.lang.Seq (c) (While b Inv Inv\<^sub>s c)) Q"
 (* with DoWhile Inv\<^sub>s Inv c b \<equiv> c ; While b Inv\<^sub>s Inv c) *)
 apply auto
 using ops.cases by blast
 termination 
-by (relation "measure (\<lambda>(_,c,_). langsize c)") (auto, induct_tac c, auto)
+  by (relation "measure (\<lambda>(_,c,_). langsize c)")  auto
 
 
 
@@ -466,16 +480,21 @@ proof (standard, goal_cases)
     case (1 s0)
     then show ?case 
       using gl_restrict_of_glul varmap_st_of_glul
-      apply (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) apply (auto simp add: glul_lift_pred_def) by (metis surjective)
+      apply (intro image_eqI[where ?x="s0\<^sup>G\<^sup>L"]) 
+       apply (auto simp add: glul_lift_pred_def) by (metis surjective)
   qed
 qed auto
 
+(*
 lemma restrict_pred_distrib[simp]: "(Q1 \<inter> Q2)\<^sup>U = Q1\<^sup>U \<inter> Q2\<^sup>U" for Q1 Q2
 unfolding restrict_pred_def image_def
 apply standard
   apply fast
-apply clarsimp
-by (metis (no_types, opaque_lifting) ext label.exhaust varmap_rec.equality)
+  apply clarsimp
+  apply (rule exI, intro conjI)
+
+ (*by (metis (no_types, opaque_lifting) ext label.exhaust varmap_rec.equality) *)
+*)
 
 lemma lvarmap_eqI[intro]:
   assumes "\<And>v. varmap_st x (Gl v) = varmap_st y (Gl v)"
@@ -488,6 +507,7 @@ proof (intro varmap_rec.equality ext, goal_cases)
   then show ?case by (cases v) auto
 qed simp
 
+(*
 lemma lvarmap_rgglb_eqI[intro]:
   assumes "rg (gl_restrict x) = rg (gl_restrict y)"
   assumes "rg (ul_restrict x) = rg (ul_restrict y)"
@@ -498,15 +518,16 @@ lemma lvarmap_rgglb_eqI[intro]:
 proof -
   have "gl_restrict x = gl_restrict y" "ul_restrict x = ul_restrict y"
     using assms rgglb_injective by force+
-  then show ?thesis by (intro lvarmap_eqI, (simp, meson?)+)
-qed
+  then show ?thesis  (* by (intro lvarmap_eqI, (simp, meson?)+) *)
+qed *)
 
+(*
 lemma glul_eq_restrict: "(x\<^sup>G\<^sup>L \<in> Q) = (x \<in> Q[y\<phi> sub y])" for x Q
 apply standard
 unfolding glul_lift_pred_def restrict_pred_def2 apply simp_all
 apply (metis gl_restrict.simps gl_restrict_of_glul glul_lift_pred_def varmap_st_of_glul)
 by (metis lvarmap_eqI select_convs(1) select_convs(2) unlabel.simps(1) unlabel.simps(2))
-
+*)
 
 lemma ul_lift_univ [simp]:
   "UNIV\<^sup>L = UNIV"
@@ -538,15 +559,11 @@ lemma mk_lvarmap_st [simp]:
   by (auto simp: mk_lvarmap_def)
 
 lemma mk_lvarmap_aux [simp]:
-  "varmap_rec.more (mk_lvarmap g u) = varmap_rec.more u"
-  by (auto simp: mk_lvarmap_def)
-
-lemma mk_lvarmap_auxupd_g [simp]:
-  "mk_lvarmap (g\<lparr> varmap_rec.more := e \<rparr>) u = mk_lvarmap g u"
+  "varmap_rec.more (mk_lvarmap g u) = (varmap_rec.more g,varmap_rec.more u)"
   by (auto simp: mk_lvarmap_def)
 
 lemma mk_lvarmap_auxupd [simp]:
-  "(mk_lvarmap g u)\<lparr> varmap_rec.more := e \<rparr> = mk_lvarmap g (u\<lparr> varmap_rec.more := e \<rparr>)"
+  "(mk_lvarmap g u)\<lparr> varmap_rec.more := (f,s) \<rparr> = mk_lvarmap (g\<lparr> varmap_rec.more := f \<rparr>) (u\<lparr> varmap_rec.more := s \<rparr>)"
   by (auto simp: mk_lvarmap_def)
 
 lemma mk_lvarmap_stupd [simp]:
@@ -570,13 +587,38 @@ lemma label_fupd_comp [simp]:
   "f(Ul x := e) \<circ> Ul = (f o Ul)(x := e)"
   by (auto simp: comp_def)
 
+lemma u_lvarmap:
+  "v\<^sup>U = {x. mk_lvarmap x x \<in> v}"
+proof auto
+  fix x assume "x \<in> v\<^sup>U" 
+  then obtain y where y:
+      "\<forall>v. varmap_st y (Gl v) = varmap_st y (Ul v)"
+      "fst (more y) = snd (more y)" "y \<in> v"
+      "x = \<lparr>varmap_st = \<lambda>v. varmap_st y (Ul v), \<dots> = snd (more y)\<rparr>"
+    unfolding restrict_pred_def image_def by auto
+  hence "y = mk_lvarmap x x"
+    unfolding mk_lvarmap_def
+    by (auto intro!: varmap_rec.equality split: label.splits) (cases "more y"; auto)
+  thus "mk_lvarmap x x \<in> v" using y(3) by blast
+next
+  fix x assume "mk_lvarmap x x \<in> v" (is "?x \<in> v")
+  moreover have "(\<forall>v. varmap_st ?x (Gl v) = varmap_st ?x (Ul v))"
+    by auto
+  moreover have "fst (more ?x) = snd (more ?x)"
+    by auto
+  moreover have "x = \<lparr>varmap_st = \<lambda>v. varmap_st ?x (Ul v), \<dots> = snd (more ?x)\<rparr>"
+    by auto
+  ultimately show "x \<in> v\<^sup>U" unfolding restrict_pred_def image_def by force
+qed
+
 subsection \<open>@{term stabilize\<^sub>L} Properties\<close>
 
 lemma stabilize\<^sub>L [intro]:
   assumes "wellformed R G"
   shows "stable\<^sub>L R (stabilize\<^sub>L R P)"
-  unfolding stable\<^sub>L_def stabilize\<^sub>L_def
-  using State.stable_def assms transitive_def by fastforce
+  unfolding stable\<^sub>L_def stabilize\<^sub>L_def State.stable_def
+  using  assms transitive_def
+  by (smt (verit) case_prodD mem_Collect_eq)
 
 lemma stabilize\<^sub>LE:
   assumes "m \<in> stabilize\<^sub>L R P"
@@ -605,7 +647,7 @@ by auto
 
 lemma stable_stabilize\<^sub>L_id [simp]: "reflexive R \<Longrightarrow> stable\<^sub>L R Inv \<Longrightarrow> stabilize\<^sub>L R Inv = Inv"
 unfolding stabilize\<^sub>L_def reflexive_def
-by (auto simp add: stable\<^sub>L_def stable_def wp.step\<^sub>t_def wp_axioms)
+  by (auto simp add: stable\<^sub>L_def stable_def wp.step\<^sub>t_def wp_axioms)
 
 end (* end of locale wp_spec *)
 
