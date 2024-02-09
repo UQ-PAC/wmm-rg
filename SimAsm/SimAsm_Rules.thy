@@ -1193,7 +1193,6 @@ theorem simAsm_wp_sound:
   assumes g: "guarl (wr\<^sub>l c) c G"
   assumes P: "P \<subseteq>\<^sub>s wp R c Q"
   assumes l: "lk\<^sub>l c \<inter> wr\<^sub>l c = {}"
-  assumes Q: "[Q]\<^sub>; \<subseteq> [Q]\<^sub>s[y\<phi> sub y]"
   shows "\<Turnstile> c SAT [[P]\<^sub>;, R, G, [Q]\<^sub>;]"
 proof -
   have "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) (wr\<^sub>l c) \<turnstile> 

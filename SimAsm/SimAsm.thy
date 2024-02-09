@@ -15,8 +15,8 @@ datatype ('r,'v,'s,'ss,'a) lang =
   Skip
   | Op "'ss set" "('r,'v) op" "('s,'a) auxfn"
   | Seq "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"
-  | If "('r,'v) bexp" "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"  
-  | While "('r,'v) bexp" "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang"
+  | If "'ss set" "('r,'v) bexp" "('r,'v,'s,'ss,'a) lang" "('r,'v,'s,'ss,'a) lang"  
+  | While "'ss set" "('r,'v) bexp" "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang"
   (*| DoWhile "'s set" "'ss set" "('r,'v,'s,'ss,'a) lang" "('r,'v) bexp"*)
 
 fun ops :: "('r,'v,'s,'ss,'a) lang \<Rightarrow> ('r,'v) op set" where 

@@ -83,7 +83,7 @@ lemma local_simps [simp]:
   by (auto intro: local.intros elim: local.cases)
 
 
-(*
+
 subsection \<open>Syntactic Basics\<close>
 text \<open>
 Collect basics contained within the command.
@@ -91,7 +91,7 @@ May not directly line up with those basics emitted during evaluation due to the 
 of forwarding. Consequently, probably a bad idea to use these definitions.
 \<close>
 
-inductive basic :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
+inductive basic :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> bool"
   where
     "basic (Basic \<beta>) ( \<beta>)" |
     "basic c\<^sub>1 \<beta> \<Longrightarrow> basic (c\<^sub>1 ;\<^sub>r c\<^sub>2) \<beta>" |
@@ -99,12 +99,14 @@ inductive basic :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic \<Rightarrow>
     "basic (f s) \<beta> \<Longrightarrow> basic (\<Sqinter>s. f s) \<beta>" |
     "basic c \<beta> \<Longrightarrow> basic (c*\<^sub>w) \<beta>" |
     "basic c \<beta> \<Longrightarrow> basic (Capture k c) ( \<beta>)" |
+    "basic c \<beta> \<Longrightarrow> basic (Interrupt c) ( \<beta>)" |
+
     "basic c\<^sub>1 \<beta> \<Longrightarrow> basic (c\<^sub>1 || c\<^sub>2) \<beta>" |
     "basic c\<^sub>2 \<beta> \<Longrightarrow> basic (c\<^sub>1 || c\<^sub>2) \<beta>" |
     "basic c \<beta> \<Longrightarrow> basic (Thread c) \<beta>"
 inductive_cases basic_tuple: "basic c (a,b,d)"
 
-definition basics :: "('a,'b::state) com \<Rightarrow> ('a,'b) basic set"
+definition basics :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic set"
   where "basics c \<equiv> {\<beta>. basic c \<beta>}"
 
 lemma basics_simps [simp]:
@@ -118,7 +120,7 @@ lemma basics_simps [simp]:
   "basics (Thread c) = basics c" 
   apply (auto simp: basics_def elim: basic.cases  intro: basic.intros)
     done
-*)
+
 
 
 end

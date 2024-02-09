@@ -145,6 +145,8 @@ fun lift\<^sub>b
   where
     (* Block speculative execution at a fence *)
     "lift\<^sub>b v full_fence f = ((full_fence,f), v, beh\<^sub>a (full_fence,f) \<inter> {(m,m'). ts_is_seq m})" |
+    (* Ignore guards during speculative execution *)
+    "lift\<^sub>b v (cmp g) f = ((cmp g,f), v, (beh\<^sub>a (cmp g,f) \<inter> {(m,m'). ts_is_seq m}) \<union>  {(m,m'). m' = aux_upd m f \<and> ts_is_spec m}) " |
     (* Extend vc with speculative execution implies correct capture setup *)
     "lift\<^sub>b v a f =  liftg (v \<inter> {ts. ts_is_spec ts \<longrightarrow> (wr a \<subseteq> topcapped ts \<and> lk a \<inter> capped ts = {})}) a f"
 
@@ -250,12 +252,12 @@ definition wfbasic
 
 
 lemma opbasicE:
-    obtains (assign) x e f v b where  "(basic ) = ((assign x e,f), v, b)" |
-          (cmp) g f v b where "(basic ) = ((cmp g,f), v, b)" |
-          (fence) f v b where "(basic ) = ((full_fence,f), v, b)" |
-          (nop) f v b where "(basic ) = ((nop,f), v, b)" |
-          (leak) c e f v b where "(basic ) = ((leak c e,f), v, b)" 
-  by (cases basic, case_tac a, case_tac aa; clarsimp) 
+    obtains (assign) x e f v b where  "(ba ) = ((assign x e,f), v, b)" |
+          (cmp) g f v b where "(ba ) = ((cmp g,f), v, b)" |
+          (fence) f v b where "(ba ) = ((full_fence,f), v, b)" |
+          (nop) f v b where "(ba ) = ((nop,f), v, b)" |
+          (leak) c e f v b where "(ba ) = ((leak c e,f), v, b)" 
+  by (cases ba, case_tac a, case_tac aa; clarsimp) 
 
 lemma [simp]:
   "wr (inst (fwd\<^sub>s \<alpha> (tag \<beta>))) = wr (inst \<alpha>)"

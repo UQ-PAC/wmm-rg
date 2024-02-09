@@ -279,7 +279,6 @@ lift_definition taux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is "aux" .
 lift_definition tstack_len :: "('r,'v,'a) tstack \<Rightarrow> nat" is "length" .
 lift_definition tbase_st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v" is "base_st" .
 lift_definition tbase_aux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is "base_aux" .
-(*lift_definition twf_transition :: "('var,'val,'a) tstack \<Rightarrow> ('var,'val,'a) tstack \<Rightarrow> bool" is "wf_transition" . *)
 
 lift_definition tupdate :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val,'a) tstack" is "update"
   using Is_tstack_update by force
