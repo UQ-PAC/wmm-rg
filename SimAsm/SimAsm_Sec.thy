@@ -53,8 +53,8 @@ fun sec_lang :: "('r,'v,('r,'v,'a)varmap',('r,'v,'a)lvarmap','a) lang \<Rightarr
   "sec_lang (Skip) = Skip " |
   "sec_lang (Op pred op auxfn) = Op (sec_op_vc pred op) (sec_op op) (sec_aux auxfn)" |
   "sec_lang (SimAsm.lang.Seq a b) = SimAsm.lang.Seq (sec_lang a) (sec_lang b) " |
-  "sec_lang (If b t f) = If (sec_bexp b) (sec_lang t) (sec_lang f)" |
-  "sec_lang (While b Imix Ispec c) = While (sec_bexp b) (sec_vc Imix) (sec_vc Ispec) (sec_lang c) "
+  "sec_lang (If v b t f) = If (sec_op_vc v (cmp b)) (sec_bexp b) (sec_lang t) (sec_lang f)" |
+  "sec_lang (While v b Imix Ispec c) = While (sec_op_vc v (cmp b)) (sec_bexp b) (sec_vc Imix) (sec_vc Ispec) (sec_lang c) "
 
 locale simasm_sec_rules = 
   simasm_rules locals rg glb +
@@ -207,6 +207,30 @@ lemma sec_inv_bexp1:
   using assms unfolding sec_inv_def by (auto elim!: bot_expE)
 
 
+lemma cmp_atom:
+  assumes "lift\<^sub>b
+          (op_vc (cmp (sec_bexp c1))
+            (sec_op_vc x1 (cmp c1)))
+          (cmp (sec_bexp c1)) taux =
+    \<alpha>"
+  shows "atom_sec \<alpha>"
+  unfolding sym[OF assms[simplified sec_lang.simps ts_lang_of_vm_lang.simps lift\<^sub>c.simps basic_simps]] 
+  apply (rule atom_sec_idI; clarsimp simp: liftg_def relcomp_unfold)
+  by (auto simp: sec_inv_bexp1)
+
+lemma ncmp_atom:
+  assumes "lift\<^sub>b
+          (op_vc (ncmp (sec_bexp c1))
+            (sec_op_vc x1 (ncmp c1)))
+          (ncmp (sec_bexp c1)) taux =
+    \<alpha>"
+  shows "atom_sec \<alpha>"
+  unfolding sym[OF assms[simplified sec_lang.simps ts_lang_of_vm_lang.simps lift\<^sub>c.simps basic_simps]] 
+  apply (rule atom_sec_idI; clarsimp simp: liftg_def relcomp_unfold)
+  by (auto simp: sec_inv_bexp1)
+
+
+
 lemma atom_sec_lang:
   assumes "\<forall>\<alpha>. basic r \<alpha> \<longrightarrow> atom_sec \<alpha>"
   assumes "basic (lift\<^sub>c (ts_lang_of_vm_lang (sec_lang c)) r w) \<alpha>"
@@ -275,7 +299,8 @@ next
     apply (rule If(3))
         apply blast
     using If(3) apply blast
-    defer 1
+      apply (rule cmp_atom)
+    apply blast
     apply (rule If(1))
     apply (rule If(3))
         apply blast
@@ -284,18 +309,20 @@ apply (elim disjE)
     apply (rule If(3))
 apply blast
     using If(3) apply blast
-    defer 1
+      apply (rule ncmp_atom)
+    apply simp
     apply (rule If(2))
     apply (rule If(3))
     apply blast
-    sorry (* Need to attach a VC to the guard in an If *)
+      done
 next
   case (While x1 x2 x3 c)
   show ?case using While(3)
     unfolding sec_lang.simps ts_lang_of_vm_lang.simps lift\<^sub>c.simps basic_simps liftspec.simps
     apply (elim disjE)
     using While(2) apply blast
-    defer 1
+apply (rule cmp_atom)
+    apply blast
          apply (rule While(1))
     prefer 2
           apply blast
@@ -313,7 +340,9 @@ apply (rule While(1))
          apply (rule While(2))
           apply blast
     using While(2) apply blast
-    sorry (* Need to attach a VC to the guard in a While *)
+apply (rule ncmp_atom)
+    apply simp
+    done
 qed
 
 text \<open>

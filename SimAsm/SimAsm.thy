@@ -23,8 +23,8 @@ fun ops :: "('r,'v,'s,'ss,'a) lang \<Rightarrow> ('r,'v) op set" where
   "ops Skip = {}" |
   "ops (Op _ op _) = {op}" |
   "ops (Seq a b) = ops a \<union> ops b" | 
-  "ops (If _ a b) = ops a \<union> ops b" | 
-  "ops (While _ _ _ a) = ops a" 
+  "ops (If _ _ a b) = ops a \<union> ops b" | 
+  "ops (While _ _ _ _ a) = ops a" 
   (*"ops (DoWhile _ _ a _) = ops a" *)
 
 abbreviation wr\<^sub>l where 

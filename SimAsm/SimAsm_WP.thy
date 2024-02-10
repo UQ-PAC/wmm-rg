@@ -194,8 +194,8 @@ fun guar\<^sub>c
     "guar\<^sub>c Skip G = True" |
     "guar\<^sub>c (Op v a f) G = (v \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (If _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
-    "guar\<^sub>c (While _ _ _ c) G = (guar\<^sub>c c G)" (*|
+    "guar\<^sub>c (If _ _ c\<^sub>1 c\<^sub>2) G = (guar\<^sub>c c\<^sub>1 G \<and> guar\<^sub>c c\<^sub>2 G)" |
+    "guar\<^sub>c (While _ _ _ _ c) G = (guar\<^sub>c c G)" (*|
     "guar\<^sub>c (DoWhile _ _ c _) G = (guar\<^sub>c c G)" *)
 
 end  (* of locale wp *)
@@ -221,9 +221,9 @@ fun wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) varmap','a)
     "wp R Skip Q = Q" |
     "wp R (Op v a f) Q = stabilize R (v \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
     "wp R (Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
-     "wp R (While b I _ c) Q = (stabilize R I \<inter> 
-       assert (I \<subseteq> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" (* |
+    "wp R (If v b c\<^sub>1 c\<^sub>2) Q = stabilize R (v \<inter> wp\<^sub>i (cmp b) (wp R c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wp R c\<^sub>2 Q))" |
+     "wp R (While v b I _ c) Q = (stabilize R I \<inter> 
+       assert (I \<subseteq> v \<inter> wp\<^sub>i (cmp b) (wp R c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" (* |
     "wp R (DoWhile I _ c b) Q = (stabilize R I \<inter> 
        assert (I \<subseteq>  wp R c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"*)
 
@@ -350,7 +350,7 @@ text \<open> Transform a predicate over a speculation, which introduces labels t
 fun wp\<^sub>i\<^sub>s :: "('r,'v) op \<Rightarrow> ('r,'v,'a) lvarmap' set \<Rightarrow> ('r,'v,'a) lvarmap' set"          (* wp_spec on ops *)
   where 
     "wp\<^sub>i\<^sub>s (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Ul r) := (ev\<^sub>E (varmap_st s) (ul\<^sub>E e)))\<rparr>) \<in> Q}" |
-    "wp\<^sub>i\<^sub>s (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) (ul\<^sub>B b)) \<longrightarrow> s \<in> Q}" | 
+    "wp\<^sub>i\<^sub>s (cmp b) Q =  Q" | 
     "wp\<^sub>i\<^sub>s (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Gl c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e),
                                                            (Ul c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
     "wp\<^sub>i\<^sub>s full_fence Q = UNIV"  |
@@ -400,8 +400,8 @@ fun langsize where
   "langsize (Skip) = 2" |
   "langsize (Op _ _ _) = 2" |
   "langsize (SimAsm.lang.Seq a b) = 1 + langsize a + langsize b" |
-  "langsize (If _ a b) = 1 + langsize a + langsize b" |
-  "langsize (While _ _ _ c) = 1 + langsize c" (*|
+  "langsize (If _ _ a b) = 1 + langsize a + langsize b" |
+  "langsize (While _ _ _ _ c) = 1 + langsize c" (*|
   "langsize (DoWhile _ _ c _) = 1 + 3 * langsize c"*)
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
@@ -412,11 +412,11 @@ function wp :: "'g rel \<Rightarrow> ('r,'v,('r,'v,'a) varmap',('r,'v,'a) lvarma
                                 stabilize R (v\<^sup>U \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
     "wp R (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wp R c\<^sub>1 (wp R c\<^sub>2 Q)" |
 (* note: speculative component is not conditional on b because speculation may have started earlier. *)
-    "wp R (If b c\<^sub>1 c\<^sub>2) Q = (let (Qs1,Q1) = wp R c\<^sub>1 Q; (Qs2,Q2) = wp R c\<^sub>2 Q in
+    "wp R (If v b c\<^sub>1 c\<^sub>2) Q = (let (Qs1,Q1) = wp R c\<^sub>1 Q; (Qs2,Q2) = wp R c\<^sub>2 Q in
        (Qs1 \<inter> Qs2, 
-        stabilize R (wp\<^sub>i (cmp b) Q1 \<inter> Qs2[y\<phi> sub y] \<inter> wp\<^sub>i (ncmp b) Q2 \<inter> Qs1[y\<phi> sub y])))" |
-  "wp R (While b Inv Inv\<^sub>s c) Q = 
-      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>;)) \<inter>\<^sub>s
+        stabilize R (v\<^sup>U \<inter> wp\<^sub>i (cmp b) Q1 \<inter> Qs2[y\<phi> sub y] \<inter> wp\<^sub>i (ncmp b) Q2 \<inter> Qs1[y\<phi> sub y])))" |
+  "wp R (While v b Inv Inv\<^sub>s c) Q = 
+      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> v\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>;)) \<inter>\<^sub>s
       (assert\<^sub>s (Inv \<subseteq> (stabilize\<^sub>L R Inv\<^sub>s)\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter>\<^sub>s
       (assert\<^sub>s (Inv\<^sub>s \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>s)) \<inter>\<^sub>s
       (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv)" (*|

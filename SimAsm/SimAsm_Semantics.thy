@@ -44,9 +44,9 @@ definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op
   where "liftg v \<alpha> f \<equiv> ((\<alpha>,f), v, beh\<^sub>a (\<alpha>,f))"
 
 text \<open>Lift an operation without specification\<close>
-definition liftl :: "('r,'v) op \<Rightarrow> ('r,'v,'a) opbasicSt" 
-  ("\<lfloor>_\<rfloor>" 100)
-  where "liftl \<alpha> \<equiv> ((\<alpha>,aux), UNIV, beh\<^sub>a (\<alpha>,aux))"
+definition liftl :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> ('r,'v,'a) opbasicSt" 
+  ("\<lfloor>_,_\<rfloor>" 100)
+  where "liftl v \<alpha> \<equiv> ((\<alpha>,aux), v, beh\<^sub>a (\<alpha>,aux))"
 
 end   (* of locale sem_link *)
 
@@ -89,10 +89,10 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
     "lift\<^sub>c Skip = com.Nil" |
     "lift\<^sub>c (Op v a f) = Basic (liftg v a f)" | 
     "lift\<^sub>c (lang.Seq c\<^sub>1 c\<^sub>2) = (lift\<^sub>c c\<^sub>1) ;; (lift\<^sub>c c\<^sub>2)" |  
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> s. if (s=0)
-                                 then (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
-                                 else (Basic (\<lfloor>ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | 
-    "lift\<^sub>c (While b Ispec Imix c) =  (Basic (\<lfloor>cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>ncmp b\<rfloor>)" (* | 
+    "lift\<^sub>c (If v b c\<^sub>1 c\<^sub>2) = (Choice (\<lambda> s. if (s=0)
+                                 then (Basic (\<lfloor>v,cmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>1)) 
+                                 else (Basic (\<lfloor>v,ncmp b\<rfloor>) ;; (lift\<^sub>c c\<^sub>2))))" | 
+    "lift\<^sub>c (While v b Ispec Imix c) =  (Basic (\<lfloor>v,cmp b\<rfloor>) ;; (lift\<^sub>c c))* ;; Basic (\<lfloor>v,ncmp b\<rfloor>)" (* | 
     "lift\<^sub>c (DoWhile Ispec Imix  c b) =  (lift\<^sub>c c ;; Basic (\<lfloor>cmp b\<rfloor>))* ;; lift\<^sub>c c ;; Basic (\<lfloor>ncmp b\<rfloor>)"  *)
 
 text \<open>The language is always thread-local\<close>
@@ -180,13 +180,13 @@ fun lift\<^sub>c :: "('r,'v,('r,'v,'a) tstack,('r,'v,'a) tstack,'a) lang \<Right
     "lift\<^sub>c Skip r wrs = com.Nil" |
     "lift\<^sub>c (Op v a f) r wrs = Basic (lift\<^sub>b v a f)" | 
     "lift\<^sub>c (Seq c\<^sub>1 c\<^sub>2) r wrs = (lift\<^sub>c c\<^sub>1 (lift\<^sub>c c\<^sub>2 r wrs) (wrs)) ;; (lift\<^sub>c c\<^sub>2 r wrs)" |
-    "lift\<^sub>c (If b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda>s. if s = 0
-                    then liftspec wrs (lift\<^sub>c c\<^sub>2 r wrs ;; r) (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>1 r wrs)
-                    else liftspec wrs (lift\<^sub>c c\<^sub>1 r wrs ;; r) (Basic (\<lfloor>ncmp b\<rfloor>) ;; lift\<^sub>c c\<^sub>2 r wrs)))"  |
+    "lift\<^sub>c (If v b c\<^sub>1 c\<^sub>2) r wrs =  (Choice (\<lambda>s. if s = 0
+                    then liftspec wrs (lift\<^sub>c c\<^sub>2 r wrs ;; r) (Basic (lift\<^sub>b v (cmp b) aux) ;; lift\<^sub>c c\<^sub>1 r wrs)
+                    else liftspec wrs (lift\<^sub>c c\<^sub>1 r wrs ;; r) (Basic (lift\<^sub>b v (ncmp b) aux) ;; lift\<^sub>c c\<^sub>2 r wrs)))"  |
 (*(while b then c); r = (spec(r); [b]; c )\<^emph> ; spec(c; c \<^emph> ; r ); [\<not>b] *)
-    "lift\<^sub>c (While b Ispec Imix c) r wrs =  
-           (liftspec wrs r (Basic (\<lfloor>cmp b\<rfloor>) ;; lift\<^sub>c c ((lift\<^sub>c c r wrs)* ;; r) wrs) )* ;;
-           liftspec wrs (lift\<^sub>c c r wrs ;; (lift\<^sub>c c r wrs)* ;; r) (Basic (\<lfloor>ncmp b\<rfloor>))" 
+    "lift\<^sub>c (While v b Ispec Imix c) r wrs =  
+           (liftspec wrs r (Basic (lift\<^sub>b v (cmp b) aux) ;; lift\<^sub>c c ((lift\<^sub>c c r wrs)* ;; r) wrs) )* ;;
+           liftspec wrs (lift\<^sub>c c r wrs ;; (lift\<^sub>c c r wrs)* ;; r) (Basic (lift\<^sub>b v (ncmp b) aux))" 
 (* (do c while b); r = (spec(c; r ); c; [b])\<^emph> ; (spec(c \<^emph> ; c; r ); c; [\<not>b] ) *)
     (*"lift\<^sub>c (DoWhile Ispec Imix c b) r wrs =   
             (liftspec wrs 

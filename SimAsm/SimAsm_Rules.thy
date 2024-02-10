@@ -107,8 +107,8 @@ fun ts_lang_of_vm_lang :: "('r,'v,('r,'v,'a)varmap',('r,'v,'a)lvarmap','a) lang 
   "ts_lang_of_vm_lang (Skip) = Skip " |
   "ts_lang_of_vm_lang (Op pred op auxfn) = Op (op_vc op pred) op (auxfn \<circ> vm_of_ts)" |
   "ts_lang_of_vm_lang (SimAsm.lang.Seq a b) = SimAsm.lang.Seq (ts_lang_of_vm_lang a) (ts_lang_of_vm_lang b) " |
-  "ts_lang_of_vm_lang (If c t f) = If c (ts_lang_of_vm_lang t) (ts_lang_of_vm_lang f)" |
-  "ts_lang_of_vm_lang (While b Imix Ispec c) = While b (ts_pred_of_vm_pred Imix) (spec_pred_of_lvm_pred2 Ispec) (ts_lang_of_vm_lang c) " (* |
+  "ts_lang_of_vm_lang (If v c t f) = If (op_vc (cmp c) v) c (ts_lang_of_vm_lang t) (ts_lang_of_vm_lang f)" |
+  "ts_lang_of_vm_lang (While v b Imix Ispec c) = While (op_vc (cmp b) v) b (ts_pred_of_vm_pred Imix) (spec_pred_of_lvm_pred2 Ispec) (ts_lang_of_vm_lang c) " (* |
   "ts_lang_of_vm_lang (DoWhile Imix Ispec c b) = DoWhile (ts_pred_of_vm_pred Imix) (spec_pred_of_lvm_pred2 Ispec) (ts_lang_of_vm_lang c) b " *)
 
 text \<open>Constrain the base frame of a stack with a relation\<close>
@@ -603,11 +603,11 @@ lemma cmp_seq:
   assumes r: "wellformed' R G"
   assumes s: "stable\<^sub>t R Q"
   shows "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
-          seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) Q)) {Basic (liftl (cmp b))} seq_pred_of_vm_pred Q"
+          seq_pred_of_vm_pred (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (cmp b) Q)) {Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux)} seq_pred_of_vm_pred Q"
   unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps liftl_def
 proof (intro basic conjI atomicI, goal_cases st gu  spre spost )
   case st
-  thus ?case using r by (auto simp: State.wp_def elim!: stabilizeE)
+  thus ?case using r by (auto simp: State.wp_def u_lvarmap elim!: stabilizeE)
 next
   case gu
   thus ?case using r by (auto intro!: base_rel_guarI id_on_refl  simp: guar_def reflexive_def step_def)
@@ -623,11 +623,11 @@ lemma cmp_spec:
   assumes r: "wellformed' R G"
   assumes s: "stable\<^sub>L R Q"
   shows "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
-          spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) Q)) w {Basic (liftl (cmp b))} spec_pred_of_lvm_pred Q w"
+          spec_pred_of_lvm_pred (stabilize\<^sub>L R ( wp\<^sub>i\<^sub>s (cmp b) Q)) w {Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux)} spec_pred_of_lvm_pred Q w"
   unfolding ts_lang_of_vm_lang.simps lift\<^sub>c.simps liftl_def
 proof (intro basic conjI atomicI, goal_cases st gu  spre spost )
   case st
-  thus ?case using r by (auto simp: wp_def State.wp_def elim!: stabilize\<^sub>LE)
+  thus ?case using r by (auto simp: wp_def u_lvarmap State.wp_def elim!: stabilize\<^sub>LE)
 next
   case gu
   thus ?case using r by (auto intro!: base_rel_guarI id_on_refl  simp: guar_def reflexive_def step_def )
@@ -841,8 +841,8 @@ fun guarl
     "guarl w (Op v a f) G = (v\<^sup>U \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G) \<and> 
                              v \<subseteq> guar (wp\<^sub>i\<^sub>s a) (gl_lift_rel (step G)))" |
     "guarl w (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) G = (guarl w c\<^sub>1 G \<and> guarl w c\<^sub>2 G)" |
-    "guarl w (If _ c\<^sub>1 c\<^sub>2) G = (guarl w c\<^sub>1 G \<and> guarl w c\<^sub>2 G)" |
-    "guarl w (While _ _ _ c) G = (guarl w c G)" (* |
+    "guarl w (If _ _ c\<^sub>1 c\<^sub>2) G = (guarl w c\<^sub>1 G \<and> guarl w c\<^sub>2 G)" |
+    "guarl w (While _ _ _ _ c) G = (guarl w c G)" (* |
     "guarl w (DoWhile _ _ c _) G = (guarl w c G)" *)
 
 lemma loop_post:
@@ -897,7 +897,7 @@ next
     using Seq(1)[OF _ c2(2,3)] c2(1) Seq(6,7,8,9) by auto
   then show ?case using c2 by auto
 next
-  case (If b c\<^sub>1 c\<^sub>2)
+  case (If v b c\<^sub>1 c\<^sub>2)
   hence c1: "R,G \<turnstile> wp R c\<^sub>1 Q {c\<^sub>1,r,w} Q" by simp
   hence c2: "R,G \<turnstile> wp R c\<^sub>2 Q {c\<^sub>2,r,w} Q" using If by simp
   have st: "stable\<^sub>t R [local.wp R c\<^sub>1 Q]\<^sub>;" "stable\<^sub>t R [local.wp R c\<^sub>2 Q]\<^sub>;"  
@@ -913,13 +913,13 @@ next
     case left
     have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>1 Q]\<^sub>; {c\<^sub>1,r,w} [Q]\<^sub>;" using c1 by auto
     have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)) 
-        {Basic (liftl (cmp b))} 
+      seq_pred_of_vm_pred (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (cmp b) [wp R c\<^sub>1 Q]\<^sub>;)) 
+        {Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux)} 
           seq_pred_of_vm_pred [wp R c\<^sub>1 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
       using cmp_seq st If wf by blast
 
     have s: "?R,?G \<turnstile> seq_pred_of_vm_pred 
-              (stabilize R (wp\<^sub>i (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>; \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y] \<inter>
+              (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>; \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y] \<inter>
                     wp\<^sub>i (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>; \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s[y\<phi> sub y]))
                 {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>2) r w) r)} ?P" 
       apply (rule spec_judgement, rule seq)
@@ -936,13 +936,13 @@ next
     case right
     have c: "R,G \<turnstile>\<^sub>; [wp R c\<^sub>2 Q]\<^sub>; {c\<^sub>2,r,w} [Q]\<^sub>;" using c2 by auto
     have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
-      seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;)) 
-        {Basic (liftl (ncmp b))} 
+      seq_pred_of_vm_pred (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (ncmp b) [wp R c\<^sub>2 Q]\<^sub>;)) 
+        {Basic (lift\<^sub>b (op_vc (ncmp b) v) (ncmp b) taux)} 
           seq_pred_of_vm_pred [wp R c\<^sub>2 Q]\<^sub>;" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
       using cmp_seq st If wf by blast
 
     have s: "?R,?G \<turnstile> seq_pred_of_vm_pred 
-              (stabilize R (wp\<^sub>i (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>; \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y] \<inter>
+              (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (cmp b) [local.wp R c\<^sub>1 Q]\<^sub>; \<inter> [local.wp R c\<^sub>2 Q]\<^sub>s[y\<phi> sub y] \<inter>
                     wp\<^sub>i (ncmp b) [local.wp R c\<^sub>2 Q]\<^sub>; \<inter> [local.wp R c\<^sub>1 Q]\<^sub>s[y\<phi> sub y]))
                 {\<triangle> Capture (emptyFrame w) (Seqw (lift\<^sub>c (ts_lang_of_vm_lang c\<^sub>1) r w) r)} ?P" 
       apply (rule spec_judgement, rule seq)
@@ -950,7 +950,7 @@ next
       using c1 apply fastforce
       using If apply fastforce
       using If apply fastforce
-      using wf(1) stabilize_entail apply auto[1]
+        apply (simp add: Collect_mono_iff inf.coboundedI1 local.wf(1) stabilize_entail subsetI)
       apply (meson inf.boundedE local.wf(1) stabilize_smaller)
       using local.wf(1) by blast
 
@@ -960,7 +960,7 @@ next
     have c: "R,G \<turnstile>\<^sub>s [wp R c\<^sub>1 Q]\<^sub>s {c\<^sub>1,r,w} [Q]\<^sub>s" using c1 by auto
     have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
       spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [wp R c\<^sub>1 Q]\<^sub>s)) w
-        {Basic (liftl (cmp b))} 
+        {Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux)} 
           spec_pred_of_lvm_pred [wp R c\<^sub>1 Q]\<^sub>s w" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
       using cmp_spec st If wf by blast
 
@@ -972,6 +972,8 @@ next
       using c2 apply fastforce
       using If apply fastforce
       using If apply fastforce
+         apply simp
+      using local.wf(1) st(3) apply auto[1]
       apply (smt (verit, ccfv_threshold) Int_iff local.wf(1) mem_Collect_eq stabilize\<^sub>L_def stable_stabilize\<^sub>L_id stl subsetI wp\<^sub>i\<^sub>s.simps(2))
       apply simp
       using local.wf(1) by blast+
@@ -982,7 +984,7 @@ next
     have c: "R,G \<turnstile>\<^sub>s [wp R c\<^sub>2 Q]\<^sub>s {c\<^sub>2,r,w} [Q]\<^sub>s" using c2 by auto
     have b: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile>
       spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [wp R c\<^sub>2 Q]\<^sub>s)) w
-        {Basic (liftl (ncmp b))} 
+        {Basic (lift\<^sub>b (op_vc (ncmp b) v) (ncmp b) taux)} 
           spec_pred_of_lvm_pred [wp R c\<^sub>2 Q]\<^sub>s w" (is "?R,?G \<turnstile> ?P { ?b } ?Q")
       using cmp_spec st If wf by blast
 
@@ -994,6 +996,7 @@ next
       using c1 apply fastforce
       using If apply fastforce
       using If apply fastforce
+      apply (simp add: local.wf(1) st(4))
       apply (smt (verit, ccfv_threshold) Int_iff local.wf(1) mem_Collect_eq stabilize\<^sub>L_def stable_stabilize\<^sub>L_id stl subsetI wp\<^sub>i\<^sub>s.simps(2))
       apply simp
       using local.wf(1) by blast+
@@ -1007,12 +1010,12 @@ next
     thus ?case using stl by (simp add: inf_commute) 
   qed
 next
-  case (While b I Is c)
+  case (While v b I Is c)
   have "stable\<^sub>L R {}" by (auto simp: stable\<^sub>L_def)
-  hence s: "stable\<^sub>t R [local.wp R (While b I Is c) Q]\<^sub>;" 
-           "stable\<^sub>L R [local.wp R (While b I Is c) Q]\<^sub>s"
+  hence s: "stable\<^sub>t R [local.wp R (While v b I Is c) Q]\<^sub>;" 
+           "stable\<^sub>L R [local.wp R (While v b I Is c) Q]\<^sub>s"
     using local.wf(1) by (auto simp: assert\<^sub>s_def)
-  let ?a = "(I \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Is, stabilize R I))]\<^sub>;) \<and>
+  let ?a = "(I \<subseteq> [Q]\<^sub>s\<^sup>U \<inter> v\<^sup>U \<inter> wp\<^sub>i (cmp b) [(wp R c (stabilize\<^sub>L R Is, stabilize R I))]\<^sub>;) \<and>
             (I \<subseteq> (stabilize\<^sub>L R Is)\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;) \<and> 
             (Is \<subseteq> [Q]\<^sub>s \<inter> [(wp R c (stabilize\<^sub>L R Is, stabilize R I))]\<^sub>s)"
 
@@ -1067,9 +1070,10 @@ next
 
     text \<open>Sequential judgment over the exit condition\<close>
     have ncmp: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
-                  seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) {Basic (liftl (ncmp b))} 
+                  seq_pred_of_vm_pred (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) {Basic (lift\<^sub>b (op_vc (cmp b) v) (ncmp b) taux)} 
                     seq_pred_of_vm_pred [Q]\<^sub>;" (is "?R,?G \<turnstile> seq_pred_of_vm_pred ?P { ?c } ?Q")
-      using wf cmp_seq[OF wf(1)] While by blast
+      using wf cmp_seq[OF wf(1)] While 
+      by (smt (verit, del_insts) op_vc.simps(3)) 
 
     text \<open>Speculative execution of additional loop iterations\<close>
     have loopspec: "?R,?G \<turnstile> seq_pred_of_vm_pred (?P \<inter> [?I]\<^sub>s\<^sup>U) {
@@ -1089,14 +1093,14 @@ next
       using wf by blast
 
     text \<open>Sequential judgment over the failed exit condition\<close>
-    have cmp: "?R,?G \<turnstile> seq_pred_of_vm_pred (stabilize R (wp\<^sub>i (cmp b) [local.wp R c ?I]\<^sub>;)) {
-                Basic (liftl (cmp b))} seq_pred_of_vm_pred [local.wp R c ?I]\<^sub>;"
+    have cmp: "?R,?G \<turnstile> seq_pred_of_vm_pred (stabilize R (v\<^sup>U \<inter> wp\<^sub>i (cmp b) [local.wp R c ?I]\<^sub>;)) {
+                Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux)} seq_pred_of_vm_pred [local.wp R c ?I]\<^sub>;"
       using wf cmp_seq[OF wf(1)] While hyp(3) by blast
 
     text \<open>Execution of real loop iterations\<close>
     have cseq: "?R,?G \<turnstile> seq_pred_of_vm_pred [?I]\<^sub>; {Iterw
                      ((\<triangle> Capture (emptyFrame w) r) \<cdot>
-                      Seqw (Basic (liftl (cmp b)))
+                      Seqw (Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux))
                        (lift\<^sub>c (ts_lang_of_vm_lang c)
                          (Seqw (Iterw (lift\<^sub>c (ts_lang_of_vm_lang c) r w)) r) w))} seq_pred_of_vm_pred  (?P \<inter> [?I]\<^sub>s\<^sup>U)"
       apply (intro loop_pre seq)
@@ -1111,9 +1115,10 @@ next
 
     text \<open>Speculative judgment over the exit condition\<close>
     have ncmps: "base_rel_rely (step\<^sub>t R),base_rel_guar (step G) w \<turnstile> 
-                  spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [Q]\<^sub>s)) w {Basic (liftl (ncmp b))} 
+                  spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (ncmp b) [Q]\<^sub>s)) w {Basic (lift\<^sub>b (op_vc (cmp b) v) (ncmp b) taux)} 
                     spec_pred_of_lvm_pred [Q]\<^sub>s w" (is "?R,?G \<turnstile> spec_pred_of_lvm_pred ?P w { ?c } ?Q")
-      using wf cmp_spec[OF wf(1)] While by blast
+      using wf cmp_spec[OF wf(1)] While
+      by (smt (verit, del_insts) op_vc.simps(3)) 
 
     text \<open>Speculative execution of additional loop iterations\<close>
     have loopspecs: "?R,?G \<turnstile> spec_pred_of_lvm_pred (?P \<inter> [?I]\<^sub>s) w {
@@ -1134,13 +1139,13 @@ next
 
     text \<open>Speculative judgment over the failed exit condition\<close>
     have cmps: "?R,?G \<turnstile> spec_pred_of_lvm_pred (stabilize\<^sub>L R (wp\<^sub>i\<^sub>s (cmp b) [local.wp R c ?I]\<^sub>s)) w {
-                Basic (liftl (cmp b))} spec_pred_of_lvm_pred [local.wp R c ?I]\<^sub>s w"
+                Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux)} spec_pred_of_lvm_pred [local.wp R c ?I]\<^sub>s w"
       using wf cmp_spec[OF wf(1)] While hyp(4) by blast
 
     text \<open>Execution of speculative loop iterations\<close>
     have cseqs: "?R,?G \<turnstile> spec_pred_of_lvm_pred [?I]\<^sub>s w {
         Iterw ((\<triangle> Capture (emptyFrame w) r) \<cdot>
-                      Seqw (Basic (liftl (cmp b)))
+                      Seqw (Basic (lift\<^sub>b (op_vc (cmp b) v) (cmp b) taux))
                        (lift\<^sub>c (ts_lang_of_vm_lang c)
                          (Seqw (Iterw (lift\<^sub>c (ts_lang_of_vm_lang c) r w)) r)
                          w))} spec_pred_of_lvm_pred (?P \<inter> [?I]\<^sub>s) w"
@@ -1156,7 +1161,7 @@ next
       using True stabilize\<^sub>L_def by force
 
     show ?thesis
-      using s apply auto
+      using s apply (auto simp del: op_vc.simps lift\<^sub>b.simps)
       apply (intro seq)
          apply (rule ncmp)
         apply (rule loopspec)
@@ -1165,20 +1170,20 @@ next
           apply (rule seq_mono)
 apply auto[1]
          apply (simp add: stabilize_def)
-        apply auto[3]
+        apply auto[2]
 
 apply (intro seq)
          apply (rule ncmps)
         apply (rule loopspecs)
       apply (rule conseq)
            apply (rule cseqs)
-          apply (rule spec_mono)
-          apply auto
+         apply (rule spec_mono)
+         apply auto
       done
   next
     case False (* Loop invariant assertions don't hold *)
-    hence "local.wp R (While b I Is c) Q = ({},{})" by (auto simp: assert\<^sub>s_def)
-    hence "R,G \<turnstile> local.wp R (While b I Is c) Q {While b I Is c,r,w} Q"
+    hence "local.wp R (While v b I Is c) Q = ({},{})" by (auto simp: assert\<^sub>s_def)
+    hence "R,G \<turnstile> local.wp R (While v b I Is c) Q {While v b I Is c,r,w} Q"
       by (simp del: wp.simps) (meson conseq empty_subsetI falseI subset_refl)
     then show ?thesis using s by blast
   qed
