@@ -65,10 +65,10 @@ inductive lexecute :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> 
 inductive_cases lexecuteE[elim]: "c \<mapsto>[\<alpha>',p] c'"
 
 text \<open>Small step semantics for a global execution step\<close>
-inductive gexecute :: "('a,'b,'c) com \<Rightarrow> 'b rel \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
+inductive gexecute :: "('a,'b,'c) com \<Rightarrow> ('a,'b) basic \<Rightarrow> ('a,'b,'c) com \<Rightarrow> bool"
   ("_ \<mapsto>[_] _" [71,0,71] 70)
   where
-  thr[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> Thread c \<mapsto>[beh \<alpha>'] Thread c'" |
+  thr[intro]: "c \<mapsto>[\<alpha>',r] c' \<Longrightarrow> Thread c \<mapsto>[\<alpha>'] Thread c'" |
   par1[intro]: "c\<^sub>1 \<mapsto>[g] c\<^sub>1' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1' || c\<^sub>2" |
   par2[intro]: "c\<^sub>2 \<mapsto>[g] c\<^sub>2' \<Longrightarrow> c\<^sub>1 || c\<^sub>2 \<mapsto>[g] c\<^sub>1 || c\<^sub>2'"
 inductive_cases gexecuteE[elim]: "c \<mapsto>[g] c'"
@@ -137,7 +137,7 @@ abbreviation env_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Ri
 
 text \<open>Program Execution Transition\<close>
 abbreviation exec_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Rightarrow> bool" ("_ -\<alpha>\<rightarrow> _" [81,81] 80)
-  where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>g. fst s \<mapsto>[g] (fst s') \<and> (snd s,snd s') \<in> g"
+  where "s -\<alpha>\<rightarrow> s' \<equiv> \<exists>g. fst s \<mapsto>[g] (fst s') \<and> (snd s,snd s') \<in> beh g"
 
 text \<open>Program Silent Transition\<close>
 abbreviation sil_tran :: "('a,'b,'c) config \<Rightarrow> ('a,'b,'c) config \<Rightarrow> bool" ("_ -s\<rightarrow> _" [81,81] 80)
