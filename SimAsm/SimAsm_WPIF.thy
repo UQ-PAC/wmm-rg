@@ -104,8 +104,8 @@ fun guar\<^sub>c_if
     "guar\<^sub>c_if (Op v a f) \<L> G = ((v \<inter> (po \<L> a)) \<subseteq> guar (wp\<^sub>i a o wp\<^sub>a f) (step G))" |
     "guar\<^sub>c_if (Seq c\<^sub>1 c\<^sub>2)  \<L> G = (guar\<^sub>c_if c\<^sub>1 \<L> G \<and> guar\<^sub>c_if c\<^sub>2 \<L> G)" |
     "guar\<^sub>c_if (If _ c\<^sub>1 c\<^sub>2) \<L> G = (guar\<^sub>c_if c\<^sub>1 \<L> G \<and> guar\<^sub>c_if c\<^sub>2 \<L> G)" |
-    "guar\<^sub>c_if (While _ _ _ c) \<L> G = (guar\<^sub>c_if c \<L> G)" |
-    "guar\<^sub>c_if (DoWhile _ _ c _) \<L> G = (guar\<^sub>c_if c \<L> G)"
+    "guar\<^sub>c_if (While _ _ _ c) \<L> G = (guar\<^sub>c_if c \<L> G)" (*|
+    "guar\<^sub>c_if (DoWhile _ _ c _) \<L> G = (guar\<^sub>c_if c \<L> G)" *)
 
 
 
@@ -121,7 +121,7 @@ context wpif_WOspec
 begin
 
 text \<open>Transform a predicate based on a program c within an environment R under classification \<L> \<close>
-fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
+fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
                              ('r,'v,'sec,'a) secvarmap set \<Rightarrow> ('r,'v,'sec,'a) secvarmap set"
   where
     "wpif R \<L> Skip Q = Q" |
@@ -130,9 +130,10 @@ fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\
     "wpif R \<L> (If b c\<^sub>1 c\<^sub>2) Q = stabilize R (po \<L> (cmp b)) \<inter> 
                            stabilize R (wp\<^sub>i (cmp b) (wpif R \<L> c\<^sub>1 Q) \<inter> wp\<^sub>i (ncmp b) (wpif R \<L> c\<^sub>2 Q))" |
      "wpif R \<L> (While b I _ c) Q = (stabilize R I \<inter> 
-       assert (I \<subseteq> (po \<L> (cmp b)) \<inter> wp\<^sub>i (cmp b) (wpif R \<L> c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" |
+       assert (I \<subseteq> (po \<L> (cmp b)) \<inter> wp\<^sub>i (cmp b) (wpif R \<L> c (stabilize R I)) \<inter> wp\<^sub>i (ncmp b) Q))" (* |
     "wpif R \<L> (DoWhile I _ c b) Q = (stabilize R  I \<inter> 
        assert (I \<subseteq> (po \<L> (cmp b)) \<inter> wpif R \<L> c (stabilize R (wp\<^sub>i (cmp b) (stabilize R I) \<inter> wp\<^sub>i (ncmp b) Q))))"
+*)
 
 end   (* locale wpif_WOspec *)
 (* -------------------------------------------------- *)
@@ -145,7 +146,7 @@ locale wpif_spec = wp_spec rg glb + wpif rg glb
 
 text \<open>Labelled state (record) in which every variable appears in its Gl or UL variation \<close>
 type_synonym ('r,'v,'sec) lcondSec = "('r label,'v,'sec) condSec"
-type_synonym ('r,'v,'sec,'a) lsecvarmap = "('r label,'v,'sec,'a) secvarmap"
+type_synonym ('r,'v,'sec,'a) lsecvarmap = "('r label,'v,'sec,'a\<times>'a) secvarmap"
 type_synonym ('r,'v,'sec,'a) lsecauxop = "('r,'v,('r,'v,'sec,'a) lsecvarmap,'a) auxop"
 
 context wpif_spec
@@ -176,78 +177,34 @@ fun po\<^sub>s :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec) op
 
 
 text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
+fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,('r,'v,'sec,'a) lsecvarmap,'a) lang \<Rightarrow> 
                            ('r,'v\<times>'sec,'a) spec_state \<Rightarrow> ('r,'v\<times>'sec,'a) spec_state" 
   where
     "wpif R \<L> Skip Q = Q" |
-    "wpif R \<L> (Op v a f) (Q\<^sub>s, Q) = (stabilize\<^sub>L R (v\<^sup>L \<inter> (po\<^sub>s \<L> a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>a (f \<circ> gl_restrict) Q\<^sub>s)), 
-                             stabilize R (v \<inter> (po \<L> a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q)))" |
+    "wpif R \<L> (Op v a f) Q = (stabilize\<^sub>L R (v \<inter> (po\<^sub>s \<L> a) \<inter> wp\<^sub>i\<^sub>s a (wp\<^sub>i\<^sub>a f (fst Q))), 
+                             stabilize R (v\<^sup>U \<inter> (po \<L> a) \<inter> wp\<^sub>i a (wp\<^sub>a f (snd Q))))" |
     "wpif R  \<L> (SimAsm.lang.Seq c\<^sub>1 c\<^sub>2) Q = wpif R  \<L> c\<^sub>1 (wpif R  \<L> c\<^sub>2 Q)" |
-    "wpif R  \<L> (If b c\<^sub>1 c\<^sub>2) Q = merge R 
-       ([wpif R  \<L> c\<^sub>2 Q]\<^sub>s \<inter> [wpif R  \<L> c\<^sub>1 Q]\<^sub>s, 
-        stabilize R (po \<L> (cmp b)) \<inter> (wp\<^sub>i (cmp b) [wpif R \<L> c\<^sub>1 Q]\<^sub>; \<inter> wp\<^sub>i (ncmp b) [wpif R \<L> c\<^sub>2 Q]\<^sub>;))" |
-    "wpif R \<L> (While b Inv\<^sub>s Inv c) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
-       (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter>  assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
-        assert (Inv \<subseteq> (po \<L> (cmp b))) \<inter>
-        assert (Inv \<subseteq> (wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter> 
-        assert (Inv \<subseteq> (wp\<^sub>i (cmp b) [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, (stabilize R Inv)))]\<^sub>;)))" |
+(* note: speculative component is not conditional on b because speculation may have started earlier. *)
+    "wpif R  \<L> (If b c\<^sub>1 c\<^sub>2) Q = (let (Qs1,Q1) = wpif R \<L> c\<^sub>1 Q; (Qs2,Q2) = wpif R \<L> c\<^sub>2 Q in
+       (Qs1 \<inter> Qs2, 
+        stabilize R  (po \<L> (cmp b)) \<inter> (wp\<^sub>i (cmp b) Q1 \<inter> Qs2[y\<phi> sub y] \<inter> wp\<^sub>i (ncmp b) Q2 \<inter> Qs1[y\<phi> sub y])))" |
+     "wpif R \<L> (While b Inv Inv\<^sub>s c) Q = 
+      (assert\<^sub>s (Inv \<subseteq> [Q]\<^sub>s\<^sup>U \<inter>  po \<L> (cmp b) \<inter> wp\<^sub>i (cmp b) [(wpif R \<L> c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv \<subseteq> (stabilize\<^sub>L R Inv\<^sub>s)\<^sup>U \<inter> wp\<^sub>i (ncmp b) [Q]\<^sub>;)) \<inter>\<^sub>s
+      (assert\<^sub>s (Inv\<^sub>s \<subseteq> [Q]\<^sub>s \<inter> [(wpif R \<L> c (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv))]\<^sub>s)) \<inter>\<^sub>s
+      (stabilize\<^sub>L R Inv\<^sub>s, stabilize R Inv)"
+
+(*
 (* with  DoWhile Inv\<^sub>s Inv c b \<equiv> (c ; [b])* ; c ; [\<not>b]  *)
     "wpif R \<L> (DoWhile Inv\<^sub>s Inv c b) Q = merge R (Inv\<^sub>s\<^sup>L, Inv) \<inter>\<^sub>s
         (assert (Inv\<^sub>s\<^sup>L \<subseteq> [Q]\<^sub>s) \<inter> assert (Inv\<^sub>s\<^sup>L \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, Inv))]\<^sub>s), 
          assert (Inv \<subseteq> (po \<L> (cmp b))) \<inter> 
          assert (Inv \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, (stabilize R (wp\<^sub>i (cmp b) Inv))))]\<^sub>;) \<inter>
          assert (Inv \<subseteq> [(wpif R \<L> c (Inv\<^sub>s\<^sup>L, (stabilize R (wp\<^sub>i (ncmp b) [Q]\<^sub>;))))]\<^sub>;))"
-
+ *)
 end  (* of wpif_spec *)
 
 end
 
-
-
-(*
-text \<open> Transform a predicate over a speculation, which introduces labels to predicates \<close>
-fun wp\<^sub>i\<^sub>s_if :: "('r,'v\<times>'sec) op \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap set"     
-  where 
-    "wp\<^sub>i\<^sub>s_if (assign r e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Ul r) := (ev\<^sub>E (varmap_st s) (ul\<^sub>E e)))\<rparr>) \<in> Q}" |
-    "wp\<^sub>i\<^sub>s_if (cmp b) Q =  {s. (ev\<^sub>B (varmap_st s) (ul\<^sub>B b)) \<longrightarrow> s \<in> Q}" | 
-    "wp\<^sub>i\<^sub>s_if (leak c e) Q = {s. (s \<lparr>varmap_st := (varmap_st s)((Gl c) := ev\<^sub>E (varmap_st s) (ul\<^sub>E e))\<rparr>) \<in> Q}" |
-    "wp\<^sub>i\<^sub>s_if full_fence Q = UNIV"  |
-    "wp\<^sub>i\<^sub>s_if nop Q = Q"  
-
-text \<open>wp_spec transformer on lang.\<close>
-fun wp\<^sub>s_if :: "('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
-                                  ('r,'v,'sec,'a) lsecvarmap pred \<Rightarrow> ('r,'v,'sec,'a) lsecvarmap pred"   
-  where 
-    "wp\<^sub>s_if \<L> Skip Q = Q" |
-    "wp\<^sub>s_if \<L> (Op v a f) Q = (v\<^sup>L \<inter> (po\<^sub>s \<L> a) \<inter> (wp\<^sub>i\<^sub>s_if a (wp\<^sub>a f Q\<^sup>U)\<^sup>L))" |
-    "wp\<^sub>s_if \<L> (Seq c\<^sub>1 c\<^sub>2) Q = wp\<^sub>s_if \<L> c\<^sub>1 (wp\<^sub>s_if \<L> c\<^sub>2 Q)" |
-    "wp\<^sub>s_if \<L> (If b c\<^sub>1 c\<^sub>2) Q = (wp\<^sub>s_if \<L> c\<^sub>1 Q) \<inter> (wp\<^sub>s_if \<L> c\<^sub>2 Q)" |
-    "wp\<^sub>s_if \<L> (While b Imix Ispec c) Q = undefined" | 
-    "wp\<^sub>s_if \<L> (DoWhile Imix Ispec c b) Q = undefined"
-
-
-text \<open>Transform a predicate based on a program c within an environment R\<close>
-fun wpif :: "'g rel \<Rightarrow> ('r,'v,'sec,'a) secClass \<Rightarrow> ('r,'v\<times>'sec,('r,'v,'sec,'a) secvarmap,'a) lang \<Rightarrow> 
-                             ('r,'v,'sec,'a) secvarmap set \<Rightarrow> ('r,'v,'sec,'a) secvarmap set"
-  where
-    "wpif R \<L> Skip Q = Q" |
-    "wpif R \<L> (Op v a f) Q = stabilize R (v \<inter> (po \<L> a) \<inter> wp\<^sub>i a (wp\<^sub>a f Q))" |
-    "wpif R \<L> (Seq c\<^sub>1 c\<^sub>2) Q = wpif R \<L> c\<^sub>1 (wpif R \<L> c\<^sub>2 Q)" |
-    "wpif R \<L> (If b c\<^sub>1 c\<^sub>2) Q = 
-           (merge R  (stabilize R (wp\<^sub>s_if \<L> c\<^sub>2  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (cmp b) (wpif R \<L> c\<^sub>1 Q))))
-         \<inter> (merge R  (stabilize R (wp\<^sub>s_if \<L> c\<^sub>1  (spec Q))\<^sup>U) (stabilize R (wp\<^sub>i (ncmp b) (wpif R \<L> c\<^sub>2 Q))))" |
-(* here (wp\<^sub>s r true) is simplified to Q *)
-    "wpif R \<L> (While b Imix Ispec c) Q =
-      (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (po \<L> (cmp b)) \<inter>
-                        (merge R Q (wp\<^sub>i (cmp b) (wpif R \<L> c (stabilize R Imix)))) \<inter>
-                        (merge R  (stabilize R (wp\<^sub>s_if \<L> c (spec Ispec))\<^sup>U) (wp\<^sub>i (ncmp b) Q))))" |
-    "wpif R \<L> (DoWhile Imix Ispec c b) Q =
-      (stabilize R Imix \<inter>  
-        assert (Imix \<subseteq> (po \<L> (cmp b)) \<inter>
-                        (merge R (stabilize R ((wp\<^sub>s_if \<L> c (Q\<^sup>L \<inter> (stabilize R Ispec)\<^sup>L))\<^sup>U))  
-                                  (wpif R \<L> c ((stabilize R (wp\<^sub>i (cmp b) (stabilize R Imix))) \<inter>
-                                           (stabilize R (wp\<^sub>i (ncmp b) Q)))))))" 
-*)
 
 
