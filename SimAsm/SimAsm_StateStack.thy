@@ -1,5 +1,5 @@
 theory SimAsm_StateStack
-  imports Main 
+  imports Main
 begin
 
 section \<open>State Stacks\<close>
@@ -26,19 +26,6 @@ record ('var,'val) frame =
   frame_st :: "'var \<Rightarrow> 'val option" 
   frame_cap :: "'var set" 
 
-
-  
-(* lemma Quotient_frame [quot_map]: *)
-(* assumes Q1: "Quotient R1 Abs1 Rep1 T1" *)
-(* and Q2: "Quotient R2 Abs2 Rep2 T2" *)
-(* shows "Quotient (poly_mapping_rel R1 R2) (map_poly_mapping Rep1 Abs2) (map_poly_mapping *)
-(* Abs1 Rep2) (poly_mapping_rel T1 T2)" *)
-(*   *)
-  
-setup_lifting type_definition_frame_ext
-copy_bnf ('a,'b,'c) frame_ext
-print_quot_maps
-  
 type_synonym ('var,'val,'a) stack = "('var, 'val,'a option) frame_scheme list"
 
 definition emptyFrame :: "'var set \<Rightarrow> ('var,'val,'a option) frame_scheme" where
@@ -47,7 +34,7 @@ definition emptyFrame :: "'var set \<Rightarrow> ('var,'val,'a option) frame_sch
                       \<dots> = None \<rparr>"            (* is cap set as parameter *)
 
 definition Is_tstack :: "('var,'val,'a) stack \<Rightarrow> bool" where 
-  "Is_tstack t \<equiv> t \<noteq> [] \<and> frame_cap (last t) = UNIV \<and> (\<forall>v. frame_st (last t) v \<noteq> None) \<and> more (last t) \<noteq> None"
+  "Is_tstack t \<equiv> t \<noteq> [] \<and>  (frame_cap (last t)) = UNIV \<and> (\<forall>v. frame_st (last t) v \<noteq> None) \<and> more (last t) \<noteq> None"
 
 lemma Is_tstack_ConsI [intro]: "Is_tstack xs \<Longrightarrow> Is_tstack (x#xs)" 
 unfolding Is_tstack_def  
@@ -60,7 +47,6 @@ by auto
 lemma Is_tstack_snocE [intro]: "Is_tstack (xs @ [x]) \<Longrightarrow> Is_tstack [x]"
 unfolding Is_tstack_def  
 by auto                          
-
 
 lemma Is_tstack_NilE [elim!,dest!]: "Is_tstack [] \<Longrightarrow> False" 
 unfolding Is_tstack_def
@@ -94,32 +80,13 @@ proof (standard, clarify, intro conjI allI)
   show "[?f] \<noteq> []" by fast
   show "frame_st (last [?f]) v \<noteq> None" for v
     unfolding last select_convs(1) by simp
-  show "frame_cap (last [?f]) = UNIV"
+  show " (frame_cap (last [?f])) = UNIV"
     unfolding last select_convs(2) by simp
   show "more (last [?f]) \<noteq> None"
     unfolding last by simp
 qed
 
 setup_lifting type_definition_tstack
-
-(*
-(* declare Abs_tstack_inverse[intro] *)
-find_theorems Abs_tstack
-
-abbreviation RepAbs_tstack where 
-  "RepAbs_tstack s \<equiv> Rep_tstack (Abs_tstack s)"
-
-lemma RepAbs_id [intro,simp]:
-  "Is_tstack s \<Longrightarrow> RepAbs_tstack s = s" 
-by (auto intro: Abs_tstack_inverse)
-
-lemma Rep_tstackI [intro!]:
-  shows 
-    "Rep_tstack s \<noteq> []" 
-    "x \<in> frame_cap (last (Rep_tstack s))" 
-    "frame_st (last (Rep_tstack s)) v \<noteq> None" 
-by (induct s) (auto simp add: Abs_tstack_inverse)
-*)
 
 lemma Is_tstack_induct [consumes 1, case_names Base Frame]:
   assumes "Is_tstack s"
@@ -131,21 +98,6 @@ proof (induct s)
   case (Cons a s)
   thus ?case by (cases s) (auto intro: assms simp: Is_tstack_def)
 qed auto
-
-(*
-lemma tstack_induct [case_names Base Frame]: 
-assumes "\<And>x. Is_tstack [x] \<Longrightarrow> P (Abs_tstack [x])"
-assumes "\<And>x xs. P (Abs_tstack xs) \<Longrightarrow> Is_tstack xs \<Longrightarrow> P (Abs_tstack (x#xs))"
-shows "P s"
-proof (induct s)
-  case (Abs_tstack y)
-  thus ?case 
-  using assms
-  proof (induct rule: Is_tstack_induct)
-    case (Is_tstack)
-    thus ?case using Abs_tstack by auto
-  qed auto
-qed *)
 
 lemma Is_tstack_snoc: "Is_tstack xs \<Longrightarrow> Is_tstack (butlast xs @ [last xs])"
 unfolding Is_tstack_def by simp
@@ -168,15 +120,8 @@ fun aux :: "('var,'val,'a) stack \<Rightarrow> 'a"
     "aux [] = undefined" |
     "aux (h#ts) = (case more h of None \<Rightarrow> aux ts | Some v \<Rightarrow> v)"
 
-fun wf_transition :: "('var,'val,'a) stack \<Rightarrow> ('var,'val,'a) stack \<Rightarrow> bool"
-  where
-    "wf_transition (f#fs) (s#ss) = (butlast fs = butlast ss \<and> length fs = length ss)" |
-    "wf_transition [] [] = True" |
-    "wf_transition _ _ = False"
-
 definition auxupd :: "('var,'val,'a) stack \<Rightarrow> (('var,'val,'a) stack \<Rightarrow> 'a) \<Rightarrow> ('var,'val,'a) stack" where 
   "auxupd s f \<equiv> case s of h#t \<Rightarrow> (h\<lparr> more := Some (f s)\<rparr>)#t | _ \<Rightarrow> []"
-
 
 definition captured :: "('var,'val,'a) stack \<Rightarrow> 'var \<Rightarrow> bool"
   where "captured s v \<equiv> \<exists>frame \<in> set (butlast s). v \<in> frame_cap frame"
@@ -279,6 +224,7 @@ lift_definition taux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is "aux" .
 lift_definition tstack_len :: "('r,'v,'a) tstack \<Rightarrow> nat" is "length" .
 lift_definition tbase_st :: "('r,'v,'a) tstack \<Rightarrow> 'r \<Rightarrow> 'v" is "base_st" .
 lift_definition tbase_aux :: "('var,'val,'a) tstack \<Rightarrow> 'a" is "base_aux" .
+lift_definition tstack_upper :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme list" is "butlast" .
 
 lift_definition tupdate :: "('var,'val,'a) tstack \<Rightarrow> 'var \<Rightarrow> 'val \<Rightarrow> ('var,'val,'a) tstack" is "update"
   using Is_tstack_update by force
@@ -287,7 +233,7 @@ lift_definition tauxupd :: "('var,'val,'a) tstack \<Rightarrow> (('var,'val,'a) 
   by (intro conjI Is_tstack_auxupd_eq Is_tstack_auxupd) blast+
 
 lift_definition tstack_push :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme \<Rightarrow> ('r,'v,'a) tstack"
-  is "\<lambda>stack frame. (\<lparr>frame_st = frame_st frame, frame_cap = frame_cap frame, \<dots> = more frame \<rparr> # stack)"
+  is "\<lambda>stack (frame :: ('r,'v,'a option) frame_scheme). (frame # stack)"
   by (auto)
 
 abbreviation capped :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
@@ -296,8 +242,6 @@ abbreviation capped :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
 abbreviation topcapped :: "('r,'v,'a) tstack \<Rightarrow> 'r set" where
   "topcapped ts \<equiv> Collect (ttopcap ts)"
 
-definition tstack_upper :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme list"
-  where "tstack_upper ts = butlast (Rep_tstack ts)"
 
 definition tstack_mid :: "('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a option) frame_scheme list"
   where "tstack_mid ts = (case Rep_tstack ts of h#t \<Rightarrow> butlast t | _ \<Rightarrow> [])"
@@ -416,7 +360,7 @@ lemma [simp]:
 
 lemma is_spec_push:
   "ts_is_spec x \<Longrightarrow> \<exists>m s. x = tstack_push m s"
-  by transfer ((case_tac x; auto), insert surjective, blast)
+  by transfer (case_tac x; auto)
 
 lemma butlast_length_eq:
   "m \<noteq> [] \<Longrightarrow> m' \<noteq> [] \<Longrightarrow> butlast m = butlast m' \<Longrightarrow> length m = length m'"
@@ -433,7 +377,7 @@ qed
 
 lemma tstack_upper_len_eq:
   "tstack_upper m = tstack_upper m' \<Longrightarrow> tstack_len m = tstack_len m'"
-  unfolding tstack_upper_def by transfer (blast intro: butlast_length_eq)
+  by transfer (blast intro: butlast_length_eq)
 
 subsection \<open>@{term emptyFrame} Properties\<close>
 
@@ -511,7 +455,6 @@ qed
 
 lemma tupper_written:
   "tstack_upper m = tstack_upper m' \<Longrightarrow> twritten m x = twritten m' x"
-  unfolding tstack_upper_def
   apply transfer
   using upper_written .
 
@@ -519,7 +462,7 @@ lemma tupper_written:
 lemma [intro]:
   assumes "tstack_upper m = tstack_upper m'"
   shows "tstack_upper (tstack_push m s) = tstack_upper (tstack_push m' s)"
-  using assms unfolding tstack_upper_def by transfer auto
+  using assms by transfer auto
 
 lemma [simp]:
   "tstack_len m = 1 \<Longrightarrow> tstack_upper m = []"
@@ -604,6 +547,17 @@ lemma [elim!]:
   apply (case_tac b; auto split: if_splits)
   done
 
+lemma tstack_push_eq:
+  "(tstack_push m s = tstack_push m' s') \<Longrightarrow> (m = m' \<and> s = s')"
+  by transfer auto
+
+lemma [simp]:
+  "(tstack_push m s = tstack_push m' s') = (m = m' \<and> s = s')"
+  using tstack_push_eq by meson
+
+lift_definition frame_rel :: "('r, 'v, 'a option) frame_scheme rel \<Rightarrow> ('r,'v,'a) tstack \<Rightarrow> ('r,'v,'a) tstack \<Rightarrow> bool"
+  is "\<lambda>(R :: ('r, 'v, 'a option) frame_scheme rel) t t'. set (zip t t') \<subseteq> R"
+  .
 
 end
 

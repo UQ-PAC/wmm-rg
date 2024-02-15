@@ -33,9 +33,7 @@ text \<open>Duplicate forwarding and reordering behaviour of underlying instruct
 fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Rightarrow> ('r,'v,'a) opbasicSt" 
   where 
     "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (leak c e,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))" |
-                                    (* (let p = (subst\<^sub>i \<alpha> c e, f) in  (p,v, beh\<^sub>a p))" | *)
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (\<beta>,_) = ((\<alpha>,f),v,beh\<^sub>a (\<alpha>,f))"
+    "fwd\<^sub>s a _ = a"
 
 text \<open>Lift an operation with specification\<close>
 definition liftg :: "('r, 'v, ('r,'v,'a)tstack,'a) pred \<Rightarrow> ('r,'v) op \<Rightarrow> (('r,'v,'a) tstack,'a) auxfn 
@@ -121,7 +119,7 @@ begin
 text \<open> definition for weak memory model which is used as parameter w in sequential composition \<close>
 
 definition sc :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> bool" 
-  where "sc \<alpha>' \<beta> \<alpha>  \<equiv> \<not>(re\<^sub>s \<beta> \<alpha>)"
+  where "sc \<alpha>' \<beta> \<alpha>  \<equiv> False"
 
 abbreviation Seqsc (infixr "\<cdot>" 80)                      (* i.e., Seq c sc c' *)
   where "Seqsc c c' \<equiv> com.Seq c sc c'"
@@ -276,9 +274,11 @@ lemma vc_fwd\<^sub>s[simp]:
   "vc (fwd\<^sub>s \<alpha> \<beta>) = vc \<alpha>"
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
 
+(*
 lemma beh_fwd\<^sub>s [simp]:
   "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (auxbasic \<alpha>)) )"
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits) 
+*)
 
 lemma aux_fwd\<^sub>s [simp]:
   "auxbasic (fwd\<^sub>s \<alpha> \<beta>) = auxbasic \<alpha>"

@@ -326,13 +326,11 @@ qed
 
 lemma tupper_auxwritten:
   "tstack_upper m = tstack_upper m' \<Longrightarrow> tauxwritten m = tauxwritten m'"
-  unfolding tstack_upper_def
   apply transfer
   using upper_auxwritten .
 
 lemma twritten_lookup:
   "tstack_upper m = tstack_upper m' \<Longrightarrow> twritten m x \<Longrightarrow> tlookup m' x = tlookup m x"
-  unfolding tstack_upper_def
   apply transfer
   using written_lookup by metis
 
@@ -530,8 +528,8 @@ next
   case gu
   thus ?case using g r w 
     apply (cases op) 
-    apply (auto intro!: base_rel_guarI id_on_refl 
-                  simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def u_lvarmap 
+    apply (auto intro!: base_rel_guarI id_on_refl
+                  simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def u_lvarmap
                  split: if_splits)
 
     (* leak argument under spec - difficult automatic discovery of witness *)
@@ -575,8 +573,8 @@ next
   case gu
   thus ?case using g r w 
     apply (cases op) 
-    apply (auto intro!: base_rel_guarI id_on_refl 
-                  simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def u_lvarmap 
+    apply (auto intro!: base_rel_guarI id_on_refl
+                  simp: wp\<^sub>a.simps guar_def wp\<^sub>r_def liftg_def u_lvarmap
                  split: if_splits)
 
     (* leak argument under spec - difficult automatic discovery of witness *)
@@ -711,7 +709,7 @@ next
   then show ?case unfolding pushrelSame_def base_rel_rely_def base_rel_def by auto
 next
   case guar
-  show ?case by (auto simp: pushrelAll_def elim!: base_rel_guarE) fast
+  show ?case by (auto simp: pushrelAll_def elim!: base_rel_guarE) 
 next
   case post
   then show ?case by (auto intro: is_spec_push simp: pushpredAll_def mk_lvarmap_def)
@@ -732,7 +730,7 @@ next
   then show ?case unfolding pushrelSame_def base_rel_rely_def base_rel_def by auto
 next
   case guar
-  show ?case by (auto simp: pushrelAll_def elim!: base_rel_guarE) fast
+  show ?case by (auto simp: pushrelAll_def elim!: base_rel_guarE) 
 next
   case post
   then show ?case by (auto intro: is_spec_push simp: pushpredAll_def mk_lvarmap_def)
