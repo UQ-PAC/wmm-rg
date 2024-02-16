@@ -29,10 +29,16 @@ and behaviour in a tuple\<close>
 fun re\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) opbasicSt \<Rightarrow> bool"
   where "re\<^sub>s (\<alpha>,_,_) (\<beta>,_,_) = re\<^sub>a \<alpha> \<beta>"
 
+definition fwd_vc
+  where "fwd_vc V x e \<equiv> {m. (st_upd m x (ev\<^sub>E (st m) e)) \<in> V}"
+
+definition fwd_rel
+  where "fwd_rel B x e \<equiv> {(m,st_upd m' x (st m x)) | m m'. (st_upd m x (ev\<^sub>E (st m) e),m') \<in> B}"
+
 text \<open>Duplicate forwarding and reordering behaviour of underlying instruction\<close>
 fun fwd\<^sub>s :: "('r,'v,'a) opbasicSt \<Rightarrow> ('r,'v,'a) auxopSt \<Rightarrow> ('r,'v,'a) opbasicSt" 
   where 
-    "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,v, beh\<^sub>a p))" |
+    "fwd\<^sub>s ((\<alpha>,f),v,b) (assign x e,_) = (let p = (subst\<^sub>i \<alpha> x e, f) in  (p,fwd_vc v x e, fwd_rel b x e))" |
     "fwd\<^sub>s a _ = a"
 
 text \<open>Lift an operation with specification\<close>
@@ -270,11 +276,11 @@ lemma [simp]:
                                   then rd (inst \<alpha>) - wr (inst \<beta>) \<union> rd (inst \<beta>) else rd (inst \<alpha>))"
   by (cases \<alpha> rule: opbasicE; cases \<beta> rule: opbasicE; auto)
 
+(*
 lemma vc_fwd\<^sub>s[simp]:
   "vc (fwd\<^sub>s \<alpha> \<beta>) = vc \<alpha>"
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: Let_def split: if_splits)
 
-(*
 lemma beh_fwd\<^sub>s [simp]:
   "beh (fwd\<^sub>s \<alpha> \<beta>) = ( beh\<^sub>a (fwd\<^sub>i (inst \<alpha>) (fst \<beta>), (auxbasic \<alpha>)) )"
   by (cases \<alpha> rule: opbasicE; cases \<beta>; case_tac a; auto simp: wfbasic_def Let_def split: if_splits) 

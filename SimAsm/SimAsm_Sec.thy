@@ -293,10 +293,10 @@ subsection \<open>Full Security\<close>
 
 text \<open>A secure atomic action guarantees progress and preserves low equivalence\<close>
 definition atom_sec
-  where "atom_sec \<equiv> {lift\<^sub>b v op f | v op f. 
-          \<forall>m\<^sub>1 m\<^sub>2 m\<^sub>1'. (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<and> (m\<^sub>1, m\<^sub>1') \<in> beh (lift\<^sub>b v op f)  \<longrightarrow>
-          (m\<^sub>1 \<in> vc (lift\<^sub>b v op f) \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2, m\<^sub>2') \<in> beh (lift\<^sub>b v op f))) \<and> 
-          (\<forall>m\<^sub>2'. (m\<^sub>2, m\<^sub>2') \<in> beh (lift\<^sub>b v op f) \<longrightarrow> (m\<^sub>1', m\<^sub>2') \<in> sec_inv)}"
+  where "atom_sec \<equiv> {lift\<^sub>b v (sec_op op) f | v op f. 
+          \<forall>m\<^sub>1 m\<^sub>2 m\<^sub>1'. (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<and> (m\<^sub>1, m\<^sub>1') \<in> beh (lift\<^sub>b v (sec_op op) f)  \<longrightarrow>
+          (m\<^sub>1 \<in> vc (lift\<^sub>b v (sec_op op) f) \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2, m\<^sub>2') \<in> beh (lift\<^sub>b v (sec_op op) f))) \<and> 
+          (\<forall>m\<^sub>2'. (m\<^sub>2, m\<^sub>2') \<in> beh (lift\<^sub>b v (sec_op op) f) \<longrightarrow> (m\<^sub>1', m\<^sub>2') \<in> sec_inv)}"
 
 lemma sec_inv_exp1:
   assumes "(m\<^sub>1, m\<^sub>2) \<in> sec_inv"
@@ -319,17 +319,17 @@ lemma sec_inv_bexp1:
   using assms sec_inv_lookup by (auto elim!: bot_expE) 
 
 lemma atom_sec_detfI:
-  assumes "\<forall>m m\<^sub>1. (m,m\<^sub>1) \<in> beh (lift\<^sub>b v op f) = (m\<^sub>1 = s m)"
+  assumes "\<forall>m m\<^sub>1. (m,m\<^sub>1) \<in> beh (lift\<^sub>b v (sec_op op) f) = (m\<^sub>1 = s m)"
   assumes "\<forall>m\<^sub>1 m\<^sub>2. (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<longrightarrow> (s m\<^sub>1, s m\<^sub>2) \<in> sec_inv"
-  shows "(lift\<^sub>b v op f) \<in> atom_sec"
+  shows "(lift\<^sub>b v (sec_op op) f) \<in> atom_sec"
   using assms unfolding atom_sec_def
   apply (auto simp del: lift\<^sub>b.simps)
   by (rule exI)+ auto
 
 lemma atom_sec_idI:
-  assumes "\<And>m m\<^sub>1. (m,m\<^sub>1) \<in> beh (lift\<^sub>b v op f) \<Longrightarrow> m\<^sub>1 = tauxupd m s \<or> m\<^sub>1 = m"
-  assumes "\<forall>m\<^sub>1 m\<^sub>1' m\<^sub>2. m\<^sub>1 \<in> vc (lift\<^sub>b v op f) \<and> (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<and> (m\<^sub>1, m\<^sub>1') \<in> beh (lift\<^sub>b v op f) \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2, m\<^sub>2') \<in> beh (lift\<^sub>b v op f))"
-  shows "(lift\<^sub>b v op f) \<in> atom_sec"
+  assumes "\<And>m m\<^sub>1. (m,m\<^sub>1) \<in> beh (lift\<^sub>b v (sec_op op) f) \<Longrightarrow> m\<^sub>1 = tauxupd m s \<or> m\<^sub>1 = m"
+  assumes "\<forall>m\<^sub>1 m\<^sub>1' m\<^sub>2. m\<^sub>1 \<in> vc (lift\<^sub>b v (sec_op op) f) \<and> (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<and> (m\<^sub>1, m\<^sub>1') \<in> beh (lift\<^sub>b v (sec_op op) f) \<longrightarrow> (\<exists>m\<^sub>2'. (m\<^sub>2, m\<^sub>2') \<in> beh (lift\<^sub>b v (sec_op op) f))"
+  shows "(lift\<^sub>b v (sec_op op) f) \<in> atom_sec"
   using assms(2) unfolding atom_sec_def  
   apply (auto simp del: lift\<^sub>b.simps)
   apply (rule exI)+
@@ -342,7 +342,7 @@ lemma atom_sec_idI:
   done  
 
 lemma cmp_atom:
-  assumes "lift\<^sub>b (op_vc (cmp (sec_bexp c1)) (sec_op_vc x1 (cmp c1))) (cmp (sec_bexp c1)) taux = \<alpha>"
+  assumes "lift\<^sub>b (op_vc (cmp (sec_bexp c1)) (sec_op_vc x1 (cmp c1))) (sec_op (cmp c1)) taux = \<alpha>"
   shows "\<alpha> \<in> atom_sec"
   unfolding sym[OF assms[simplified sec_lang.simps ts_lang_of_vm_lang.simps lift\<^sub>c.simps]] 
   apply (rule atom_sec_idI) 
@@ -364,7 +364,7 @@ lemma cmp_atom:
   by auto
 
 lemma ncmp_atom:
-  assumes "lift\<^sub>b (op_vc (ncmp (sec_bexp c1)) (sec_op_vc x1 (ncmp c1))) (ncmp (sec_bexp c1)) taux = \<alpha>"
+  assumes "lift\<^sub>b (op_vc (ncmp (sec_bexp c1)) (sec_op_vc x1 (ncmp c1))) (sec_op (ncmp c1)) taux = \<alpha>"
   shows "\<alpha> \<in> atom_sec"
   unfolding sym[OF assms[simplified sec_lang.simps ts_lang_of_vm_lang.simps lift\<^sub>c.simps]] 
   apply (rule atom_sec_idI) 
@@ -426,7 +426,6 @@ lemma atom_leq_sound:
   "flatten atom_leq \<subseteq> {(\<alpha>, \<beta>). le_basic \<alpha> \<beta> sec_inv}"
   unfolding flatten_def atom_leq_def le_basic_def by blast
 
-
 section \<open>Reordering Implications\<close>
 
 text \<open>
@@ -434,16 +433,11 @@ Need to show reordering / forwarding won't produce an insecure operation.
 As the command may feature many reordering relations, we need to identify them
 all and prove this property for each.
 \<close>
-
-lemma rel_memE:
-  assumes "m \<in> (R :: 'j rel)"
-  obtains m\<^sub>1 m\<^sub>2 where "m = (m\<^sub>1,m\<^sub>2)" "(m\<^sub>1,m\<^sub>2) \<in> R"
-  using assms by (cases m; auto)
-
 lemma re_stable_full:
   assumes "(\<alpha>, \<beta>s) \<in> atom_leq"
   assumes "w \<in> {sc, reorder_inst}"
   assumes "w \<alpha>' \<gamma> \<alpha>"
+  assumes "\<gamma> \<in> atom_sec"
   shows "\<exists>\<beta>s'. (\<alpha>', \<beta>s') \<in> atom_leq \<and> (\<forall>\<beta>\<in>\<beta>s'. \<exists>\<beta>p\<in>\<beta>s. w \<beta> \<gamma> \<beta>p)"
 proof -
   have w: "w = reorder_inst" using assms(2,3) by (auto simp: sc_def)
@@ -452,8 +446,12 @@ proof -
   proof (cases "\<exists>x e. fst (tag \<gamma>) = assign x e")
     case True
     then obtain x e f where t: "tag \<gamma> = (assign x e,f)" by (cases \<gamma>, auto)
-    hence a: "\<And>\<alpha>' \<alpha>. w \<alpha>' \<gamma> \<alpha> = (\<alpha>' = fwd\<^sub>s \<alpha> (assign x e,f) \<and> re\<^sub>i (assign x e) (fst (tag \<alpha>)))" 
-      unfolding w reorder_inst_def by (cases \<gamma>; auto)
+    have "\<exists>v op f. \<gamma> = lift\<^sub>b v (sec_op op) f" using assms(4) unfolding atom_sec_def by auto
+    then obtain s where sec: "e = sec_exp s" using t 
+      by auto (case_tac "op"; auto simp: liftg_def)
+
+    hence a: "\<And>\<alpha>' \<alpha>. w \<alpha>' \<gamma> \<alpha> = (\<alpha>' = fwd\<^sub>s \<alpha> (assign x e,f) \<and> re\<^sub>i (assign x e) (fst (tag \<alpha>)))"
+      using t unfolding w reorder_inst_def by (cases \<gamma>; auto)
     hence \<alpha>: "\<alpha>' = fwd\<^sub>s \<alpha> (assign x e,f)" "re\<^sub>i (assign x e) (fst (tag \<alpha>))"
       using assms(3) by blast+
     let ?bs = "{fwd\<^sub>s \<alpha> (assign x e,f) | \<alpha>. \<alpha> \<in> \<beta>s}"
@@ -479,20 +477,62 @@ proof -
     proof (intro mem_pairI ballI)
       fix \<beta>' p assume a: "\<beta>' \<in> ?bs" "p \<in> beh \<beta>'"
       then obtain \<beta> where c: "\<beta>' = fwd\<^sub>s \<beta> (assign x e, f)" "\<beta> \<in> \<beta>s" by auto
-      hence b: "beh \<beta>' = beh\<^sub>a (subst\<^sub>i (fst (tag \<beta>)) x e, snd (tag \<beta>))" 
+      hence b: "beh \<beta>' = fwd_rel (beh \<beta>) x e"
         unfolding c by (cases \<beta>; auto)
-      show "case p of (m, m') \<Rightarrow> tstack_len m = tstack_len m'"
-        using a(2) unfolding b by (cases "fst (tag \<beta>)") auto
+      moreover have "\<forall>(m,m') \<in> beh \<beta>. tstack_len m = tstack_len m'"
+        using assms(1) atom_leq_def c(2) by fastforce
+      ultimately show "case p of (m, m') \<Rightarrow> tstack_len m = tstack_len m'"
+        unfolding fwd_rel_def using a(2) by auto
     qed
     moreover have "(\<alpha>', ?bs) \<in> {(\<alpha>, \<beta>s). \<forall>m\<^sub>1 m\<^sub>2 m\<^sub>1'.
            (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<and> (m\<^sub>1, m\<^sub>1') \<in> beh \<alpha> \<longrightarrow>
            m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> (\<exists>m\<^sub>2' \<beta>. \<beta> \<in> \<beta>s \<and> (m\<^sub>2, m\<^sub>2') \<in> beh \<beta>)}"
-      sorry (* forwarding shouldn't influence progress? *) 
+    proof (intro mem_pairI ballI impI allI, elim conjE)
+      fix m\<^sub>1 m\<^sub>2 m\<^sub>1' assume a: "(m\<^sub>1, m\<^sub>2) \<in> sec_inv" "(m\<^sub>1, m\<^sub>1') \<in> beh \<alpha>'" "m\<^sub>1 \<in> vc \<alpha>'" 
+      have c: "beh \<alpha>' = fwd_rel (beh \<alpha>) x e" using \<alpha> by (cases \<alpha>; auto)
+      have d: "vc \<alpha>' = fwd_vc (vc \<alpha>) x e" using \<alpha> by (cases \<alpha>; auto)
+      then obtain m' where m:
+          "(tupdate m\<^sub>1 x (ev\<^sub>E (tlookup m\<^sub>1) e), m') \<in> beh \<alpha>" "m\<^sub>1' = tupdate m' x (tlookup m\<^sub>1 x)"
+          "tupdate m\<^sub>1 x (ev\<^sub>E (tlookup m\<^sub>1) e) \<in> vc \<alpha>"
+        using a c by (auto simp: fwd_rel_def fwd_vc_def)
+      moreover have "(tupdate m\<^sub>1 x (ev\<^sub>E (tlookup m\<^sub>1) e), tupdate m\<^sub>2 x (ev\<^sub>E (tlookup m\<^sub>2) e)) \<in> sec_inv"
+        using a(1) apply (rule sec_inv_tupdateI)
+        unfolding sec using a(1) sec_inv_exp1 sec_inv_exp2 by blast
+      then obtain \<beta> m\<^sub>2' where \<beta>: "\<beta> \<in> \<beta>s" "(tupdate m\<^sub>2 x (ev\<^sub>E (tlookup m\<^sub>2) e), m\<^sub>2') \<in> beh \<beta>"
+        using assms(1) m unfolding atom_leq_def by blast
+      hence "(m\<^sub>2, tupdate m\<^sub>2' x (tlookup m\<^sub>2 x)) \<in> beh (fwd\<^sub>s \<beta> (assign x e, f))"
+        by (cases \<beta>; auto simp: fwd_rel_def)
+      thus "\<exists>m\<^sub>2' \<beta>. \<beta> \<in> {fwd\<^sub>s \<alpha> (assign x e, f) |\<alpha>. \<alpha> \<in> \<beta>s} \<and> (m\<^sub>2, m\<^sub>2') \<in> beh \<beta>"
+        using \<beta>(1) by blast
+    qed
     moreover have "(\<alpha>', ?bs) \<in> {(\<alpha>, \<beta>s). \<forall>m\<^sub>1 m\<^sub>2 m\<^sub>1' m\<^sub>2' \<beta>.
            (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<longrightarrow> (m\<^sub>1, m\<^sub>1') \<in> beh \<alpha> \<longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<longrightarrow> \<beta> \<in> \<beta>s \<longrightarrow> (m\<^sub>2, m\<^sub>2') \<in> beh \<beta> \<longrightarrow>
             (m\<^sub>1', m\<^sub>2') \<in> sec_inv}"
-      sorry (* forwarding should preserve information flow *) 
+    proof (intro mem_pairI ballI impI allI)
+      fix m\<^sub>1 m\<^sub>2 m\<^sub>1' m\<^sub>2' \<beta>' assume a: "(m\<^sub>1, m\<^sub>2) \<in> sec_inv" "(m\<^sub>1, m\<^sub>1') \<in> beh \<alpha>'" "m\<^sub>1 \<in> vc \<alpha>'" 
+          "\<beta>' \<in> {fwd\<^sub>s \<alpha> (assign x e, f) |\<alpha>. \<alpha> \<in> \<beta>s}" "(m\<^sub>2, m\<^sub>2') \<in> beh \<beta>'"
+      then obtain \<beta> where \<beta>: "\<beta> \<in> \<beta>s" "\<beta>' = fwd\<^sub>s \<beta> (assign x e, f)" by auto
+      hence b: "beh \<beta>' = fwd_rel (beh \<beta>) x e" by (cases \<beta>; auto)
+      have c: "beh \<alpha>' = fwd_rel (beh \<alpha>) x e" using \<alpha> by (cases \<alpha>; auto)
+      have d: "vc \<alpha>' = fwd_vc (vc \<alpha>) x e" using \<alpha> by (cases \<alpha>; auto)
 
+      have s: "\<And>m\<^sub>1 m\<^sub>2 m\<^sub>1' m\<^sub>2'. (m\<^sub>1, m\<^sub>2) \<in> sec_inv \<Longrightarrow> (m\<^sub>1, m\<^sub>1') \<in> beh \<alpha> \<Longrightarrow> m\<^sub>1 \<in> vc \<alpha> \<Longrightarrow> (m\<^sub>2, m\<^sub>2') \<in> beh \<beta> \<Longrightarrow> (m\<^sub>1', m\<^sub>2') \<in> sec_inv"
+        using \<beta> assms(1) unfolding atom_leq_def by blast
+
+      show "(m\<^sub>1', m\<^sub>2') \<in> sec_inv" using a(1,2,3,5) unfolding b c d fwd_rel_def fwd_vc_def
+        apply auto
+        apply (rule sec_inv_tupdateI)
+         apply (rule s)
+            defer 1
+        apply blast
+        apply blast
+        apply blast
+        using sec_inv_lookup apply blast
+        apply (rule sec_inv_tupdateI)
+         apply blast
+        unfolding sec
+        using sec_inv_exp1 sec_inv_exp2 by blast
+    qed
     ultimately have "(\<alpha>', ?bs) \<in> atom_leq" unfolding atom_leq_def by blast
     then show ?thesis using c by blast
   next
@@ -506,7 +546,7 @@ proof -
 qed
 
 lemma re_stableI:
-  "re_stable atom_leq {sc, reorder_inst}"
+  "re_stable atom_sec atom_leq {sc, reorder_inst}"
   unfolding re_stable_def using re_stable_full by blast
 
 section \<open>Low Equivalent Frames\<close>
@@ -710,7 +750,7 @@ proof -
   next
     show "pop_stable atom_leq frame_leq" using atom_frame_leq .
   next
-    show "re_stable atom_leq {sc, reorder_inst}" using re_stableI .
+    show "re_stable atom_sec atom_leq {sc, reorder_inst}" using re_stableI .
   qed
 qed
   
