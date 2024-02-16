@@ -243,6 +243,7 @@ inductive_cases sec_pres_ParallelE [elim!]: "prog_rel (c || c'') c' S W F"
 inductive_cases sec_pres_InterruptE [elim!]: "prog_rel (Interrupt c) c' S W F"
 inductive_cases sec_pres_ThreadE [elim!]: "prog_rel (Thread c) c' S W F"
 
+(*
 lemma re_stable:
   assumes "\<beta>' < c <\<^sub>w \<beta>"
   assumes "prog_rel c c' S W F"
@@ -262,7 +263,7 @@ next
   obtain c\<^sub>1' c\<^sub>2' where c: "c' = c\<^sub>1' ;\<^sub>w c\<^sub>2'" "prog_rel c\<^sub>1 c\<^sub>1' S W F" "prog_rel c\<^sub>2 c\<^sub>2' S W F"
     using 3(4) by clarsimp
   show ?case using 3(2)[OF \<alpha>(2) c(3)] 3(1)[OF \<alpha>(1) c(2)] unfolding c reorder_com.simps by blast
-qed auto
+qed auto *)
 
 definition pop_stable
   where "pop_stable R\<^sub>\<alpha> R\<^sub>f \<equiv> \<forall>(\<alpha>, \<beta>s) \<in> R\<^sub>\<alpha>. \<forall>(s\<^sub>1, s\<^sub>2) \<in> R\<^sub>f. \<forall>s\<^sub>1'. \<exists>\<beta>s'. 
@@ -279,25 +280,28 @@ lemma re_stable_com:
   assumes "(\<alpha>, \<beta>s) \<in> R\<^sub>\<alpha>"
   assumes "w\<in>W"
   assumes "re_stable S R\<^sub>\<alpha> W"
-  obtains \<beta>s' where "(\<alpha>',\<beta>s') \<in> R\<^sub>\<alpha>" "\<forall>\<beta>\<in>\<beta>s'. \<exists>\<beta>p\<in>\<beta>s. \<beta> < c <\<^sub>w \<beta>p"
-  using assms(1,2,3)
-proof (induct \<alpha>' c w \<alpha> arbitrary: \<beta>s rule: reorder_com.induct)
+  assumes "prog_rel c c' S W F"
+  obtains \<beta>s' where "(\<alpha>',\<beta>s') \<in> R\<^sub>\<alpha>" "\<forall>\<beta>\<in>\<beta>s'. \<exists>\<beta>p\<in>\<beta>s. \<beta> < c' <\<^sub>w \<beta>p"
+  using assms(1,2,3,5)
+proof (induct \<alpha>' c w \<alpha> arbitrary: c' \<beta>s rule: reorder_com.induct)
   case (1 \<alpha>' c \<alpha>)
-  then show ?case by auto
+  then show ?case by fastforce
 next
   case (2 \<alpha>' \<beta> w \<alpha>)
   then show ?case using assms(4) unfolding re_stable_def
-    sorry (*by (smt (verit, best) case_prodD reorder_com.simps(2))*)
+    by (smt (verit, best) case_prodD reorder_com.simps(2) sec_pres_BasicE)
 next
   case (3 \<alpha>' c\<^sub>1 w c\<^sub>2 c \<alpha>)
   then obtain \<alpha>'' where \<alpha>: "\<alpha>' < c\<^sub>1  <\<^sub>c \<alpha>''" "\<alpha>'' < c\<^sub>2  <\<^sub>c \<alpha>" by auto
+  then obtain c\<^sub>1' c\<^sub>2' where c: "c' = c\<^sub>1' ;\<^sub>w c\<^sub>2'" "prog_rel c\<^sub>1 c\<^sub>1' S W F" "prog_rel c\<^sub>2  c\<^sub>2' S W F"
+    using 3 by blast
   show ?case
-  proof (rule 3(2)[OF _ \<alpha>(2) 3(5,6)], goal_cases a)
+  proof (rule 3(2)[OF _ \<alpha>(2) 3(5,6) c(3)], goal_cases a)
     case (a \<beta>s')
     show ?case
-    proof (rule 3(1)[OF _ \<alpha>(1) a(1) 3(6)], goal_cases b)
+    proof (rule 3(1)[OF _ \<alpha>(1) a(1) 3(6) c(2)], goal_cases b)
       case (b \<beta>s'')
-      then show ?case using 3(3) a(2) by fastforce
+      then show ?case using 3(3) a(2)  c(1) reorder_com.simps(3) by blast
     qed
   qed
 qed auto
@@ -327,11 +331,11 @@ next
     show ?thesis
     proof (rule ooo(2)[OF _ 3(4)])
       fix \<beta>s assume a: "(\<alpha>,\<beta>s) \<in> R\<^sub>\<alpha>" "\<forall>\<beta>\<in>\<beta>s. \<exists>c\<^sub>2' r'. c\<^sub>2'' \<mapsto>[\<beta>,r'] c\<^sub>2' \<and> prog_rel c\<^sub>1' c\<^sub>2' S W R\<^sub>f"
-      obtain \<beta>s' where \<beta>: "\<forall>\<beta> \<in> \<beta>s'. \<exists>\<beta>p \<in> \<beta>s. \<beta> < c\<^sub>2' <\<^sub>w \<beta>p" "(\<alpha>',\<beta>s') \<in> R\<^sub>\<alpha>"
-        using ooo(3) a(1) 3(2) re_stable_com[OF _ _ _ re] by metis
+      obtain \<beta>s' where \<beta>: "\<forall>\<beta> \<in> \<beta>s'. \<exists>\<beta>p \<in> \<beta>s. \<beta> < c\<^sub>1'' <\<^sub>w \<beta>p" "(\<alpha>',\<beta>s') \<in> R\<^sub>\<alpha>"
+        using ooo(3) a(1) 3(2,3) re_stable_com[OF _ _ _ re] by metis
 
       have "\<forall>\<beta>\<in>\<beta>s'. \<exists>c\<^sub>2''' r'. c\<^sub>2 \<mapsto>[\<beta>,r'] c\<^sub>2''' \<and> prog_rel (c\<^sub>2' ;\<^sub>w c\<^sub>1' ) c\<^sub>2''' S W R\<^sub>f"
-        using a(2) \<beta> 3 by (meson lexecute.ooo prog_rel.intros(3) re_stable)
+        using a(2) \<beta> 3 by (meson lexecute.ooo prog_rel.intros(3))
       thus ?thesis using ooo(4) \<beta>(2) by blast
     qed
   qed
